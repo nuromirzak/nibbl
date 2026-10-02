@@ -46,13 +46,14 @@ const markAnchor = (
   spot: MarkSpot,
   ey: number,
   inset: number,
-  isBody: (x: number, y: number) => boolean,
+  canHold: (x: number, y: number) => boolean,
 ): { x: number; y: number; sx: number; sy: number } => {
   if (spot === 'left-cheek') return { x: 4 + inset, y: ey + 2, sx: -1, sy: 1 }
   if (spot === 'right-cheek') return { x: 11 - inset, y: ey + 2, sx: 1, sy: 1 }
-  if (spot === 'forehead') return { x: 7, y: ey - 1, sx: 1, sy: -1 }
+  // The smallest babies have no forehead above the eyes, so the mark drops between them.
+  if (spot === 'forehead') return { x: 7, y: [ey - 1, ey].find(row => canHold(7, row)) ?? ey - 1, sx: 1, sy: -1 }
   // Small bodies have no room under the mouth, so the belly mark climbs to the lowest body row.
-  const y = [ey + 5, ey + 4, ey + 3].find(row => isBody(7, row)) ?? ey + 5
+  const y = [ey + 5, ey + 4, ey + 3].find(row => canHold(7, row)) ?? ey + 5
   return { x: 7, y, sx: 1, sy: 1 }
 }
 
@@ -160,8 +161,11 @@ export const drawPet = (g: Genome, stage: Stage, expression: Expression): Grid =
   // known up front so patterns never land under it.
   const inset = stage === 'baby' ? 1 : 0
   const eyeColumns = [5 + inset, 10 - inset]
-  const inEyeZone = (x: number, y: number) => y >= ey && y <= ey + 1 && eyeColumns.some(sx => Math.abs(x - sx) <= 1)
-  const anchor = markAnchor(g.mark.spot, ey, inset, isBody)
+  // Union of eye pixels over every eye gene and expression: the eye and its outer neighbour
+  // on row ey, the eye and both neighbours on row ey + 1 (happy).
+  const inEyeZone = (x: number, y: number) =>
+    eyeColumns.some(sx => (y === ey && (x === sx || x === sx + (sx < 8 ? -1 : 1))) || (y === ey + 1 && Math.abs(x - sx) <= 1))
+  const anchor = markAnchor(g.mark.spot, ey, inset, (x, y) => isBody(x, y) && !inEyeZone(x, y))
   const markPixels = MARK_SHAPES[g.mark.motif]
     .map(([dx, dy]) => [anchor.x + dx * anchor.sx, anchor.y + dy * anchor.sy] as const)
     .filter(([x, y]) => isBody(x, y) && !inEyeZone(x, y))
