@@ -1,8 +1,9 @@
-export const COMMAND_DESCRIPTION = 'Your nibbl: stats, name, label, odds, export, import, hide'
-export const COMMAND_HINT = '[name <text> | label <text> | odds | export | import <code> | hide]'
+export const COMMAND_DESCRIPTION = 'Your nibbl: stats, pet, name, label, odds, export, import, hide'
+export const COMMAND_HINT = '[pet | name <text> | label <text> | odds | export | import <code> | hide]'
 
 export const HELP = [
   '/nibbl                 stats, card and leaderboard links',
+  '/nibbl pet             pet it (or ctrl+x tab, then p, on the band)',
   '/nibbl name <text>     rename your pet (once a week, up to 16 characters)',
   '/nibbl label <text>    set a label (up to 24 characters); /nibbl label alone clears it',
   "/nibbl odds            hatch odds and your pet's traits",

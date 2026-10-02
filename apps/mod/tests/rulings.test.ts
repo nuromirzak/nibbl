@@ -160,3 +160,18 @@ test('a hatch whose fetch never answers times out, so the egg still hatches late
   expect(h.hatches()).toHaveLength(2)
   expect(await nibbl($)).toMatch(/^Nibbl #000042/)
 })
+
+test('/nibbl pet pets from the prompt, spends a heart and says when the hour has no XP left', async ($, on) => {
+  harness(on, { store: hatchedStore() })
+  await start($)
+  expect(await nibbl($, 'pet')).toMatch(/loves it ♥ {2}hearts this hour: ♥♥♥♥♡/)
+  for (let i = 0; i < 4; i++) await nibbl($, 'pet')
+  expect(await nibbl($, 'pet')).toMatch(/no XP left this hour/)
+  expect(await nibbl($)).toMatch(/sync: 6 events waiting/)
+})
+
+test('/nibbl pet on an egg only wobbles it and records nothing', async ($, on) => {
+  harness(on)
+  await start($)
+  expect(await nibbl($, 'pet')).toMatch(/egg wobbles/)
+})

@@ -12,6 +12,7 @@ A tiny pixel pet that lives above your Claude Code prompt. It hatches from an eg
 | Command | What it does |
 |---|---|
 | `/nibbl` | Name, serial, tier, level, XP, hearts, rarest trait, card and leaderboard links |
+| `/nibbl pet` | Pets it from the prompt |
 | `/nibbl name <text>` | Rename your pet (once a week, up to 16 characters) |
 | `/nibbl label <text>` | Set a label (up to 24 characters); `/nibbl label` alone clears it |
 | `/nibbl odds` | Hatch odds and the odds of each of your pet's traits |
@@ -19,7 +20,7 @@ A tiny pixel pet that lives above your Claude Code prompt. It hatches from an eg
 | `/nibbl import <code>` | Moves a pet to this machine |
 | `/nibbl hide` | Hides or shows the band; the pet keeps living |
 
-Press `[♥]` (or `p` while the band has focus) to pet it. Five pets an hour give XP; after that it still loves you, it just gives no XP.
+Type `/nibbl pet`, or focus the band with `ctrl+x tab` and press `p` (a click on `[♥]` works in the fullscreen terminal). Five pets an hour give XP; after that it still loves you, it just gives no XP.
 
 ## Odds
 
