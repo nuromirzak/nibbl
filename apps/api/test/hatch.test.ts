@@ -23,6 +23,21 @@ describe('POST /api/hatch', () => {
     expect(await counterValue(testEnv.DB, 'hatched')).toBe(1)
   })
 
+  it('returns the owner view plus token on a new hatch', async () => {
+    const pet = await hatchPet(1)
+    expect(Object.keys(pet).sort()).toEqual(
+      ['genesis', 'hatchedAt', 'label', 'level', 'name', 'seed', 'serial', 'shiny', 'tier', 'token', 'xp'].sort(),
+    )
+    expect(pet).toMatchObject({ name: null, label: null, xp: 0, level: 1 })
+  })
+
+  it('keeps name, label, xp and level when a known machine re-hatches', async () => {
+    const a = await hatchPet(1)
+    await testEnv.DB.prepare("UPDATE pets SET name = 'Byte', label = 'night coder', xp = 500, level = 7 WHERE serial = ?").bind(a.serial).run()
+    const b = await hatchPet(1, { now: T0 + 1000 })
+    expect({ ...b, token: '' }).toEqual({ ...a, token: '', name: 'Byte', label: 'night coder', xp: 500, level: 7 })
+  })
+
   it('stores only the sha256 of the token', async () => {
     const pet = await hatchPet(1)
     const row = await petRow(pet.serial)

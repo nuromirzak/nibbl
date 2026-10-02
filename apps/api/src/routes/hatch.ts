@@ -1,6 +1,6 @@
 import { genomeKey, pickUnique, visualKey, type Genome } from '@nibbl/core'
 import type { Deps, Env } from '../env'
-import { isUniqueViolation, petByMachine, takenKeys, type PetRow } from '../lib/db'
+import { isUniqueViolation, ownerView, petByMachine, takenKeys, type OwnerView, type PetRow } from '../lib/db'
 import { randomToken, sha256Hex } from '../lib/hmac'
 import { HttpError, json, machineHashOf, MAX_SMALL_BYTES, readJson } from '../lib/http'
 import { ipBucket } from '../lib/ip'
@@ -10,15 +10,10 @@ export const DAY_MS = 86_400_000
 export const GENESIS_MS = 30 * DAY_MS
 const MAX_ATTEMPTS = 3
 
-export type HatchResult = {
-  serial: number
-  token: string
-  seed: number
-  tier: string
-  shiny: boolean
-  genesis: boolean
-  hatchedAt: number
-}
+// Both hatch paths answer with the same shape: everything the owner sees, plus the token.
+export type HatchResult = OwnerView & { token: string }
+
+const hatchResult = (pet: PetRow, token: string): HatchResult => ({ ...ownerView(pet), token })
 
 const launchAtOf = (env: Env): number => {
   const launchAt = Date.parse(env.LAUNCH_AT)
@@ -71,15 +66,7 @@ const reissue = async (db: D1Database, pet: PetRow, now: number): Promise<HatchR
     const fresh = await db.prepare('SELECT rehatched_at FROM pets WHERE serial = ?').bind(pet.serial).first<number | null>('rehatched_at')
     throw rehatchLimited(fresh ?? now, now) ?? new HttpError(503, 'busy')
   }
-  return {
-    serial: pet.serial,
-    token,
-    seed: pet.seed,
-    tier: pet.tier,
-    shiny: pet.shiny === 1,
-    genesis: pet.genesis === 1,
-    hatchedAt: pet.hatched_at,
-  }
+  return hatchResult(pet, token)
 }
 
 export const hatch = async (request: Request, env: Env, deps: Deps): Promise<Response> => {
@@ -101,15 +88,13 @@ export const hatch = async (request: Request, env: Env, deps: Deps): Promise<Res
         env.DB.prepare("UPDATE counters SET value = value + 1 WHERE name IN ('serial', 'hatched')"),
         env.DB.prepare(
           `INSERT INTO pets (serial, machine_hash, token_hash, seed, genome_key, visual_key, tier, shiny, genesis, hatched_at)
-           VALUES ((SELECT value FROM counters WHERE name = 'serial'), ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING serial`,
+           VALUES ((SELECT value FROM counters WHERE name = 'serial'), ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
         ).bind(machineHash, await sha256Hex(token), g.seed, genomeKey(g), visualKey(g), g.tier, g.shiny ? 1 : 0, genesis ? 1 : 0, now),
         env.DB.prepare(
           'INSERT INTO hatch_ip (ip_hash, last_at) VALUES (?, ?) ON CONFLICT (ip_hash) DO UPDATE SET last_at = excluded.last_at',
         ).bind(ip.today, now),
       ])
-      const serial = (inserted.results[0] as { serial: number }).serial
-      const result: HatchResult = { serial, token, seed: g.seed, tier: g.tier, shiny: g.shiny, genesis, hatchedAt: now }
-      return json(result)
+      return json(hatchResult(inserted.results[0] as PetRow, token))
     } catch (err) {
       // A concurrent hatch took this machine or this genome; re-read and try again.
       if (isUniqueViolation(err)) continue
