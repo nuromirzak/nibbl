@@ -1,6 +1,7 @@
 import { runCron } from './cron'
 import type { Deps, Env } from './env'
 import { HttpError, json } from './lib/http'
+import { card } from './routes/card'
 import { hatch } from './routes/hatch'
 import { importPet } from './routes/import'
 import { leaderboard } from './routes/leaderboard'
@@ -29,6 +30,7 @@ export const handle = async (request: Request, env: Env, deps: Deps): Promise<Re
       if (request.method !== route.method) return json({ error: 'method_not_allowed' }, 405, { allow: route.method })
       return await route.handler(request, env, deps)
     }
+    if (url.pathname.startsWith('/p/')) return await card(request, env)
     return await env.ASSETS.fetch(request)
   } catch (err) {
     if (err instanceof HttpError) return json({ error: err.code, ...err.extra }, err.status)
