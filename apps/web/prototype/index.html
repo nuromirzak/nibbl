@@ -9,65 +9,15 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Pixelify+Sans:wght@400;500;600;700&family=Silkscreen&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/nibbl.css">
 <style>
-:root{
-  --night:#0f111a; --shell:#f4ead5; --shell-2:#e2d3b3; --shell-3:#c4af8a;
-  --lcd-1:#c5d1a5; --lcd-2:#8b9a6b; --lcd-3:#4d5a3c; --lcd-4:#1f2418;
-  --accent:#ef7d57; --bug:#a7f070;
-  --ink:#1a1c2c; --plum:#5d275d; --red:#b13e53; --yellow:#ffcd75; --green:#38b764;
-  --teal:#257179; --navy:#29366f; --blue:#3b5dc9; --sky:#41a6f6; --cyan:#73eff7;
-  --white:#f4f4f4; --silver:#94b0c2; --slate:#566c86; --dusk:#333c57;
-  --panel:#1a1c2c; --line:#333c57; --drop:#05060a;
-  --t-common:#94b0c2; --t-uncommon:#a7f070; --t-rare:#41a6f6; --t-epic:#c77dff; --t-legendary:#ffcd75;
-  --f-head:"Pixelify Sans", system-ui, sans-serif;
-  --f-label:"Silkscreen", ui-monospace, monospace;
-  --f-body:"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --u:8px;
-}
-*{box-sizing:border-box}
-html{-webkit-text-size-adjust:100%}
-body{margin:0;background:var(--night);color:var(--white);font:400 15px/1.6 var(--f-body);overflow-x:hidden}
-canvas{image-rendering:pixelated;image-rendering:crisp-edges;display:block}
-a{color:inherit}
-:focus-visible{outline:2px dashed var(--yellow);outline-offset:6px}
-h1,h2,h3{font-family:var(--f-head);font-weight:700;margin:0;line-height:1.1;letter-spacing:0}
-p{margin:0}
-.wrap{max-width:1136px;margin:0 auto;padding:0 32px}
-.lbl{font-family:var(--f-label);font-size:12px;line-height:16px;letter-spacing:.02em}
-.muted{color:var(--silver)}
-
-/* pixel box: stepped corners via edge strips + hard stepped shadow */
-.px{
-  --bg:var(--panel); --bd:var(--line); --sh:var(--drop);
-  background:var(--bg);
-  box-shadow:
-    0 -4px 0 0 var(--bd), 0 4px 0 0 var(--bd), -4px 0 0 0 var(--bd), 4px 0 0 0 var(--bd),
-    8px 4px 0 0 var(--sh), 4px 8px 0 0 var(--sh), 4px 4px 0 0 var(--sh);
-}
-.px.flat{box-shadow:0 -4px 0 0 var(--bd), 0 4px 0 0 var(--bd), -4px 0 0 0 var(--bd), 4px 0 0 0 var(--bd)}
-
-.btn{
-  --bg:var(--accent); --bd:var(--ink); --sh:var(--drop);
-  font:600 14px/1 var(--f-body); color:var(--ink); border:0; cursor:pointer;
-  padding:10px 14px; position:relative; white-space:nowrap;
-}
-.btn:active{transform:translate(4px,4px);box-shadow:0 -4px 0 0 var(--bd), 0 4px 0 0 var(--bd), -4px 0 0 0 var(--bd), 4px 0 0 0 var(--bd)}
-
-/* nav */
-nav{padding:24px 0}
-nav .wrap{display:flex;align-items:center;gap:24px}
-.logo{display:flex;align-items:center;gap:12px;text-decoration:none}
-.logo b{font:500 32px/1 var(--f-head)}
-nav .links{margin-left:auto;display:flex;gap:24px;font-size:14px}
-nav .links a{text-decoration:none;color:var(--silver)}
-nav .links a:hover{color:var(--white)}
-
 /* hero */
 .hero{padding:40px 0 96px}
-.hero .wrap{display:grid;grid-template-columns:1.05fr .95fr;gap:48px;align-items:center}
+.hero .wrap{display:grid;grid-template-columns:1.05fr .95fr;grid-template-areas:"copy device" "roll device";gap:40px 48px;align-items:start}
+.hero .copy{grid-area:copy}
 .hero h1{font-size:clamp(44px,6.2vw,76px);line-height:1;max-width:11ch}
 .hero .sub{margin-top:24px;max-width:44ch;color:#c9d3df;font-size:16px}
-.install{margin-top:40px;max-width:520px}
+.install{margin-top:40px;max-width:520px;scroll-margin-top:24px}
 .install .cmd{padding:16px 16px 16px 20px;display:flex;gap:16px;align-items:center}
 .install code{font:400 14px/1.75 var(--f-body);display:block;flex:1;min-width:0;overflow-wrap:anywhere}
 .install code span{color:var(--slate)}
@@ -78,13 +28,52 @@ nav .links a:hover{color:var(--white)}
 .dot{width:8px;height:8px;background:var(--bug);animation:blink 1.2s steps(1) infinite}
 @keyframes blink{50%{opacity:0}}
 
-.device{position:relative;justify-self:center;display:flex;flex-direction:column;align-items:center}
+/* roll your nibbl */
+.roll{grid-area:roll;padding:20px;max-width:520px;--bg:#14161f}
+.roll-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.roll-head h2{font-size:28px;font-weight:500}
+.roll-head .lbl{color:var(--slate)}
+.roll-form{margin-top:14px;display:flex;gap:16px;align-items:stretch;flex-wrap:wrap}
+.field{flex:1 1 180px;min-width:0;--bg:#0f111a;--bd:var(--line);display:flex}
+.field:focus-within{--bd:var(--yellow)}
+.field input{flex:1;min-width:0;background:transparent;border:0;color:var(--white);font:400 14px/1 var(--f-body);padding:12px 12px;outline:none}
+.field input::placeholder{color:var(--slate)}
+.traits{list-style:none;margin:16px 0 0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;min-height:132px;align-content:start}
+.traits li{display:flex;align-items:center;gap:6px;font-size:13px;border-bottom:2px dashed #2a3044;padding:2px 0;animation:tin .24s steps(3)}
+.traits li .k{color:var(--silver);width:56px;flex:none}
+.traits li .badge{margin:2px 4px}
+.traits li .pc{margin-left:auto;font-size:11px;color:var(--slate)}
+.traits .ph{grid-column:1/-1;color:var(--slate);border:0;font-size:13px;animation:none}
+@keyframes tin{0%{opacity:0;transform:translateY(6px)}100%{opacity:1;transform:none}}
+.roll-out{margin-top:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.roll-out .rt{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.roll-out .rt .num{color:var(--yellow);font-size:14px}
+.roll-out a{margin-left:auto}
+
+/* device */
+.device{grid-area:device;position:relative;justify-self:center;display:flex;flex-direction:column;align-items:center}
 .device-stage{position:relative}
-.device-btn{position:absolute;width:48px;height:48px;margin:-24px 0 0 -24px;background:transparent;border:0;cursor:pointer;border-radius:0}
-.device-btn:active + .x{}
-.device-legend{display:flex;gap:20px;margin-top:20px;color:var(--silver)}
+.device-stage>canvas{cursor:pointer}
+.device-btn{position:absolute;border:0;background:transparent;padding:0;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;--press:2px}
+.device-btn canvas{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
+.device-btn:active canvas,.device-btn.pressed canvas{transform:translate(-50%,calc(-50% + var(--press)))}
+.device-btn:focus-visible{outline:2px dashed var(--accent);outline-offset:0}
+.device-legend{display:flex;gap:20px;margin-top:20px;color:var(--silver);align-items:center}
 .device-legend span b{color:var(--accent);font-weight:400}
-.device-id{margin-top:8px;color:var(--slate)}
+.dev-hud{margin-top:14px;display:grid;gap:8px;justify-items:center;text-align:center}
+.dev-hud .id{color:var(--slate)}
+.dev-hud .meter{display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:center}
+.dev-hud .lv{font-size:14px;color:var(--white)}
+.xpseg{display:flex;gap:2px}
+.xpseg i{width:10px;height:10px;background:#2a3044}
+.xpseg i.on{background:var(--green)}
+.hearts{display:flex;gap:4px}
+.dev-hud .hint{color:var(--silver);min-height:16px}
+.lvlup{position:absolute;left:50%;top:9%;transform:translateX(-50%);--bg:var(--yellow);--bd:var(--ink);color:var(--ink);padding:10px 16px 8px;text-align:center;display:none;z-index:5;pointer-events:none}
+.lvlup b{display:block;font:400 22px/1 var(--f-label)}
+.lvlup span{font:400 12px/1.6 var(--f-label)}
+.lvlup.on{display:block;animation:lvl 1.8s steps(1) forwards}
+@keyframes lvl{0%{transform:translateX(-50%) translateY(8px)}8%{transform:translateX(-50%) translateY(-4px)}16%{transform:translateX(-50%) translateY(0)}85%{opacity:1}100%{opacity:0}}
 
 /* sections */
 section{padding:96px 0}
@@ -93,18 +82,23 @@ section{padding:96px 0}
 .head p{margin-top:16px;color:#c9d3df}
 
 /* terminal */
-.term{--bg:#14161f; --bd:#2a3044; padding:0}
+.term{--bg:#14161f; --bd:#2a3044; padding:0;min-width:0}
 .term-bar{display:flex;gap:8px;align-items:center;padding:12px 16px;border-bottom:4px solid #2a3044}
 .term-bar i{width:8px;height:8px;background:var(--dusk)}
 .term-bar .lbl{margin-left:8px;color:var(--slate)}
 .term-body{padding:20px 24px 24px;font-size:14px;line-height:1.7}
-.term-body .ln{white-space:pre-wrap}
-.c-dim{color:var(--slate)} .c-ok{color:var(--bug)} .c-acc{color:var(--accent)} .c-sky{color:var(--sky)}
+.log{height:calc(1.7em * 7);overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end}
+.log .ln{white-space:pre-wrap;flex:none}
+.c-dim{color:var(--slate)} .c-ok{color:var(--bug)} .c-acc{color:var(--accent)} .c-sky{color:var(--sky)} .c-err{color:#ff7a8a}
 .band{margin-top:20px;display:flex;justify-content:space-between;align-items:flex-end;gap:16px;padding:12px 16px;background:#0f111a;border-top:4px solid #2a3044}
 .hud{font-size:13px;line-height:20px;white-space:pre}
 .hud .nm{color:var(--white)} .hud .bar{color:var(--green)} .hud .hp{color:var(--red)}
 .prompt{margin-top:0;padding:12px 16px;border:4px solid #2a3044;border-top:0;display:flex;gap:8px;color:var(--silver)}
 .caret{display:inline-block;width:9px;height:18px;background:var(--silver);animation:blink 1s steps(1) infinite;vertical-align:-3px}
+.demo{display:flex;flex-wrap:wrap;gap:16px;align-items:center;padding:16px 24px 20px;border-top:4px solid #2a3044}
+.demo>.lbl{color:var(--slate);margin-right:4px}
+.demo .btn{font-family:var(--f-body);font-weight:400;min-height:36px}
+.demo .btn::before{content:"$ ";color:var(--slate)}
 .lives{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:48px;align-items:start}
 .notes{display:grid;gap:24px;padding-top:8px}
 .notes h3{font-size:24px;font-weight:500;margin-bottom:6px}
@@ -139,12 +133,7 @@ section{padding:96px 0}
 .orow:last-child{border-bottom:0}
 .orow .pct{text-align:right;font-family:var(--f-label);font-size:14px}
 .bar{height:16px;background:repeating-linear-gradient(90deg,var(--c) 0 8px,transparent 8px 12px)}
-.badge{display:inline-block;font-family:var(--f-label);font-size:11px;line-height:1;padding:5px 7px 4px;color:var(--ink);background:var(--c);box-shadow:0 -2px 0 0 var(--c),0 2px 0 0 var(--c),-2px 0 0 0 var(--c),2px 0 0 0 var(--c);margin:2px}
-.t-common{--c:var(--t-common)} .t-uncommon{--c:var(--t-uncommon)} .t-rare{--c:var(--t-rare)} .t-epic{--c:var(--t-epic)} .t-legendary{--c:var(--t-legendary)}
-.t-genesis{--c:var(--plum);color:var(--yellow)}
-.t-shiny{--c:#73eff7;background:linear-gradient(90deg,#73eff7 0 33.33%,#b9f0b6 33.33% 66.66%,#ffcd75 66.66%);background-size:300% 100%;animation:shim 1.5s steps(1) infinite}
 .bar.t-shiny{background:repeating-linear-gradient(90deg,#73eff7 0 8px,transparent 8px 12px,#ffcd75 12px 20px,transparent 20px 24px);animation:none}
-@keyframes shim{0%{background-position:0 0}33%{background-position:50% 0}66%{background-position:100% 0}}
 .odds-note{margin-top:16px;font-size:13px;color:var(--silver)}
 .rare-card{--bg:#14161f;--bd:var(--t-epic);padding:24px}
 .rare-card .lbl{color:var(--slate)}
@@ -152,10 +141,14 @@ section{padding:96px 0}
 .rare-card h3{font-size:24px;font-weight:500}
 .rare-card .big{font:700 48px/1 var(--f-head);color:var(--t-epic);margin:16px 0 4px}
 .rare-card p{font-size:13px;color:#c9d3df}
+.rare-card p a{color:var(--yellow)}
 
 /* leaderboard */
 .lb{padding:8px 0}
-.lrow{display:grid;grid-template-columns:40px 56px 1fr 120px 72px 220px;gap:16px;align-items:center;padding:10px 24px;border-bottom:2px dashed #2a3044}
+.lrow{display:grid;grid-template-columns:40px 56px 1fr 120px 72px 220px;gap:16px;align-items:center;padding:10px 24px;border-bottom:2px dashed #2a3044;text-decoration:none}
+a.lrow:hover{background:#20243a}
+a.lrow:hover .nm b{text-decoration:underline;text-decoration-thickness:2px}
+a.lrow:focus-visible{outline-offset:-4px}
 .lrow:last-child{border-bottom:0}
 .lrow.h{padding-top:16px;padding-bottom:12px;color:var(--slate)}
 .lrow .rk{font-family:var(--f-label);color:var(--slate)}
@@ -167,28 +160,24 @@ section{padding:96px 0}
 .lrow .lv{font-family:var(--f-label);font-size:14px;white-space:nowrap}
 .lrow .tg{display:flex;flex-wrap:wrap;gap:4px}
 
-/* pet card */
+/* pet card section */
 .card-sec{display:grid;grid-template-columns:1fr 440px;gap:64px;align-items:center}
 .card-sec .head{margin:0}
-.card-sec .btn{margin-top:32px}
-.pcard{--bg:var(--shell);--bd:var(--ink);--sh:#000;color:var(--ink);padding:24px;max-width:440px;width:100%;justify-self:center}
-.pcard .top{display:flex;justify-content:space-between;align-items:center}
-.pcard .top b{font:500 24px/1 var(--f-head)}
-.pcard .lcd{--bg:var(--lcd-1);--bd:var(--dusk);margin:16px 4px;display:flex;justify-content:center;padding:16px 0}
-.pcard h3{font-size:48px;font-weight:500;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
-.pcard h3 .lbl{font-size:14px;color:var(--slate)}
-.pcard .tags{margin-top:12px;display:flex;gap:4px;flex-wrap:wrap}
-.pcard .tags .badge.t-plain{--c:var(--shell-2);color:var(--ink)}
-.genes{margin-top:20px;display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;font-size:13px}
-.genes div{display:flex;justify-content:space-between;border-bottom:2px dotted var(--shell-3);padding-bottom:4px}
-.genes span{color:#7a6a4c}
-.stats{margin-top:20px;display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center}
-.stats b{display:block;font:400 20px/1.2 var(--f-label)}
-.stats span{font-family:var(--f-label);font-size:10px;color:#7a6a4c}
-.pcard .foot{margin-top:20px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;color:#7a6a4c}
+.feats{list-style:none;margin:28px 0 0;padding:0;display:grid;gap:10px;font-size:14px;color:#c9d3df}
+.feats li{display:flex;gap:12px}
+.feats b{font-family:var(--f-label);font-weight:400;font-size:12px;color:var(--accent);width:72px;flex:none;padding-top:2px}
+.card-btns{margin-top:32px;display:flex;gap:20px;flex-wrap:wrap}
+.recent{margin-top:40px}
+.recent>.lbl{color:var(--slate)}
+.recent-list{margin-top:12px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.recent-list a{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 6px;text-decoration:none;--bg:#14161f}
+.recent-list a:hover{--bd:var(--accent)}
+.recent-list b{font:500 18px/1 var(--f-head)}
+.recent-list .lbl{color:var(--slate);font-size:10px}
+.card-sec .pcard{justify-self:center}
 
 /* footer */
-footer{padding:96px 0 48px;border-top:4px solid #1a1c2c}
+footer{padding:72px 0 48px;border-top:4px solid #1a1c2c}
 footer h2{font-size:clamp(36px,5vw,56px)}
 .tenets{margin-top:40px;display:grid;grid-template-columns:repeat(5,1fr);gap:24px}
 .tenets h3{font-size:24px;font-weight:500;margin-bottom:6px;color:var(--accent)}
@@ -196,21 +185,34 @@ footer h2{font-size:clamp(36px,5vw,56px)}
 .fbar{margin-top:72px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;color:var(--slate);font-size:13px}
 .fbar a{color:var(--silver)}
 
+/* crawling bug lane */
+.lane{position:fixed;left:0;right:0;bottom:0;height:72px;overflow:hidden;pointer-events:none;z-index:40}
+.crawl-bug{position:absolute;left:0;bottom:4px;width:48px;height:44px;padding:0;border:0;background:transparent;cursor:crosshair;pointer-events:auto;display:flex;align-items:flex-end;justify-content:center;padding-bottom:6px}
+.crawl-bug[hidden],.chaser[hidden],.splat[hidden]{display:none}
+.chaser{position:absolute;left:0;bottom:0}
+.splat{position:absolute;left:0;bottom:6px}
+.bugchip{position:fixed;right:16px;bottom:16px;z-index:41;--bg:var(--panel);--bd:var(--line);padding:8px 10px;color:var(--silver);pointer-events:none}
+.bugchip b{color:var(--bug);font-weight:400}
+.bugchip[hidden]{display:none}
+
 @media (max-width:1040px){
   .lives{grid-template-columns:1fr}
   .notes{grid-template-columns:repeat(3,1fr)}
   .tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
   .rar,.card-sec{grid-template-columns:1fr}
+  .card-sec{gap:48px}
   .lrow{grid-template-columns:32px 56px 1fr 72px 200px}
   .lrow .br{display:none}
   .tenets{grid-template-columns:repeat(3,1fr)}
   .branches{grid-template-columns:repeat(2,1fr)}
 }
+@media (max-width:860px){
+  .hero .wrap{grid-template-columns:1fr;grid-template-areas:"copy" "device" "roll";gap:48px}
+  .roll{max-width:none}
+}
 @media (max-width:760px){
-  .wrap{padding:0 16px}
   nav .links a:not(.gh){display:none}
   .hero{padding:16px 0 64px}
-  .hero .wrap{grid-template-columns:1fr;gap:40px}
   .hero h1{font-size:44px}
   section{padding:64px 0}
   .head{margin-bottom:32px}
@@ -218,6 +220,8 @@ footer h2{font-size:clamp(36px,5vw,56px)}
   .term-body{padding:16px;font-size:12px}
   .band{padding:10px 12px;gap:8px}
   .hud{font-size:11px;line-height:16px}
+  .demo{padding:14px 16px 16px;gap:14px}
+  .demo .btn{min-height:44px;padding:8px 10px;font-size:12px}
   .stages{grid-template-columns:repeat(5,1fr);gap:4px}
   .stage .pad{height:72px}
   .stage b{font-size:16px}
@@ -231,16 +235,19 @@ footer h2{font-size:clamp(36px,5vw,56px)}
   .lrow .lv{grid-column:4;grid-row:1}
   .lrow .tg{grid-column:3 / 5;grid-row:2;margin-top:-4px}
   .lrow.h{display:none}
-  .pcard{padding:16px}
-  .pcard h3{font-size:40px}
-  .stats b{font-size:15px}
+  .traits{grid-template-columns:1fr;min-height:0}
+  .field{flex-basis:100%}
+  .roll-form .btn{flex:1;min-height:44px}
+  .roll{padding:16px}
+  .recent-list{grid-template-columns:repeat(2,minmax(0,1fr))}
   .tenets{grid-template-columns:1fr 1fr}
+  .bugchip{right:12px;bottom:12px}
 }
 @media (max-width:360px){
   .tiles{grid-template-columns:1fr}
 }
 @media (prefers-reduced-motion:reduce){
-  .dot,.caret,.t-shiny{animation:none}
+  .dot,.caret,.traits li,.lvlup.on{animation:none}
 }
 </style>
 </head>
@@ -260,10 +267,10 @@ footer h2{font-size:clamp(36px,5vw,56px)}
 
 <header class="hero" id="top">
   <div class="wrap">
-    <div>
+    <div class="copy">
       <h1>A tiny pixel pet that nibbles your bugs.</h1>
       <p class="sub">Nibbl is a Claude Code mod. Your nibbl hatches after real work, lives above the prompt, and eats the bugs your tests squash. It never blocks, never nags, and costs zero tokens.</p>
-      <div class="install">
+      <div class="install" id="install">
         <div class="cmd px">
           <code id="cmd"><span>&gt;</span> /plugin marketplace add nibbl-dev/nibbl<br><span>&gt;</span> /plugin install nibbl@nibbl</code>
           <button class="btn px" id="copy" type="button">Copy</button>
@@ -271,15 +278,33 @@ footer h2{font-size:clamp(36px,5vw,56px)}
       </div>
       <div class="counter"><i class="dot"></i><span class="lbl">hatched: <b>1 337</b> nibbls so far</span></div>
     </div>
+
+    <div class="roll px" id="roll">
+      <div class="roll-head"><h2>Roll your nibbl</h2><span class="lbl">a preview, not a real hatch</span></div>
+      <form class="roll-form" id="rollf" autocomplete="off">
+        <label class="sr" for="nick">Nickname to roll a nibbl from</label>
+        <div class="field px flat"><input id="nick" name="nick" maxlength="24" placeholder="your nickname" spellcheck="false"></div>
+        <button class="btn px" id="rollbtn" type="submit">Roll</button>
+        <button class="btn px ghost" id="rnd" type="button">Random</button>
+      </form>
+      <ol class="traits" id="traits" aria-live="polite"><li class="ph">Same nickname, same nibbl. Traits show up here as the egg hatches.</li></ol>
+      <div class="roll-out" id="rollout" hidden></div>
+    </div>
+
     <div class="device">
       <div class="device-stage" id="stage">
-        <canvas id="hero" role="img" aria-label="An egg-shaped handheld device with an LCD screen showing your nibbl"></canvas>
-        <button class="device-btn" id="bA" type="button" aria-label="Pet your nibbl"></button>
-        <button class="device-btn" id="bB" type="button" aria-label="Toggle color screen"></button>
-        <button class="device-btn" id="bC" type="button" aria-label="Hatch another egg"></button>
+        <canvas id="hero" role="img" aria-label="An egg-shaped handheld device with an LCD screen showing your nibbl. Click the screen to pet it."></canvas>
+        <button class="device-btn" id="bA" type="button" aria-label="A: pet your nibbl" aria-keyshortcuts="A 1"></button>
+        <button class="device-btn" id="bB" type="button" aria-label="B: switch between green and color screen" aria-keyshortcuts="B 2"></button>
+        <button class="device-btn" id="bC" type="button" aria-label="C: hatch a new egg" aria-keyshortcuts="C 3"></button>
+        <div class="lvlup px" id="lvlup" aria-hidden="true"><b>LEVEL UP</b><span id="lvlup-n">lvl 8</span></div>
       </div>
-      <div class="device-legend lbl"><span><b>A</b> pet</span><span><b>B</b> color</span><span><b>C</b> new egg</span></div>
-      <div class="device-id lbl" id="devid">&nbsp;</div>
+      <div class="device-legend lbl"><span><b>A</b> pet</span><span><b>B</b> color</span><span><b>C</b> new egg</span><button class="spk px" id="spk" type="button"></button></div>
+      <div class="dev-hud">
+        <div class="id lbl" id="devid">&nbsp;</div>
+        <div class="meter"><span class="lbl lv">lvl <span id="lvl">7</span></span><span class="xpseg" id="xpseg" aria-hidden="true"></span><span class="hearts" id="hearts" role="img" aria-label="hearts"></span></div>
+        <div class="hint lbl" id="hint" aria-live="polite">keys A B C or 1 2 3</div>
+      </div>
     </div>
   </div>
 </header>
@@ -288,25 +313,34 @@ footer h2{font-size:clamp(36px,5vw,56px)}
   <div class="wrap">
     <div class="head">
       <h2>It lives above the prompt</h2>
-      <p>One thin band in your terminal. Status on the left, a 32 by 16 pixel scene on the right. Nothing else on your screen changes.</p>
+      <p>One thin band in your terminal. Status on the left, a 32 by 16 pixel scene on the right. Nothing else on your screen changes. Try the buttons under the terminal.</p>
     </div>
     <div class="lives">
       <div class="term px">
         <div class="term-bar"><i></i><i></i><i></i><span class="lbl">claude ~/code/api</span></div>
         <div class="term-body">
+          <div class="log" id="log">
 <div class="ln"><span class="c-acc">&gt;</span> fix the flaky auth test</div>
 <div class="ln"><span class="c-sky">⏺</span> Read <span class="c-dim">tests/auth.test.ts</span></div>
 <div class="ln"><span class="c-sky">⏺</span> Update <span class="c-dim">src/session.ts</span> <span class="c-ok">+4</span> <span class="c-acc">-2</span></div>
 <div class="ln"><span class="c-sky">⏺</span> Bash <span class="c-dim">npm test</span>  <span class="c-ok">42 passed</span></div>
 <div class="ln">The token refresh raced the mock clock. Fixed.</div>
+          </div>
           <div class="band">
             <div class="hud" aria-label="Nibbl status"><span class="nm">Byte #000042 · night coder</span>
 <span class="muted">lvl 7</span> <span class="bar">▓▓▓▓░░</span>
 <span class="hp">♥♥♥♡♡</span>
-<span class="muted">⛏ on expedition <span id="exp">0:42</span></span></div>
-            <canvas id="band" role="img" aria-label="Byte standing on the ground next to a bug, with a heart above"></canvas>
+<span class="muted" id="bstat">⛏ on expedition <span id="exp">0:42</span></span></div>
+            <canvas id="band" role="img" aria-label="Byte in the status band scene. Click to pet."></canvas>
           </div>
           <div class="prompt"><span class="c-acc">&gt;</span><span class="caret"></span></div>
+        </div>
+        <div class="demo" role="group" aria-label="Trigger a real event">
+          <span class="lbl">try it</span>
+          <button class="btn sm ghost px" type="button" data-act="tests">run tests</button>
+          <button class="btn sm ghost px" type="button" data-act="error">throw error</button>
+          <button class="btn sm ghost px" type="button" data-act="commit">git commit</button>
+          <button class="btn sm ghost px" type="button" data-act="sleep">sleep</button>
         </div>
       </div>
       <div class="notes">
@@ -352,10 +386,10 @@ footer h2{font-size:clamp(36px,5vw,56px)}
       </div>
       <div class="rare-card px">
         <span class="lbl">rarest trait, example</span>
-        <div class="scr"><canvas id="rare" role="img" aria-label="A rare nibbl"></canvas></div>
-        <h3 id="rare-name">Starry ghost sprout</h3>
-        <div class="big">1.4%</div>
-        <p id="rare-desc">of all hatched nibbls carry this trait combo.</p>
+        <div class="scr"><canvas id="rare" role="img" aria-label="A rare nibbl. Click to pet."></canvas></div>
+        <h3 id="rare-name">&nbsp;</h3>
+        <div class="big" id="rare-pct">&nbsp;</div>
+        <p id="rare-desc">&nbsp;</p>
       </div>
     </div>
   </div>
@@ -365,7 +399,7 @@ footer h2{font-size:clamp(36px,5vw,56px)}
   <div class="wrap">
     <div class="head">
       <h2>Leaderboard</h2>
-      <p>Ranked by level. Every serial number is issued once and never reused.</p>
+      <p>Ranked by level. Every serial number is issued once and never reused. Open any row for its card.</p>
     </div>
     <div class="lb px" id="lb">
       <div class="lrow h lbl"><span>#</span><span></span><span>nibbl</span><span>form</span><span>lvl</span><span>tier</span></div>
@@ -380,22 +414,15 @@ footer h2{font-size:clamp(36px,5vw,56px)}
         <h2>Every nibbl gets a page</h2>
         <p>Its genome, its stats, its serial. Share the link when Byte hits level 10, or when it finally eats bug number 500.</p>
       </div>
-      <button class="btn px" id="copylink" type="button">Copy link to /p/000042</button>
+      <ul class="feats">
+        <li><b>genome</b><span>Every trait, with the base odds it had at hatch.</span></li>
+        <li><b>serial</b><span>Issued once, never reused. The first 100 are genesis.</span></li>
+        <li><b>stats</b><span>Bugs nibbled, hearts, commits, expeditions.</span></li>
+      </ul>
+      <div class="card-btns"><a class="btn px" id="opencard" href="/p/?s=000042">Open Byte's card</a><button class="btn px ghost" id="copylink" type="button">Copy link</button></div>
+      <div class="recent"><span class="lbl">just hatched</span><div class="recent-list" id="recent"></div></div>
     </div>
-    <article class="pcard px" aria-label="Pet card for Byte">
-      <div class="top"><b>nibbl</b><span class="lbl">/p/000042</span></div>
-      <div class="lcd px flat"><canvas id="pcanvas" role="img" aria-label="Byte"></canvas></div>
-      <h3>Byte <span class="lbl">#000042</span></h3>
-      <div class="tags"><span class="badge t-rare">rare</span><span class="badge t-plain">lvl 7 baby</span><span class="badge t-plain">leaning night owl</span></div>
-      <div class="genes" id="genes"></div>
-      <div class="stats">
-        <div><b>318</b><span>bugs eaten</span></div>
-        <div><b>1204</b><span>hearts</span></div>
-        <div><b>57</b><span>expeditions</span></div>
-        <div><b>211</b><span>commits</span></div>
-      </div>
-      <div class="foot lbl"><span>hatched 2026-09-14</span><span>by @nmk</span></div>
-    </article>
+    <div id="cardhost"></div>
   </div>
 </section>
 
@@ -413,194 +440,26 @@ footer h2{font-size:clamp(36px,5vw,56px)}
   </div>
 </footer>
 
+<div class="bugchip px lbl" id="bugchip" hidden aria-live="polite">bugs nibbled: <b id="bugn">0</b></div>
+
+<script src="/nibbl.js"></script>
 <script>
 "use strict";
-/* ---------- palette ---------- */
-const P={ink:'#1a1c2c',plum:'#5d275d',red:'#b13e53',orange:'#ef7d57',yellow:'#ffcd75',lime:'#a7f070',green:'#38b764',teal:'#257179',navy:'#29366f',blue:'#3b5dc9',sky:'#41a6f6',cyan:'#73eff7',white:'#f4f4f4',silver:'#94b0c2',slate:'#566c86',dusk:'#333c57'};
-const RAMPS={ember:['red','orange','yellow'],moss:['teal','green','lime'],ocean:['navy','blue','sky'],frost:['blue','sky','cyan'],ghost:['slate','silver','white'],jam:['plum','red','orange']};
-const SHINY={ember:'frost',moss:'jam',ocean:'moss',frost:'ember',ghost:'jam',jam:'moss'};
-const REDUCED=matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-/* ---------- seeded PRNG ---------- */
-function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
-function rng(seed){const r=mulberry32(Math.imul(seed^0x9E3779B9,0x85EBCA6B)>>>0);return{random:r,choice:a=>a[Math.floor(r()*a.length)],randint:(a,b)=>a+Math.floor(r()*(b-a+1))};}
-
-/* ---------- genome ---------- */
-function genome(seed,ov){
-  const r=rng(seed);
-  const g={
-    family:r.choice(['mochi','critter','sprout']),
-    w:r.choice([5,6,6,7]), h:r.choice([5,6,6,7]),
-    ramp:r.choice(Object.keys(RAMPS)),
-    pattern:r.choice(['none','spots','stripes','stars']),
-    belly:r.random()<0.6,
-    eyes:r.choice(['dot','big','wide','sleepy']),
-    blush:r.random()<0.5,
-    ears:r.choice(['round','pointy','bunny','none']),
-    shiny:r.random()<0.04,
-    seed:seed
-  };
-  Object.assign(g,ov||{});
-  if(g.family==='sprout') g.ears='none'; // compatibility: sprouts have a leaf, no ears
-  return g;
-}
-const grid=(w,h)=>Array.from({length:h},()=>Array(w).fill(null));
-
-function bodyMask(g){
-  const cx=7.5,cy=9.0, m=Array.from({length:16},()=>Array(16).fill(0));
-  for(let y=0;y<16;y++)for(let x=0;x<16;x++){
-    const dx=(x-cx)/g.w, dy=(y-cy)/g.h; let inside;
-    if(g.family==='mochi') inside=dx*dx+dy*dy<=1||(y>=cy&&Math.abs(dx)<=0.92&&y<=cy+g.h-1);
-    else if(g.family==='critter'){inside=dx*dx+dy*dy<=1; const ax=Math.abs(x-cx); if(y===Math.floor(cy+g.h)&&(ax===2.5||ax===3.5)) inside=true;}
-    else {const k=1+Math.max(0,cy-y)/(g.h*1.6); inside=(dx*k)**2+dy*dy<=1;}
-    m[y][x]=(inside&&y>=1&&y<=15)?1:0;
-  }
-  let top=0; while(top<16&&!m[top].some(Boolean)) top++;
-  if(g.family==='sprout'){
-    for(const [x,y] of [[7,top-1],[8,top-1],[8,top-2],[9,top-3],[10,top-3],[6,top-3],[7,top-2]]) if(y>=0&&y<16&&!(x===7&&y===top-2)) m[y][x]=2;
-  }else if(g.ears!=='none'){
-    const shapes={round:[[-3,-1],[-4,-1],[-3,-2],[-4,-2]],pointy:[[-3,-1],[-4,-1],[-4,-2],[-4,-3]],bunny:[[-3,-1],[-3,-2],[-3,-3],[-3,-4],[-4,-2],[-4,-3]]}[g.ears];
-    for(const [ox,oy] of shapes) for(const x of [8+ox, 7-ox]){const y=top+1+oy; if(y>=0&&y<16&&x>=0&&x<16) m[y][x]=1;}
-  }
-  return m;
-}
-
-function drawPet(g,expr){
-  const ramp=RAMPS[g.shiny?SHINY[g.ramp]:g.ramp].map(c=>P[c]); const [shade,base,hi]=ramp;
-  const m=bodyMask(g), px=grid(16,16);
-  const inside=(x,y)=>x>=0&&x<16&&y>=0&&y<16&&m[y][x]===1;
-  for(let y=0;y<16;y++)for(let x=0;x<16;x++){
-    if(m[y][x]===2) px[y][x]=P.green;
-    else if(m[y][x]===1){
-      const tl=!inside(x-1,y)||!inside(x,y-1), br=!inside(x+1,y)||!inside(x,y+1);
-      px[y][x]=tl&&!br?hi:br&&!tl?shade:base;
-    }
-  }
-  const rows=[]; for(let y=0;y<16;y++) if(m[y].some(v=>v===1)) rows.push(y);
-  const top=rows[0], bot=rows[rows.length-1], mid=Math.floor((top+bot)/2);
-  const r=rng(g.seed*7+3), ey=mid-1;
-  if(g.belly){ // start two rows under the eyes so it never touches them
-    for(let y=ey+3;y<bot;y++)for(let x=5;x<11;x++)
-      if(((x-7.5)/2.6)**2+((y-(bot-1.5))/2.2)**2<=1&&inside(x,y)) px[y][x]=hi;
-  }
-  const safe=(x,y)=>!(y>=ey-1&&y<=ey+2&&x>=3&&x<=12); // keep face clear of pattern
-  if(g.pattern==='spots'){
-    for(let i=0;i<4;i++){const x=r.randint(3,12),y=r.randint(top+2,bot-2); if(inside(x,y)&&inside(x+1,y)&&safe(x,y)&&safe(x+1,y)) px[y][x]=px[y][x+1]=shade;}
-  }else if(g.pattern==='stripes'){
-    for(let y=top+1;y<mid-2;y+=2)for(let x=6;x<10;x++) if(inside(x,y)) px[y][x]=shade;
-  }else if(g.pattern==='stars'){
-    for(let i=0;i<3;i++){const x=r.randint(3,12),y=r.randint(top+2,bot-2); if(inside(x,y)&&safe(x,y)) px[y][x]=g.ramp!=='ember'?P.yellow:P.white;}
-  }
-  for(const sx of [5,10]){
-    const out=sx===5?-1:1;
-    if(expr==='blink'){px[ey+1][sx]=px[ey+1][sx+out]=P.ink;}
-    else if(g.eyes==='dot'){px[ey][sx]=P.ink;}
-    else if(g.eyes==='big'){for(const [ox,oy] of [[0,0],[0,1],[out,0],[out,1]]) px[ey+oy][sx+ox]=P.ink; px[ey][sx]=P.white;}
-    else if(g.eyes==='wide'){px[ey][sx]=P.white;px[ey+1][sx]=P.ink;}
-    else {px[ey+1][sx]=px[ey+1][sx+out]=P.ink;px[ey][sx]=px[ey][sx]===hi?base:px[ey][sx];}
-  }
-  px[ey+2][7]=px[ey+2][8]=P.ink;
-  if(g.blush) for(const bx of [4,11]) if(inside(bx,ey+2)) px[ey+2][bx]=g.ramp!=='jam'?P.red:P.plum;
-  const out=px.map(row=>row.slice());
-  for(let y=0;y<16;y++)for(let x=0;x<16;x++){
-    if(px[y][x]===null&&[[-1,0],[1,0],[0,-1],[0,1]].some(([dx,dy])=>{const X=x+dx,Y=y+dy;return X>=0&&X<16&&Y>=0&&Y<16&&px[Y][X]!==null;})) out[y][x]=P.ink;
-  }
-  return out;
-}
-const spriteCache=new Map();
-function sprite(g,expr='idle'){
-  const k=g.seed+'|'+g.shiny+'|'+(g.ramp)+'|'+expr; if(!spriteCache.has(k)) spriteCache.set(k,drawPet(g,expr)); return spriteCache.get(k);
-}
-function spriteTop(spr){for(let y=0;y<spr.length;y++) if(spr[y].some(Boolean)) return y; return 0;}
-
-/* ---------- tiny art ---------- */
-const KEY={k:P.ink,w:P.white,l:P.lime,g:P.green,r:P.red,o:P.orange,y:P.yellow,b:P.navy,B:P.blue,s:P.silver,d:P.dusk,p:P.plum,c:P.cyan,t:P.teal,S:P.slate};
-const art=rows=>rows.map(r=>[...r].map(ch=>KEY[ch]||null));
-const BUG=art(["g.g...",".gllk.","glllll",".l.l.l"]);
-const HEART=art([".r.r.","rrrrr",".rrr.","..r.."]);
-const BANG=art(["r","r","r",".","r"]);
-const EGG=art(["...kk...","..kwwk..",".kwwwwk.",".kwywwk.","kwwwwwsk","kwywwysk","kwwwwssk","kswwsssk",".kssssk.","..kkkk.."]);
-const EGG_CRACK=art(["...kk...","..kwwk..",".kwwwwk.",".kwywwk.","kwkwkwkk","kkwkwkwk","kwwwwssk","kswwsssk",".kssssk.","..kkkk.."]);
-const EGG_TOP=art(["...kk...","..kwwk..",".kwwwwk.",".kwywwk.","kkwkwkwk"]);
-const EGG_BOT=art(["kwkwkwkk","kwwwwssk","kswwsssk",".kssssk.","..kkkk.."]);
-const BOX=art(["kkkkkkkk","kyyyyyyk","kooyyook","kooyyook","kooooook","kkkkkkkk"]);
-const CAP=art(["......ww",".....kbk","....kbbk","...kbbbk","..kbbbbk",".kbbbbbk","kwwwwwwk"]);
-const Z1=art(["wwww","..w.",".w..","wwww"]);
-const Z2=art(["www","..w",".w.","www"]);
-const MOON=art([".yy.","yyyy","yysy",".yy."]);
-const GEM=art([".c.","cwc",".c."]);
-const SPARK=art(["y.y",".y.","y.y"]);
-
-function blit(S,spr,ox,oy,maxY){
-  const H=S.length,W=S[0].length; maxY=maxY===undefined?H:maxY;
-  for(let y=0;y<spr.length;y++)for(let x=0;x<spr[y].length;x++){
-    const c=spr[y][x]; if(!c) continue; const X=x+ox,Y=y+oy;
-    if(X>=0&&X<W&&Y>=0&&Y<maxY) S[Y][X]=c;
-  }
-}
-/* scene: 32x16 with ground, shadow, optional pet, props */
-function scene(o){
-  const S=grid(32,16);
-  if(o.ground!==false) for(let x=0;x<32;x++) S[15][x]=x%2===0?P.slate:P.dusk;
-  if(o.pet){
-    const px=o.petX===undefined?6:o.petX;
-    for(let x=px+4;x<px+12;x++) if(x>=0&&x<32) S[14][x]=P.dusk;
-    blit(S,sprite(o.pet,o.expr||'idle'),px,o.dy||0,15);
-  }
-  for(const p of (o.props||[])) blit(S,p[0],p[1],p[2]);
-  return S;
-}
-
-/* ---------- rendering ---------- */
-function lum(hex){const n=parseInt(hex.slice(1),16);return(0.299*(n>>16)+0.587*(n>>8&255)+0.114*(n&255))/255;}
-const LCD=['#c5d1a5','#8b9a6b','#4d5a3c','#1f2418'];
-function toLcd(c,map){if(map&&map[c])return map[c];if(c===P.ink)return LCD[3];const L=lum(c);return L>0.85?'#dde6c2':L>0.5?LCD[1]:L>0.25?LCD[2]:LCD[3];}
-
-function paint(ctx,G,ox,oy,s,opt){
-  opt=opt||{};
-  for(let y=0;y<G.length;y++)for(let x=0;x<G[0].length;x++){
-    let c=G[y][x];
-    if(!c){ if(opt.ghost){ctx.fillStyle=opt.ghost;ctx.fillRect(ox+x*s,oy+y*s,s-opt.gap,s-opt.gap);} continue;}
-    if(opt.mono) c=toLcd(c,opt.map);
-    ctx.fillStyle=c; ctx.fillRect(ox+x*s,oy+y*s,s-(opt.gap||0),s-(opt.gap||0));
-  }
-}
-function setupCanvas(cv,w,h){cv.width=w;cv.height=h;cv.style.width=w+'px';cv.style.height=h+'px';const c=cv.getContext('2d');c.imageSmoothingEnabled=false;return c;}
-
-/* pet idle animator: breathe every 600ms, random blink, occasional hop */
-function makeLife(seedOffset){
-  const r=mulberry32(seedOffset||1);
-  return {r,nextBlink:1200+r()*2500,blinkEnd:0,nextHop:3000+r()*5000,hopStart:-1};
-}
-const HOP=[-1,-3,-4,-4,-3,-1,0];
-function lifeFrame(L,t){
-  if(REDUCED) return {dy:0,expr:'idle'};
-  let dy=Math.floor(t/600)%2;
-  if(t>L.nextBlink){L.blinkEnd=t+140;L.nextBlink=t+1800+L.r()*3500;}
-  const expr=t<L.blinkEnd?'blink':'idle';
-  if(t>L.nextHop&&L.hopStart<0){L.hopStart=t;}
-  if(L.hopStart>=0){const f=Math.floor((t-L.hopStart)/80); if(f<HOP.length) dy=HOP[f]; else {L.hopStart=-1;L.nextHop=t+4000+L.r()*7000;}}
-  return {dy,expr};
-}
-
-const actors=[];
-function addActor(fn){actors.push(fn);}
-let T0=performance.now();
-function loop(now){const t=now-T0; for(const a of actors) a(t); if(!REDUCED) requestAnimationFrame(loop);}
+const BYTE=genome(42);
+const $=id=>document.getElementById(id);
+const small=()=>innerWidth<760;
 
 /* ---------- logo ---------- */
-const BYTE=genome(42);
-(function(){const cv=document.getElementById('logo');const ctx=setupCanvas(cv,32,32);const L=makeLife(9);
-  let last='';addActor(t=>{const f=lifeFrame(L,t);const k=f.expr+f.dy;if(k===last)return;last=k;ctx.clearRect(0,0,32,32);
-    const G=grid(16,16);blit(G,sprite(BYTE,f.expr),0,Math.max(0,f.dy));paint(ctx,G,0,0,2);});})();
+mountSprite($('logo'),BYTE,{scale:()=>2,poke:true,life:9});
 
 /* ---------- hero device ---------- */
-const hero={seed:42,g:BYTE,mono:true,hatchStart:0,hearts:[],L:makeLife(5),U:8};
+const hero={g:BYTE,id:'#000042 · Byte',mono:true,hatchStart:0,lastHF:-1,hearts:[],L:makeLife(5),U:0,reactT:-1e9,
+  level:7,xp:30,need:60,petTimes:[],onDone:null,busy:false};
+const BTNS=[[10,39],[17,41],[24,39]]; // top-left cell of each 5x5 cap, in shell cells
 function buildShell(U){
   const W=40,H=52,c=document.createElement('canvas');c.width=W*U;c.height=H*U;const x2=c.getContext('2d');
   const G=grid(W,H), cx=19.5, cy=30, a=17.6, b=21.5;
   const inEgg=(x,y)=>{const dy=(y+0.5-cy)/b;const dx=(x+0.5-cx)/(a*(1+0.13*dy));return dx*dx+dy*dy<=1;};
-  // key ring
   for(let y=0;y<12;y++)for(let x=12;x<28;x++){const d=Math.hypot(x+0.5-cx,(y+0.5-6)*1.1);if(d>=3.2&&d<=4.6) G[y][x]=(x+y)%3?P.silver:P.slate;}
   for(let y=0;y<H;y++)for(let x=0;x<W;x++){
     if(!inEgg(x,y)) continue;
@@ -612,220 +471,409 @@ function buildShell(U){
     if(v<-0.62) col='#fffaf0'; else if(v<-0.55) col=(x+y)%2?'#fffaf0':'#f4ead5';
     G[y][x]=col;
   }
-  // specular
   for(const [x,y] of [[9,13],[10,13],[8,14],[9,14],[8,15]]) G[y][x]='#ffffff';
-  // bezel
   const bx0=7,by0=15,bx1=32,by1=34;
   for(let y=by0;y<=by1;y++)for(let x=bx0;x<=bx1;x++){
     const corner=(x===bx0||x===bx1)&&(y===by0||y===by1); if(corner) continue;
     G[y][x]=(y===by0||x===bx0)?'#c4af8a':(y===by1||x===bx1)?'#fffaf0':P.dusk;
   }
   for(let y=by0+1;y<by1;y++)for(let x=bx0+1;x<bx1;x++){const c2=(x===bx0+1||x===bx1-1)&&(y===by0+1||y===by1-1); if(!c2) G[y][x]=(y===by0+1||x===bx0+1)?P.ink:P.dusk;}
-  // buttons
-  const btns=[[12.5,41],[19.5,43],[26.5,41]];
-  for(const [bxc,byc] of btns)for(let y=byc-3;y<=byc+3;y++)for(let x=Math.floor(bxc-3);x<=Math.ceil(bxc+3);x++){
-    const d=Math.hypot(x+0.5-bxc-0.5,y+0.5-byc); if(d<=2.2) G[y][x]=(x+0.5-bxc-0.5+y+0.5-byc)<-1?P.yellow:(x+0.5-bxc-0.5+y+0.5-byc)>1.2?P.red:P.orange; else if(d<=3.1) G[y][x]=P.ink;
+  // button sockets: dark well one cell around the cap, one extra row below = the cap's shadow
+  for(const [x0,y0] of BTNS)for(let y=y0-1;y<=y0+6;y++)for(let x=x0-1;x<=x0+5;x++){
+    if((x===x0-1||x===x0+5)&&(y===y0-1||y===y0+6)) continue; G[y][x]=P.ink;
   }
   paint(x2,G,0,0,U);
-  return {canvas:c,lcd:{x:(bx0+2)*U,y:(by0+2)*U,w:(bx1-bx0-3)*U,h:(by1-by0-3)*U},btns,W,H};
+  return {canvas:c,lcd:{x:(bx0+2)*U,y:(by0+2)*U,w:(bx1-bx0-3)*U,h:(by1-by0-3)*U},W,H};
 }
-let shell=null, heroCtx=null, heroScale=5, heroCv=document.getElementById('hero');
+function capArt(){const G=grid(5,5);for(let y=0;y<5;y++)for(let x=0;x<5;x++){if((x===0||x===4)&&(y===0||y===4)) continue;const s=x+y;G[y][x]=s<=1?P.yellow:s>=6?P.red:P.orange;}G[1][1]='#fff4d6';return G;}
+let shell=null, heroCtx=null, heroScale=5; const heroCv=$('hero');
 function layoutHero(){
-  const avail=innerWidth>760?440:Math.min(440,document.querySelector('.hero .wrap').clientWidth-32);
+  const host=document.querySelector('.hero .wrap');
+  const avail=innerWidth>860?440:Math.min(440,host.clientWidth-16);
   const U=Math.max(6,Math.min(11,Math.floor(avail/40)));
   if(shell&&hero.U===U) return; hero.U=U;
   shell=buildShell(U);
   heroCtx=setupCanvas(heroCv,shell.W*U,shell.H*U);
   heroScale=Math.max(3,Math.floor((shell.lcd.w-8)/32));
-  const ids=['bA','bB','bC'];
-  shell.btns.forEach(([bx,by],i)=>{const el=document.getElementById(ids[i]);el.style.left=(bx+1)*U+'px';el.style.top=(by+0.5)*U+'px';});
-  hero.dirty=true;
-}
-function updateDevId(){
-  const g=hero.g; document.getElementById('devid').textContent='#'+String(hero.seed).padStart(6,'0')+' · '+g.ramp+' '+g.family+(g.shiny?' · shiny':'');
+  const B=Math.max(48,5*U+12), cap=capArt();
+  ['bA','bB','bC'].forEach((id,i)=>{
+    const el=$(id),[x0,y0]=BTNS[i];
+    el.style.width=el.style.height=B+'px';
+    el.style.left=((x0+2.5)*U-B/2)+'px'; el.style.top=((y0+2.5)*U-B/2)+'px';
+    el.style.setProperty('--press',Math.max(2,Math.round(U/4))+'px');
+    el.innerHTML=''; const cv=document.createElement('canvas'); el.appendChild(cv); paint(setupCanvas(cv,5*U,5*U),cap,0,0,U);
+  });
+  hero.lastKey='';
 }
 function heroFrame(t){
+  layoutHero(); // cheap: rebuilds only when the cell size changes
   if(!shell) return;
-  const ctx=heroCtx, L=shell.lcd, s=heroScale;
-  const ht=t-hero.hatchStart; let S, F=Math.floor(ht/130);
-  const g=hero.g;
-  if(!REDUCED&&F<22){
+  const ctx=heroCtx, L=shell.lcd, s=heroScale, g=hero.g;
+  const F=Math.floor((t-hero.hatchStart)/120); let S;
+  if(!REDUCED&&F<26){
+    if(F!==hero.lastHF){ // sound cues on frame changes
+      hero.lastHF=F;
+      if(F>=4&&F<12&&F%2===0) SND.play('tick');
+      if(F===12||F===14||F===16||F===18) SND.play('crack');
+      if(F===20) SND.play('fanfare');
+    }
     const ex=12;
     if(F<4) S=scene({props:[[EGG,ex,5]]});
     else if(F<12) S=scene({props:[[EGG,ex+[-1,0,1,0][F%4],5]]});
-    else if(F<15) S=scene({props:[[EGG_CRACK,ex+(F%2?1:0),5]]});
-    else if(F<18) S=scene({props:[[EGG_TOP,ex,5-(F-14)*2],[EGG_BOT,ex,10]]});
-    else S=scene({pet:g,petX:8,dy:[-3,-1,0,0][F-18],props:F<20?[[SPARK,6,2],[SPARK,23,3]]:[]});
+    else if(F<14) S=scene({props:[[EGG_C1,ex,5]]});
+    else if(F<16) S=scene({props:[[EGG_C2,ex+(F%2),5]]});
+    else if(F<18) S=scene({props:[[EGG_C3,ex+(F%2?-1:0),5]]});
+    else if(F<20) S=scene({props:[[EGG_TOP,ex,5-(F-17)*2],[EGG_BOT,ex,10]]});
+    else if(F===20){S=grid(32,16);for(const row of S) row.fill(P.white);}
+    else if(F===21) S=scene({props:[[SPARK,4,2],[SPARK,25,2],[SPARK,8,10],[SPARK,22,9],[SPARK,15,0]]});
+    else S=scene({pet:g,petX:8,dy:[-3,-1,0,0][F-22],expr:'happy',props:[[SPARK,6,2],[SPARK,23,3]]});
   }else{
-    const f=lifeFrame(hero.L,t);
-    const props=[];
+    if(hero.onDone){const f=hero.onDone;hero.onDone=null;hero.busy=false;hero.reactT=t;f();}
+    const f=lifeFrame(hero.L,t), props=[];
     hero.hearts=hero.hearts.filter(h=>t-h.t<1400);
-    for(const h of hero.hearts){const k=Math.floor((t-h.t)/140);props.push([HEART,h.x,8-k]);}
-    S=scene({pet:g,petX:8,dy:f.dy,expr:hero.hearts.length?'blink':f.expr,props});
+    for(const h of hero.hearts){const k=REDUCED?2:Math.floor((t-h.t)/140);props.push([HEART,h.x,Math.max(-4,8-k)]);}
+    const rt=t-hero.reactT, react=rt<1300, hf=Math.floor(rt/70);
+    S=scene({pet:g,petX:8,dy:react&&!REDUCED&&hf<HOP.length?HOP[hf]:react?0:f.dy,expr:react?'happy':f.expr,props});
   }
   const key=JSON.stringify(S)+hero.mono;
-  if(key===hero.lastKey&&!hero.dirty) return; hero.lastKey=key; hero.dirty=false;
+  if(key===hero.lastKey) return; hero.lastKey=key;
   ctx.clearRect(0,0,heroCv.width,heroCv.height);
   ctx.drawImage(shell.canvas,0,0);
-  ctx.fillStyle=hero.mono?LCD[0]:'#1a1c2c'; ctx.fillRect(L.x,L.y,L.w,L.h);
+  ctx.fillStyle=hero.mono?LCD[0]:'#2a3044'; ctx.fillRect(L.x,L.y,L.w,L.h);
   const ox=L.x+Math.floor((L.w-32*s)/2), oy=L.y+Math.floor((L.h-16*s)/2);
-  if(hero.mono){const rc=RAMPS[g.shiny?SHINY[g.ramp]:g.ramp].map(c=>P[c]);const map={[rc[0]]:LCD[2],[rc[1]]:LCD[1],[rc[2]]:'#e6edcf',[P.white]:'#f1f5e2',[P.dusk]:LCD[2],[P.slate]:LCD[1]};paint(ctx,S,ox,oy,s,{mono:true,map,ghost:'#bdc99c',gap:1});}
+  if(hero.mono) paint(ctx,S,ox,oy,s,{mono:true,map:lcdMap(g),ghost:'#bcc89a',gap:1});
   else paint(ctx,S,ox,oy,s,{gap:0});
 }
-function hatch(seed){hero.seed=seed;hero.g=genome(seed);hero.hatchStart=performance.now()-T0;hero.hearts=[];updateDevId();}
-document.getElementById('bA').onclick=()=>{const t=performance.now()-T0;if(hero.hearts.length<4) hero.hearts.push({t,x:16+((hero.hearts.length*5)%9)-4});};
-document.getElementById('bB').onclick=()=>{hero.mono=!hero.mono;hero.dirty=true;};
-document.getElementById('bC').onclick=()=>hatch(1+Math.floor(Math.random()*999998));
-heroCv.addEventListener('click',()=>document.getElementById('bA').click());
-heroCv.style.cursor='pointer';
-addActor(heroFrame);
+function updateDevId(){const g=hero.g;$('devid').textContent=hero.id+' · '+rampOf(g)+' '+g.family+(isShiny(g)?' · shiny':'');}
+function hatch(seed,id,onDone){
+  hero.g=genome(seed);hero.id=id;hero.hearts=[];hero.busy=true;hero.lastHF=-1;
+  hero.hatchStart=REDUCED?-1e9:now();
+  hero.onDone=onDone||(()=>{});
+  if(REDUCED) SND.play('fanfare');
+  updateDevId(); hint(REDUCED?'hatched':'hatching...');
+}
+/* XP + level */
+function renderHud(){
+  $('lvl').textContent=hero.level;
+  const seg=$('xpseg'); if(!seg.children.length) for(let i=0;i<10;i++) seg.appendChild(document.createElement('i'));
+  const on=Math.round(hero.xp/hero.need*10); [...seg.children].forEach((el,i)=>el.classList.toggle('on',i<on));
+  const left=5-petsThisHour().length, hh=$('hearts');
+  if(hh.dataset.n!==String(left)){
+    hh.dataset.n=left; hh.innerHTML=''; hh.setAttribute('aria-label',left+' of 5 XP hearts left this hour');
+    for(let i=0;i<5;i++){const c=document.createElement('canvas');const x=setupCanvas(c,15,12);paint(x,HEART,0,0,3,i<left?{}:{mono:true,map:{[P.red]:'#333c57'}});hh.appendChild(c);}
+  }
+}
+function gainXP(n){
+  hero.xp+=n;
+  while(hero.xp>=hero.need){hero.xp-=hero.need;hero.level++;levelUp();}
+  renderHud();
+}
+function levelUp(){
+  const el=$('lvlup'); $('lvlup-n').textContent='lvl '+hero.level;
+  el.classList.remove('on'); void el.offsetWidth; el.classList.add('on');
+  clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove('on'),1900);
+  setTimeout(()=>SND.play('levelup'),160); hint('level up, lvl '+hero.level);
+}
+let hintT=0;
+function hint(msg,ms){const el=$('hint');el.textContent=msg;clearTimeout(hintT);hintT=setTimeout(()=>{el.textContent=idleHint();},ms||2600);}
+function petsThisHour(){const n=Date.now();hero.petTimes=hero.petTimes.filter(x=>n-x<60000);return hero.petTimes;}
+function idleHint(){const p=petsThisHour();if(p.length<5) return 'keys A B C or 1 2 3';const s=Math.ceil((60000-(Date.now()-p[0]))/1000);return 'hearts used up, refill in 0:'+String(s).padStart(2,'0')+' (demo hour = 60s)';}
+setInterval(()=>{const before=$('hearts').dataset.n;renderHud();if(!hintT||$('hint').textContent.startsWith('hearts used')||before!==$('hearts').dataset.n) $('hint').textContent=idleHint();},1000);
 
-/* ---------- band in terminal ---------- */
+/* buttons */
+function petHero(){
+  if(hero.busy) return;
+  const t=now(); hero.reactT=t;
+  if(hero.hearts.length<4) hero.hearts.push({t,x:16+((hero.hearts.length*5)%9)-4});
+  const p=petsThisHour();
+  if(p.length<5){p.push(Date.now());SND.play('chirp');setTimeout(()=>SND.play('happy'),140);gainXP(10);hint('+10 xp, '+(5-p.length)+' hearts left this hour');}
+  else {SND.play('chirp');hint(idleHint(),3000);}
+  renderHud();
+}
+function toggleLcd(){hero.mono=!hero.mono;hero.lastKey='';hint(hero.mono?'green screen':'color screen',1400);}
+function newEgg(){if(hero.busy) return;const seed=1+Math.floor(Math.random()*999998);hatch(seed,'#'+pad6(seed),()=>{SND.play('happy');hint('hatched, say hi with A');});}
+const ACTIONS={A:petHero,B:toggleLcd,C:newEgg};
+function press(k){
+  const el=$('b'+k); el.classList.add('pressed'); clearTimeout(el._p); el._p=setTimeout(()=>el.classList.remove('pressed'),130);
+  SND.play('click'); ACTIONS[k]();
+}
+$('bA').onclick=()=>press('A'); $('bB').onclick=()=>press('B'); $('bC').onclick=()=>press('C');
+heroCv.addEventListener('click',e=>{floatHeart(e.clientX,e.clientY-8);press('A');});
+addEventListener('keydown',e=>{
+  if(e._nb||e.metaKey||e.ctrlKey||e.altKey||e.repeat) return;
+  const tg=e.target; if(tg&&(/INPUT|TEXTAREA|SELECT/.test(tg.tagName)||tg.isContentEditable)) return;
+  const k={a:'A','1':'A',b:'B','2':'B',c:'C','3':'C'}[e.key.toLowerCase()];
+  if(k){e.preventDefault();press(k);}
+});
+speaker($('spk'));
+addActor(heroFrame);
+addEventListener('nibbl:shiny',()=>{hero.lastKey='';updateDevId();});
+
+/* ---------- roll your nibbl ---------- */
 (function(){
-  const cv=document.getElementById('band');const L=makeLife(77);
-  let ctx,s=0;
-  function fit(){const ns=innerWidth<760?3:5;if(ns===s)return;s=ns;ctx=setupCanvas(cv,32*s,16*s);last='';}
-  let last='';
-  addActor(t=>{fit();const f=lifeFrame(L,t);const hb=Math.floor(t/350)%6;
-    const S=scene({pet:BYTE,petX:3,dy:f.dy,expr:f.expr,props:[[BUG,24,11],[HEART,15,Math.max(0,3-(hb%3))]]});
-    const k=JSON.stringify(S);if(k===last)return;last=k;ctx.clearRect(0,0,cv.width,cv.height);paint(ctx,S,0,0,s);});
-  const el=document.getElementById('exp');let sec=42;
-  if(!REDUCED) setInterval(()=>{sec++;el.textContent=Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0');},1000);
-  addEventListener('resize',fit);
+  const form=$('rollf'), input=$('nick'), list=$('traits'), out=$('rollout'), rbtn=$('rollbtn'), rnd=$('rnd');
+  const ADJ=['sleepy','tiny','brave','loud','quiet','lucky','grumpy','swift','cosmic','soggy'], NOUN=['otter','byte','moth','crab','owl','gecko','yak','newt','lynx','koi'];
+  let token=0;
+  function roll(nick){
+    const my=++token, seed=hashText(nick.toLowerCase()), g=genome(seed);
+    list.innerHTML=''; out.hidden=true; rbtn.disabled=rnd.disabled=true;
+    hero.busy=false; // a roll can interrupt a C hatch
+    hatch(seed,'preview · '+nick,()=>{
+      if(my!==token) return;
+      const tr=traitsOf(g), step=REDUCED?0:260;
+      tr.forEach((t,i)=>setTimeout(()=>{
+        if(my!==token) return;
+        const li=document.createElement('li');
+        li.innerHTML='<span class="k">'+t.k+'</span><span class="badge t-'+t.tier+'">'+t.v+'</span><span class="pc num">'+fmtPct(t.p)+'</span>';
+        list.appendChild(li); SND.play('blip');
+      },i*step));
+      setTimeout(()=>{
+        if(my!==token) return;
+        const rt=rarestTrait(g);
+        out.innerHTML='<span class="rt"><span class="lbl muted">rarest</span><span class="badge t-'+rt.tier+'">'+rt.label+'</span><span class="num">'+fmtPct(rt.p)+' odds</span></span><a class="btn sm px" href="'+previewUrl(seed,nick)+'">See its card</a>';
+        out.hidden=false; rbtn.disabled=rnd.disabled=false;
+        SND.play(rt.p<0.015?'fanfare':'happy'); gainXP(10); hint('+10 xp for rolling');
+      },tr.length*step+200);
+    });
+  }
+  form.addEventListener('submit',e=>{e.preventDefault();let n=input.value.trim();if(!n){n=randomNick();input.value=n;}roll(n);});
+  rnd.addEventListener('click',()=>{input.value=randomNick();roll(input.value);});
+  function randomNick(){return ADJ[Math.floor(Math.random()*ADJ.length)]+'_'+NOUN[Math.floor(Math.random()*NOUN.length)]+Math.floor(Math.random()*90+10);}
+})();
+
+/* ---------- bugs nibbled counter (shared by terminal + crawling bug) ---------- */
+let bugsN=0;
+function nibbled(xp){bugsN++;$('bugn').textContent=bugsN;$('bugchip').hidden=false;gainXP(xp);}
+
+/* ---------- terminal band: live demo state machine ---------- */
+const band={state:'idle',t0:0,bug:true,hadBug:true,fired:{}};
+(function(){
+  const cv=$('band'), L=makeLife(77), log=$('log'), stat=$('bstat');
+  const POSE={tests:17,error:15,commit:12,sleep:0,idle:0};
+  const bm=mount(cv,{w:32,h:16,poke:true,always:true,scale:()=>small()?3:5,draw:(t,m)=>{
+    let st=band.state, F=Math.floor((t-band.t0)/110);
+    if(REDUCED&&st!=='idle'&&st!=='sleep'){F=POSE[st];if(t-band.t0>1600){st=band.state='idle';}}
+    const f=lifeFrame(L,t), hop=m.hop(t), happy=m.happy(t);
+    const crawl=REDUCED||Math.floor(t/300)%2?BUG:BUG2;
+    const bugP=band.bug?[[crawl,22,11]]:[];
+    if(st==='tests'){
+      if(band.hadBug){
+        if(F>=12&&!band.fired.eat){band.fired.eat=1;band.bug=false;SND.play('nom');addLog('<span class="c-dim">  nibbl: Byte nibbled 1 bug (+5 xp)</span>');nibbled(5);}
+        if(F>=16&&!band.fired.yay){band.fired.yay=1;SND.play('happy');}
+        if(F<12) return scene({pet:BYTE,petX:3+F,dy:F%2?-1:0,under:[[crawl,22,11]]});
+        if(F<16) return scene({pet:BYTE,petX:15,expr:F%2?'eat':'idle',under:F<14?[[BUG,22,11]]:[],props:F>=14?[[SPARK,27,9]]:[]});
+        if(F<22) return scene({pet:BYTE,petX:15,dy:HOP[F-16]||0,expr:'happy',props:[[HEART,20,Math.max(0,5-(F-16))]]});
+        if(F<34) return scene({pet:BYTE,petX:15-(F-22),dy:F%2?-1:0});
+      }else{
+        if(F===0&&!band.fired.yay){band.fired.yay=1;SND.play('happy');}
+        if(F<8) return scene({pet:BYTE,petX:3,dy:HOP[F]||0,expr:'happy',under:bugP,props:[[SPARK,22,3+(F%2)],[SPARK,1,5-(F%2)]]});
+      }
+      st=band.state='idle';
+    }else if(st==='error'){
+      if(F<16) return scene({pet:BYTE,petX:3,dy:F===8||F===9?-2:0,expr:F<7?'wide':'idle',
+        props:(F<10?[[BANG,11,F%2]]:[]).concat([[BUG,22,Math.min(11,-4+F*3)]])});
+      st=band.state='idle';
+    }else if(st==='commit'){
+      if(F<4) return scene({pet:BYTE,petX:3,expr:'happy',props:[headBox(BYTE,3,F<2?-2:0)]});
+      if(F<34){const x=3+(F-4),b=F%2;if(F===30&&!band.fired.ship){band.fired.ship=1;SND.play('ship');}return scene({pet:BYTE,petX:x,dy:b,under:bugP,props:[headBox(BYTE,x,b)]});}
+      if(F<53){const x=-16+(F-34);return scene({pet:BYTE,petX:x,dy:F%2,under:bugP});}
+      st=band.state='idle';
+    }else if(st==='sleep'){
+      const spr=sprite(BYTE),top=spriteTop(spr),dy=REDUCED?0:Math.floor(t/700)%2;
+      return scene({pet:BYTE,petX:3,dy,expr:happy?'happy':'blink',hop,under:bugP,props:[[CAP,8,top-4+dy]].concat(zProps(REDUCED?12:Math.floor(t/120),19,4))});
+    }
+    return scene({pet:BYTE,petX:3,dy:f.dy,hop,expr:happy?'happy':f.expr,under:bugP});
+  }});
+  function addLog(html){const d=document.createElement('div');d.className='ln';d.innerHTML=html;log.appendChild(d);while(log.children.length>12) log.firstElementChild.remove();}
+  const hex=()=>Math.floor(Math.random()*0xfffffff).toString(16).padStart(7,'0');
+  let expTimer=0, sec=42;
+  const tickExp=()=>{const el=$('exp');if(el) el.textContent=Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0');sec++;};
+  if(!REDUCED) expTimer=setInterval(tickExp,1000);
+  function status(s){clearInterval(expTimer);stat.textContent=s;}
+  const ACT={
+    tests(){band.hadBug=band.bug;addLog('<span class="c-sky">⏺</span> Bash <span class="c-dim">npm test</span>');
+      setTimeout(()=>addLog('  <span class="c-ok">✓ '+(42+Math.floor(Math.random()*3))+' passed</span>'+(band.hadBug?' <span class="c-dim">0 failed</span>':'')),300);
+      SND.play('blip');status(band.hadBug?'✓ tests green, eating the bug':'✓ tests green, nothing to eat');gainXP(5);},
+    error(){band.bug=true;addLog('<span class="c-sky">⏺</span> Bash <span class="c-dim">npm run dev</span>');
+      setTimeout(()=>addLog('  <span class="c-err">TypeError: session is undefined</span> <span class="c-dim">src/session.ts:88</span>'),200);
+      SND.play('error');status('⚠ a bug dropped onto the scene');gainXP(5);},
+    commit(){const h=hex();addLog('<span class="c-sky">⏺</span> Bash <span class="c-dim">git commit -m "fix: token refresh race"</span>');
+      setTimeout(()=>addLog('  <span class="c-dim">[main '+h+'] 1 file changed, 4 insertions(+)</span>'),250);
+      SND.play('box');status('▣ hauling commit '+h+' off scene');gainXP(5);},
+    sleep(){addLog('<span class="c-sky">⏺</span> <span class="c-dim">clock 02:14 local</span>  <span class="c-dim">nibbl: nightcap on</span>');
+      SND.play('sleep');status('z asleep, wakes on the next event');gainXP(5);}
+  };
+  document.querySelectorAll('.demo [data-act]').forEach(b=>b.addEventListener('click',()=>{
+    const a=b.dataset.act;
+    if(band.state==='sleep'&&a!=='sleep') addLog('<span class="c-dim">  nibbl: Byte woke up</span>');
+    band.state=a;band.t0=now();band.fired={};ACT[a]();bm.redraw();
+  }));
 })();
 
 /* ---------- lifecycle stages ---------- */
 (function(){
-  const host=document.getElementById('stages');
+  const host=$('stages');
   const stages=[['egg','lvl 0',0],['baby','lvl 1',3],['teen','lvl 10',4],['adult','lvl 25',6],['elder','lvl 50',6]];
-  const small=innerWidth<760;
   stages.forEach(([name,lvl,sc],i)=>{
     const d=document.createElement('div');d.className='stage';
     d.innerHTML='<div class="pad"></div><b>'+name+'</b><span class="lbl">'+lvl+'</span>';
     const cv=document.createElement('canvas');cv.setAttribute('role','img');cv.setAttribute('aria-label',name+' stage');
     d.querySelector('.pad').appendChild(cv);host.appendChild(d);
     const L=makeLife(100+i);
-    let s=small?Math.max(2,Math.floor(sc/2)):sc;
-    if(i===0){const ctx=setupCanvas(cv,8*(small?3:6),10*(small?3:6));let last=-1;
-      addActor(t=>{const f=REDUCED?0:Math.floor(t/400)%8;const w=f<4?0:[-1,1,-1,1][f-4];if(w===last)return;last=w;ctx.clearRect(0,0,cv.width,cv.height);const G=grid(10,10);blit(G,EGG,1+w,0);paint(ctx,G,-(small?3:6),0,small?3:6);});
-      return;}
-    const size=i===4?20:16, ctx=setupCanvas(cv,size*s,size*s);let last='';
-    addActor(t=>{const f=lifeFrame(L,t);const aura=Math.floor(t/300)%2;const k=f.expr+f.dy+aura;if(k===last)return;last=k;
-      const G=grid(size,size);const off=i===4?2:0;
-      const spr=sprite(BYTE,f.expr);
-      if(i===4){ // elder aura: stepped ring around outline
+    if(i===0){
+      mount(cv,{w:8,h:10,poke:true,cssHop:true,scale:()=>small()?3:6,draw:t=>{const f=REDUCED?0:Math.floor(t/400)%8;const w=f<4?0:[-1,1,-1,1][f-4];const G=grid(10,10);blit(G,EGG,1+w,0);return G.map(r=>r.slice(1,9));}});
+      return;
+    }
+    const size=i===4?20:16, off=i===4?2:0;
+    mount(cv,{w:size,h:size,poke:true,cssHop:true,scale:()=>small()?Math.max(2,Math.floor(sc/2)):sc,draw:(t,m)=>{
+      const f=lifeFrame(L,t), aura=Math.floor(t/300)%2, G=grid(size,size), spr=sprite(BYTE,m.happy(t)?'happy':f.expr);
+      if(i===4){
         for(let y=0;y<16;y++)for(let x=0;x<16;x++){if(spr[y][x]) continue;
           const near=[[-1,0],[1,0],[0,-1],[0,1],[-2,0],[2,0],[0,-2]].some(([dx,dy])=>{const X=x+dx,Y=y+dy;return X>=0&&X<16&&Y>=0&&Y<16&&spr[Y][X]===P.ink;});
           if(near&&((x+y+aura)%3===0)) G[y+off][x+off]=(x+y)%2?P.yellow:P.cyan;}
       }
-      blit(G,spr,off,off+Math.max(0,f.dy));ctx.clearRect(0,0,cv.width,cv.height);paint(ctx,G,0,0,s);});
+      blit(G,spr,off,off+Math.max(0,f.dy));return G;}});
   });
 })();
 
 /* ---------- reaction tiles ---------- */
 (function(){
-  const host=document.getElementById('tiles');
+  const host=$('tiles');
   const pets=[genome(1201),genome(77),genome(310),genome(42)];
   const tiles=[
     {lbl:'npm test: 42 passed',h:'Tests pass',p:'Your nibbl walks over and eats the bug.',n:34,f:(i,g)=>{
       let x=2; if(i>=6&&i<16) x=2+(i-6); else if(i>=16) x=12;
-      const props=[]; if(i<17) props.push([BUG,25,11]); if(i>=17&&i<20) props.push([SPARK,26,10]);
+      const under=[], props=[]; if(i<17) under.push([BUG,25,11]); if(i>=17&&i<20) props.push([SPARK,26,10]);
       if(i>=20&&i<30) props.push([HEART,x+6,Math.max(0,4-Math.floor((i-20)/2))]);
-      return scene({pet:g,petX:x,dy:(i>=6&&i<16)?(i%2?-1:0):(i>=17&&i<19?1:0),expr:i>=17&&i<20?'blink':'idle',props});}},
+      return {pet:g,petX:x,dy:(i>=6&&i<16)?(i%2?-1:0):0,expr:i>=16&&i<20?(i%2?'eat':'idle'):i>=20&&i<26?'happy':'idle',under,props};}},
     {lbl:'TypeError at line 88',h:'Error',p:'A bug drops onto the scene and stays until a test passes.',n:34,f:(i,g)=>{
-      const props=[]; if(i>=6&&i<14) props.push([BANG,9,1+(i%2)]);
+      const props=[]; if(i>=6&&i<14) props.push([BANG,10,1+(i%2)]);
       if(i>=8) props.push([BUG,24,Math.min(11,-4+(i-8)*3)]);
-      return scene({pet:g,petX:2,dy:i===8||i===9?-2:0,expr:i>12&&i%7===0?'blink':'idle',props});}},
-    {lbl:'git commit -m "auth"',h:'Commit',p:'It carries the box off the scene.',n:52,f:(i,g)=>{
-      const x=-18+i;const bob=i%2;
-      return scene({pet:g,petX:x,dy:bob,props:[[BOX,x+12,8+bob]]});}},
-    {lbl:'02:14 local time',h:'After midnight',p:'Nightcap on. It sleeps while you ship.',n:24,f:(i,g)=>{
+      return {pet:g,petX:2,dy:i===8||i===9?-2:0,expr:i>=6&&i<12?'wide':i>12&&i%7===0?'blink':'idle',props};}},
+    {lbl:'git commit -m "auth"',h:'Commit',p:'It hauls the box off the scene on its head.',n:44,f:(i,g)=>{
+      const x=-12+i, bob=i%2;
+      return {pet:g,petX:x,dy:bob,props:[headBox(g,x,bob)]};}},
+    {lbl:'02:14 local time',h:'After midnight',p:'Nightcap on. It sleeps while you ship.',n:48,f:(i,g)=>{
       const spr=sprite(g);const top=spriteTop(spr);const dy=Math.floor(i/6)%2;
-      const props=[[CAP,5+3,top-4+dy],[MOON,28,1]];
-      const zi=i%12; if(zi<10) props.push([Z2,18,7-Math.floor(zi/3)]); if(zi>=4) props.push([Z1,21,5-Math.floor((zi-4)/3)]);
-      return scene({pet:g,petX:3,dy,expr:'blink',props});}}
+      return {pet:g,petX:2,dy,expr:'blink',props:[[CAP,7,top-4+dy],[MOON,28,1]].concat(zProps(i,18,4))};}}
   ];
   tiles.forEach((tl,k)=>{
     const d=document.createElement('div');d.className='tile px';
-    d.innerHTML='<div class="scr"><canvas role="img" aria-label="'+tl.h+' animation"></canvas></div><div><span class="lbl">'+tl.lbl+'</span><h3>'+tl.h+'</h3></div><p>'+tl.p+'</p>';
+    d.innerHTML='<div class="scr"><canvas role="img" aria-label="'+tl.h+' animation. Click the pet."></canvas></div><div><span class="lbl">'+tl.lbl+'</span><h3>'+tl.h+'</h3></div><p>'+tl.p+'</p>';
     host.appendChild(d);
-    const cv=d.querySelector('canvas');let ctx,s=0,last='';
-    function fit(){const w=d.querySelector('.scr').clientWidth;const ns=Math.max(3,Math.min(7,Math.floor(w/32)));if(ns===s)return;s=ns;ctx=setupCanvas(cv,32*s,16*s);last='';}
-    addActor(t=>{fit();const i=REDUCED?(k===0?0:20):Math.floor(t/140)%tl.n;const S=tl.f(i,pets[k]);const kk=JSON.stringify(S);if(kk===last)return;last=kk;ctx.clearRect(0,0,cv.width,cv.height);paint(ctx,S,0,0,s);});
+    const scr=d.querySelector('.scr');
+    mount(d.querySelector('canvas'),{w:32,h:16,poke:true,scale:()=>Math.max(3,Math.min(7,Math.floor(scr.clientWidth/32))),draw:(t,m)=>{
+      const i=REDUCED?(k===0?0:k===3?40:20):Math.floor(t/140)%tl.n;
+      const o=tl.f(i,pets[k]); o.hop=m.hop(t); if(m.happy(t)) o.expr='happy';
+      return scene(o);}});
   });
 })();
 
-/* ---------- odds table ---------- */
+/* ---------- odds table + rarest example ---------- */
 const TIER_SEEDS={common:9,uncommon:31,rare:142,epic:256,legendary:7};
 (function(){
-  const host=document.getElementById('odds-table');
+  const host=$('odds-table');
   const rows=[['common',40],['uncommon',30],['rare',18],['epic',9],['legendary',3],['shiny',4]];
-  const small=innerWidth<760;
   rows.forEach(([t,p])=>{
     const d=document.createElement('div');d.className='orow';
     d.innerHTML='<span><span class="badge t-'+t+'">'+t+'</span></span><canvas role="img" aria-label="'+t+' example"></canvas><div class="bar t-'+t+'" style="width:'+(p/40*100)+'%"></div><span class="pct">'+(t==='shiny'?'+':'')+p+'%</span>';
     host.appendChild(d);
     const g=t==='shiny'?genome(23,{shiny:true}):genome(TIER_SEEDS[t]);
-    const s=small?2:3; const ctx=setupCanvas(d.querySelector('canvas'),16*s,16*s);paint(ctx,sprite(g),0,0,s);
+    mountSprite(d.querySelector('canvas'),g,{poke:true,scale:()=>small()?2:3});
   });
-  // rarest trait: find a starry ghost sprout
-  let seed=1000; while(true){const g=genome(seed);if(g.family==='sprout'&&g.pattern==='stars'&&g.ramp==='ghost'&&!g.shiny)break;seed++;}
-  const g=genome(seed);const cv=document.getElementById('rare');let ctx,s=0,last='';const L=makeLife(321);
-  function fit(){const ns=innerWidth<760?5:6;if(ns===s)return;s=ns;ctx=setupCanvas(cv,32*s,16*s);last='';}
-  addActor(t=>{fit();const f=lifeFrame(L,t);const sp=Math.floor(t/300)%4;const S=scene({pet:g,petX:8,dy:f.dy,expr:f.expr,props:[[SPARK,[3,25,5,26][sp],[2,3,8,7][sp]]]});const k=JSON.stringify(S);if(k===last)return;last=k;ctx.clearRect(0,0,cv.width,cv.height);paint(ctx,S,0,0,s);});
-  document.getElementById('rare-desc').textContent='of all hatched nibbls are ghost sprouts with stars. Seed #'+String(seed).padStart(6,'0')+' is one of them.';
+  // rarest example: first issued serial whose rarest trait is under 2.5% (and not shiny)
+  let n=1; for(;n<=HATCHED;n++){const d=petData(n);if(!d.g.shiny&&rarestTrait(d.g).p<0.025) break;}
+  const d=petData(n), rt=rarestTrait(d.g), cv=$('rare'), L=makeLife(321);
+  mount(cv,{w:32,h:16,poke:true,scale:()=>small()?5:6,draw:(t,m)=>{const f=lifeFrame(L,t);const sp=Math.floor(t/300)%4;
+    return scene({pet:d.g,petX:8,dy:f.dy,hop:m.hop(t),expr:m.happy(t)?'happy':f.expr,props:[[SPARK,[3,25,5,26][sp],[2,3,8,7][sp]]]});}});
+  $('rare-name').textContent=rt.label[0].toUpperCase()+rt.label.slice(1);
+  $('rare-pct').textContent=fmtPct(rt.p);
+  $('rare-desc').innerHTML='odds at hatch for the '+sizeName(d.g)+' body on a '+d.g.family+'. <a href="'+cardUrl(n)+'">'+esc(d.name)+' #'+d.id+'</a> rolled one.';
 })();
 
 /* ---------- leaderboard ---------- */
 (function(){
-  const LB=[
-    ['Mochi',7,'kaito',31,'legendary','adult knight',{genesis:true}],
-    ['Pixel',118,'ana.codes',29,'epic','adult night owl',{}],
-    ['Gremlin',23,'devon',27,'rare','adult gremlin',{genesis:true,shiny:true}],
-    ['Tofu',504,'mira_k',26,'uncommon','adult builder',{}],
-    ['Sprocket',388,'jvdl',24,'common','teen',{}],
-    ['Nori',612,'sakura.dev',22,'rare','teen',{}],
-    ['Kernel',291,'linus_t',19,'epic','teen',{}],
-    ['Biscuit',845,'pmarsh',17,'common','teen',{}],
-    ['Fennel',930,'oyelowo',15,'uncommon','teen',{}],
-    ['Zuzu',1102,'ren',13,'rare','teen',{}],
-    ['Pip',1219,'hana.k',11,'common','teen',{}],
-    ['Waffle',1290,'bkrs',9,'uncommon','baby',{}]
-  ];
-  const host=document.getElementById('lb');
-  LB.forEach(([nm,ser,own,lvl,tier,br,fl],i)=>{
-    const d=document.createElement('div');d.className='lrow';
-    const tags='<span class="badge t-'+tier+'">'+tier+'</span>'+(fl.shiny?'<span class="badge t-shiny">shiny</span>':'')+(fl.genesis?'<span class="badge t-genesis">genesis</span>':'');
-    d.innerHTML='<span class="rk'+(i<3?' top':'')+'">'+(i+1)+'</span><canvas role="img" aria-label="'+nm+'"></canvas><span class="nm"><b>'+nm+'</b><span class="lbl">#'+String(ser).padStart(6,'0')+'</span><small>by @'+own+'</small></span><span class="br">'+br+'</span><span class="lv">lvl '+lvl+'</span><span class="tg">'+tags+'</span>';
-    host.appendChild(d);
-    const g=genome(ser*31+5,{shiny:!!fl.shiny});
-    const s=innerWidth<760?2:3;const cv=d.querySelector('canvas');const ctx=setupCanvas(cv,16*s,16*s);const L=makeLife(500+i);let last='';
-    addActor(t=>{const f=lifeFrame(L,t+i*170);const k=f.expr+f.dy;if(k===last)return;last=k;ctx.clearRect(0,0,cv.width,cv.height);const G=grid(16,16);blit(G,sprite(g,f.expr),0,Math.max(0,f.dy));paint(ctx,G,0,0,s);});
+  const host=$('lb');
+  LEADERBOARD.forEach((ser,i)=>{
+    const d=petData(ser);
+    const a=document.createElement('a');a.className='lrow';a.href=cardUrl(ser);a.setAttribute('aria-label',d.name+' #'+d.id+', level '+d.level+', open card');
+    const tags='<span class="badge t-'+d.tier+'">'+d.tier+'</span>'+(d.g.shiny?'<span class="badge t-shiny">shiny</span>':'')+(d.genesis?'<span class="badge t-genesis">genesis</span>':'');
+    a.innerHTML='<span class="rk'+(i<3?' top':'')+'">'+(i+1)+'</span><canvas role="img" aria-label="'+d.name+'. Click to pet."></canvas><span class="nm"><b>'+d.name+'</b><span class="lbl">#'+d.id+'</span><small>by @'+d.owner+'</small></span><span class="br">'+d.form+'</span><span class="lv">lvl '+d.level+'</span><span class="tg">'+tags+'</span>';
+    host.appendChild(a);
+    mountSprite(a.querySelector('canvas'),d.g,{poke:'stop',phase:i*170,life:500+i});
   });
 })();
 
-/* ---------- pet card ---------- */
+/* ---------- pet card example + recent ---------- */
 (function(){
-  const g=BYTE;
-  const genes=[['family',g.family],['body',g.w*2+'x'+g.h*2],['colors',g.ramp],['pattern',g.pattern],['eyes',g.eyes],['ears',g.ears],['belly',g.belly?'yes':'no'],['blush',g.blush?'yes':'no']];
-  document.getElementById('genes').innerHTML=genes.map(([k,v])=>'<div><span>'+k+'</span><b>'+v+'</b></div>').join('');
-  const cv=document.getElementById('pcanvas');let ctx,s=0,last='';const L=makeLife(42);
-  function fit(){const w=cv.parentElement.clientWidth;const ns=Math.max(4,Math.min(7,Math.floor((w-16)/32)));if(ns===s)return;s=ns;ctx=setupCanvas(cv,32*s,16*s);last='';}
-  addActor(t=>{fit();const f=lifeFrame(L,t);const S=scene({pet:g,petX:8,dy:f.dy,expr:f.expr,props:[[GEM,26,4]]});const k=JSON.stringify(S);if(k===last)return;last=k;ctx.clearRect(0,0,cv.width,cv.height);paint(ctx,S,0,0,s);});
+  const d=petData(42);
+  $('cardhost').innerHTML=cardHTML(d);
+  mountCardPet($('cardhost'),d,7);
+  $('opencard').href=cardUrl(42);
+  const rec=$('recent');
+  for(let n=HATCHED;n>HATCHED-4;n--){
+    const p=petData(n), a=document.createElement('a');a.className='px';a.href=cardUrl(n);
+    a.innerHTML='<canvas role="img" aria-label="'+p.name+'"></canvas><b>'+esc(p.name)+'</b><span class="lbl">#'+p.id+'</span>';
+    rec.appendChild(a); mountSprite(a.querySelector('canvas'),p.g,{scale:()=>3,life:n});
+  }
+})();
+
+/* ---------- crawling bug: click to squash, or the hero pet chases and eats it ---------- */
+(function(){
+  if(REDUCED) return;
+  const lane=document.createElement('div');lane.className='lane';document.body.appendChild(lane);
+  const btn=document.createElement('button');btn.type='button';btn.className='crawl-bug';btn.hidden=true;btn.setAttribute('aria-label','A bug is crawling by. Squash it');
+  const bcv=document.createElement('canvas');btn.appendChild(bcv);const bctx=setupCanvas(bcv,24,16);
+  const ch=document.createElement('canvas');ch.className='chaser';ch.hidden=true;const cctx=setupCanvas(ch,48,48);
+  const sp=document.createElement('canvas');sp.className='splat';sp.hidden=true;paint(setupCanvas(sp,28,28),SPLAT,0,0,4);
+  lane.append(btn,ch,sp);
+  let st=null, lastB='', lastC='';
+  function spawn(){if(document.hidden){setTimeout(spawn,5000);return;}st={t0:now(),phase:'crawl',chaseAt:4500+Math.random()*2500};btn.hidden=false;$('bugchip').hidden=false;}
+  function end(){st=null;btn.hidden=true;ch.hidden=true;setTimeout(spawn,25000+Math.random()*20000);}
+  const bugX=t=>-30+Math.floor((t-st.t0)/110)*6;
+  btn.addEventListener('click',()=>{
+    if(!st||st.phase==='eat') return;
+    const x=st.x; btn.hidden=true; sp.style.transform='translateX('+(x-2)+'px)'; sp.hidden=false; setTimeout(()=>sp.hidden=true,700);
+    SND.play('squash'); nibbled(15); hint('+15 xp, squashed');
+    if(st.phase==='chase'){st.phase='back';st.tb=now();st.bx=st.cx;} else end();
+  });
+  addActor(t=>{
+    if(!st) return;
+    if(st.phase==='crawl'||st.phase==='chase'){
+      st.x=bugX(t); btn.style.transform='translateX('+st.x+'px)';
+      const fr=Math.floor(t/150)%2?'a':'b'; if(fr!==lastB){lastB=fr;bctx.clearRect(0,0,24,16);paint(bctx,fr==='a'?BUG:BUG2,0,0,4);}
+      if(st.x>innerWidth+10){end();return;}
+      if(st.phase==='crawl'&&t-st.t0>st.chaseAt){st.phase='chase';st.tc=t;ch.hidden=false;}
+    }
+    if(st.phase==='chase'){
+      st.cx=-60+Math.floor((t-st.tc)/90)*16;
+      if(st.cx+38>=st.x){st.phase='eat';st.te=t;btn.hidden=true;SND.play('nom');nibbled(5);hint('your nibbl ate a bug, +5 xp');}
+    }else if(st.phase==='eat'){
+      if(t-st.te>500){st.phase='back';st.tb=t;st.bx=st.cx;}
+    }else if(st.phase==='back'){
+      st.cx=st.bx-Math.floor((t-st.tb)/90)*16; if(st.cx<-60){end();return;}
+    }
+    if(st.phase!=='crawl'){
+      const expr=st.phase==='eat'?(Math.floor((t-st.te)/120)%2?'eat':'happy'):'idle', bob=st.phase==='eat'?0:Math.floor(t/90)%2;
+      ch.style.transform='translate('+st.cx+'px,'+(-bob*3)+'px)'+(st.phase==='back'?' scaleX(-1)':'');
+      const k=hero.g.seed+expr+isShiny(hero.g); if(k!==lastC){lastC=k;cctx.clearRect(0,0,48,48);paint(cctx,sprite(hero.g,expr),0,0,3);}
+    }
+  });
+  setTimeout(spawn,9000);
 })();
 
 /* ---------- copy buttons ---------- */
 function copyText(btn,text,done){
-  const ok=()=>{const o=btn.textContent;btn.textContent=done;setTimeout(()=>btn.textContent=o,1400);};
+  const ok=()=>{const o=btn.textContent;btn.textContent=done;setTimeout(()=>btn.textContent=o,1400);SND.play('blip');};
   if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(ok,ok); else ok();
 }
-document.getElementById('copy').onclick=e=>copyText(e.currentTarget,'/plugin marketplace add nibbl-dev/nibbl\n/plugin install nibbl@nibbl','Copied');
-document.getElementById('copylink').onclick=e=>copyText(e.currentTarget,'https://nibbl.dev/p/000042','Link copied');
+$('copy').onclick=e=>copyText(e.currentTarget,'/plugin marketplace add nibbl-dev/nibbl\n/plugin install nibbl@nibbl','Copied');
+$('copylink').onclick=e=>copyText(e.currentTarget,shareUrl(42),'Link copied');
 
 /* ---------- boot ---------- */
-layoutHero(); updateDevId(); hero.hatchStart=0;
+layoutHero(); updateDevId(); renderHud();
 addEventListener('resize',layoutHero);
-if(REDUCED){for(const a of actors) a(99999);} else requestAnimationFrame(loop);
+startLoop();
 </script>
 </body>
 </html>

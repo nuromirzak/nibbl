@@ -1,0 +1,126 @@
+/* Nibbl shared styles: tokens, pixel boxes, buttons, badges, pet card, tiny UI */
+:root{
+  --night:#0f111a; --shell:#f4ead5; --shell-2:#e2d3b3; --shell-3:#c4af8a;
+  --lcd-1:#c5d1a5; --lcd-2:#8b9a6b; --lcd-3:#4d5a3c; --lcd-4:#1f2418;
+  --accent:#ef7d57; --bug:#a7f070;
+  --ink:#1a1c2c; --plum:#5d275d; --red:#b13e53; --yellow:#ffcd75; --green:#38b764;
+  --teal:#257179; --navy:#29366f; --blue:#3b5dc9; --sky:#41a6f6; --cyan:#73eff7;
+  --white:#f4f4f4; --silver:#94b0c2; --slate:#566c86; --dusk:#333c57;
+  --panel:#1a1c2c; --line:#333c57; --drop:#05060a;
+  --t-common:#94b0c2; --t-uncommon:#a7f070; --t-rare:#41a6f6; --t-epic:#c77dff; --t-legendary:#ffcd75;
+  --f-head:"Pixelify Sans", system-ui, sans-serif;
+  --f-label:"Silkscreen", ui-monospace, monospace;
+  --f-body:"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --u:8px;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--night);color:var(--white);font:400 15px/1.6 var(--f-body);overflow-x:hidden}
+canvas{image-rendering:pixelated;image-rendering:crisp-edges;display:block}
+a{color:inherit}
+:focus-visible{outline:2px dashed var(--yellow);outline-offset:6px}
+h1,h2,h3{font-family:var(--f-head);font-weight:700;margin:0;line-height:1.1;letter-spacing:0}
+p{margin:0}
+.wrap{max-width:1136px;margin:0 auto;padding:0 32px}
+.lbl{font-family:var(--f-label);font-size:12px;line-height:16px;letter-spacing:.02em}
+.num{font-family:var(--f-label);font-weight:400;letter-spacing:.02em}
+.muted{color:var(--silver)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* pixel box: stepped corners via edge strips + hard stepped shadow */
+.px{
+  --bg:var(--panel); --bd:var(--line); --sh:var(--drop);
+  background:var(--bg);
+  box-shadow:
+    0 -4px 0 0 var(--bd), 0 4px 0 0 var(--bd), -4px 0 0 0 var(--bd), 4px 0 0 0 var(--bd),
+    8px 4px 0 0 var(--sh), 4px 8px 0 0 var(--sh), 4px 4px 0 0 var(--sh);
+}
+.px.flat{box-shadow:0 -4px 0 0 var(--bd), 0 4px 0 0 var(--bd), -4px 0 0 0 var(--bd), 4px 0 0 0 var(--bd)}
+
+.btn{
+  --bg:var(--accent); --bd:var(--ink); --sh:var(--drop);
+  font:600 14px/1 var(--f-body); color:var(--ink); border:0; cursor:pointer;
+  padding:10px 14px; position:relative; white-space:nowrap; display:inline-block; text-decoration:none;
+}
+.btn:active,.btn.pressed{transform:translate(4px,4px);box-shadow:0 -4px 0 0 var(--bd), 0 4px 0 0 var(--bd), -4px 0 0 0 var(--bd), 4px 0 0 0 var(--bd)}
+.btn.ghost{--bg:#232740;--bd:var(--line);color:var(--white)}
+.btn.sm{font-size:13px;padding:8px 10px}
+.btn:disabled{opacity:.55;cursor:default}
+
+/* nav */
+nav{padding:24px 0}
+nav .wrap{display:flex;align-items:center;gap:24px}
+.logo{display:flex;align-items:center;gap:12px;text-decoration:none}
+.logo b{font:500 32px/1 var(--f-head)}
+nav .links{margin-left:auto;display:flex;gap:24px;align-items:center;font-size:14px}
+nav .links a{text-decoration:none;color:var(--silver)}
+nav .links a:hover{color:var(--white)}
+
+/* pixel speaker mute toggle */
+.spk{--bg:var(--shell);--bd:var(--ink);--sh:var(--drop);width:44px;height:44px;border:0;padding:0;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex:none}
+.spk:active{transform:translate(4px,4px);box-shadow:0 -4px 0 0 var(--bd), 0 4px 0 0 var(--bd), -4px 0 0 0 var(--bd), 4px 0 0 0 var(--bd)}
+
+/* badges */
+.badge{display:inline-block;font-family:var(--f-label);font-size:11px;line-height:1;padding:5px 7px 4px;color:var(--ink);background:var(--c);box-shadow:0 -2px 0 0 var(--c),0 2px 0 0 var(--c),-2px 0 0 0 var(--c),2px 0 0 0 var(--c);margin:2px}
+.t-common{--c:var(--t-common)} .t-uncommon{--c:var(--t-uncommon)} .t-rare{--c:var(--t-rare)} .t-epic{--c:var(--t-epic)} .t-legendary{--c:var(--t-legendary)}
+.t-genesis{--c:var(--plum);color:var(--yellow)}
+.t-preview{--c:var(--ink);color:var(--yellow)}
+.t-shiny{--c:#73eff7;background:linear-gradient(90deg,#73eff7 0 33.33%,#b9f0b6 33.33% 66.66%,#ffcd75 66.66%);background-size:300% 100%;animation:shim 1.5s steps(1) infinite}
+@keyframes shim{0%{background-position:0 0}33%{background-position:50% 0}66%{background-position:100% 0}}
+
+/* pet card */
+.pcard{--bg:var(--shell);--bd:var(--ink);--sh:#000;color:var(--ink);padding:24px;max-width:440px;width:100%;position:relative}
+.pcard a{text-decoration:none}
+.pcard a:hover{text-decoration:underline;text-decoration-thickness:2px}
+.pcard .top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.pcard .top b{font:500 24px/1 var(--f-head)}
+.pcard .top .lbl{color:var(--slate)}
+.pcard .lcd{--bg:var(--lcd-1);--bd:var(--dusk);margin:16px 4px;display:flex;justify-content:center;padding:16px 0;position:relative;overflow:hidden}
+.pcard h3{font-size:48px;font-weight:500;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.pcard h3 .lbl{font-size:14px;color:var(--slate)}
+.pcard .tags{margin-top:12px;display:flex;gap:4px;flex-wrap:wrap}
+.pcard .tags .badge.t-plain{--c:var(--shell-2);color:var(--ink)}
+.pcard .xp{margin-top:16px;display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center}
+.pcard .xp .lbl{color:#7a6a4c}
+.pcard .xp .lv{color:var(--ink);font-size:14px}
+.xpbar{height:12px;background:var(--shell-2);box-shadow:0 -2px 0 0 var(--shell-3),0 2px 0 0 var(--shell-3),-2px 0 0 0 var(--shell-3),2px 0 0 0 var(--shell-3)}
+.xpbar i{display:block;height:100%;background:repeating-linear-gradient(90deg,var(--green) 0 6px,transparent 6px 8px)}
+.pcard .rarest{margin-top:16px;padding:10px 12px;background:var(--ink);color:var(--white);display:flex;align-items:baseline;gap:4px 10px;flex-wrap:wrap}
+.pcard .rarest>.lbl{flex-basis:100%}
+.pcard .rarest .lbl{color:var(--silver)}
+.pcard .rarest b{font:500 22px/1.1 var(--f-head)}
+.pcard .rarest .odds{margin-left:auto;font:400 16px/1 var(--f-label);color:var(--c,var(--yellow))}
+.genes{margin-top:20px;display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;font-size:13px}
+.genes div{display:flex;justify-content:space-between;gap:8px;border-bottom:2px dotted var(--shell-3);padding-bottom:4px}
+.genes span{color:#7a6a4c}
+.stats{margin-top:20px;display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center}
+.stats b{display:block;font:400 20px/1.2 var(--f-label)}
+.stats span{font-family:var(--f-label);font-size:10px;line-height:12px;color:#7a6a4c;display:block}
+.pcard .foot{margin-top:20px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;color:#7a6a4c}
+/* shiny shimmer: stepped rainbow border + a sheen that walks across */
+.pcard.shiny,.all-shiny .pcard{animation:shinybd 1.2s steps(1) infinite}
+@keyframes shinybd{0%{--bd:#73eff7}33%{--bd:#ffcd75}66%{--bd:#c77dff}}
+.pcard.shiny::after,.all-shiny .pcard::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(115deg,transparent 0 40%,rgba(255,255,255,.38) 40% 44%,transparent 44% 47%,rgba(115,239,247,.28) 47% 50%,transparent 50%);
+  background-size:300% 100%;animation:sheen 2.4s steps(12) infinite}
+@keyframes sheen{from{background-position:100% 0}to{background-position:-50% 0}}
+
+/* fx */
+.float-heart{position:fixed;z-index:70;pointer-events:none;transform:translate(-50%,-100%);animation:floatup .8s steps(6) forwards}
+@keyframes floatup{to{transform:translate(-50%,-260%);opacity:0}}
+.hopping{animation:hop .5s steps(1)}
+@keyframes hop{0%{transform:translateY(0)}14%{transform:translateY(-4px)}28%{transform:translateY(-10px)}42%{transform:translateY(-12px)}57%{transform:translateY(-10px)}71%{transform:translateY(-4px)}86%{transform:translateY(0)}}
+.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:80;--bg:var(--yellow);--bd:var(--ink);color:var(--ink);padding:10px 16px;text-align:center;pointer-events:none;animation:pop .3s steps(3)}
+.toast b{display:block;font:400 18px/1.2 var(--f-label)}
+.toast span{font:400 11px/1.4 var(--f-label)}
+@keyframes pop{0%{transform:translateX(-50%) scale(.5)}60%{transform:translateX(-50%) scale(1.12)}100%{transform:translateX(-50%) scale(1)}}
+
+@media (max-width:760px){
+  .wrap{padding:0 16px}
+  .pcard{padding:16px}
+  .pcard h3{font-size:40px}
+  .stats b{font-size:15px}
+}
+@media (prefers-reduced-motion:reduce){
+  .t-shiny,.pcard.shiny,.all-shiny .pcard,.pcard.shiny::after,.all-shiny .pcard::after,.float-heart,.hopping,.toast{animation:none}
+}

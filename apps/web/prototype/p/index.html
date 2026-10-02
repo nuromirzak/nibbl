@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nibbl pet card</title>
+<meta name="description" content="A nibbl pet card: genome, rarest trait, level and stats.">
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Pixelify+Sans:wght@400;500;600;700&family=Silkscreen&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/nibbl.css">
+<style>
+nav .links .btn{color:var(--ink)}
+main{padding:24px 0 96px}
+.cp{display:grid;grid-template-columns:minmax(0,520px) minmax(0,1fr);gap:64px;align-items:start;justify-content:center}
+.cp .pcard{max-width:520px}
+.cp .pcard h3{font-size:56px}
+.egg-card h3{font-size:36px !important;line-height:1.1}
+.egg-card p{margin-top:12px;font-size:14px;color:#4a4134}
+.egg-card .acts{margin-top:24px;display:flex;gap:20px;flex-wrap:wrap;align-items:center}
+.egg-card .acts a:not(.btn){font-size:14px;color:var(--ink)}
+.side{display:grid;gap:40px;padding-top:4px}
+.side .kicker{color:var(--slate)}
+.side h1{font-size:clamp(36px,4.4vw,52px);margin-top:8px}
+.side .lead{margin-top:16px;color:#c9d3df;max-width:44ch}
+.panel{padding:20px;--bg:#14161f}
+.panel>.lbl{color:var(--slate);display:block;margin-bottom:12px}
+.url{font-size:14px;color:var(--white);overflow-wrap:anywhere;padding:10px 12px;background:#0f111a;margin-bottom:16px}
+.btns{display:flex;gap:16px;flex-wrap:wrap}
+.cta h2{font-size:32px;font-weight:500}
+.cta p{margin-top:8px;color:#c9d3df;font-size:14px}
+.cta code{display:block;margin:16px 0 20px;padding:12px 14px;background:#0f111a;font:400 13px/1.7 var(--f-body);overflow-wrap:anywhere}
+.cta code span{color:var(--slate)}
+.near{display:flex;justify-content:space-between;gap:16px}
+.near a{display:flex;align-items:center;gap:10px;text-decoration:none;padding:10px 12px;--bg:#14161f;min-width:0}
+.near a:hover{--bd:var(--accent)}
+.near a b{font:500 18px/1 var(--f-head)}
+.near a .lbl{color:var(--slate)}
+.near .arr{font-family:var(--f-label);color:var(--accent)}
+.note{color:var(--slate);font-size:13px}
+footer{border-top:4px solid #1a1c2c;padding:32px 0 48px;color:var(--slate);font-size:13px}
+footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+footer a{color:var(--silver)}
+@media (max-width:960px){
+  .cp{grid-template-columns:minmax(0,1fr);gap:48px;justify-items:center}
+  .cp>*{width:100%;max-width:520px}
+}
+@media (max-width:760px){
+  nav .links .lb{display:none}
+  main{padding:8px 0 64px}
+  .cp .pcard h3{font-size:44px}
+  .egg-card h3{font-size:30px !important}
+  .near a .lbl{display:none}
+}
+</style>
+</head>
+<body>
+<nav>
+  <div class="wrap">
+    <a class="logo" href="/" aria-label="Nibbl home"><canvas id="logo" role="img" aria-label="Nibbl logo pet"></canvas><b>nibbl</b></a>
+    <div class="links">
+      <a class="lb" href="/#board">Leaderboard</a>
+      <button class="spk px" id="spk" type="button"></button>
+      <a class="btn px" href="/#install">Hatch your own</a>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <div class="wrap cp">
+    <div id="cardhost"></div>
+    <aside class="side" id="side"></aside>
+  </div>
+</main>
+
+<footer><div class="wrap"><span>Nibbl is a Claude Code mod. Prototype page.</span><a href="/">back to nibbl</a></div></footer>
+
+<script src="/nibbl.js"></script>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+mountSprite($('logo'),genome(42),{scale:()=>2,poke:true,life:9});
+speaker($('spk'));
+
+/* serial from /p/<serial> (Cloudflare Pages rewrite), fallback ?s=<serial> (local) */
+function readSerial(){
+  const q=new URLSearchParams(location.search);
+  const m=location.pathname.match(/\/p\/([^/]+)\/?$/);
+  let raw=m&&m[1]!=='index.html'?m[1]:null;
+  try{raw=raw?decodeURIComponent(raw):raw;}catch(e){}
+  if(!raw) raw=q.get('s');
+  return {raw:raw==null?'':raw.trim(),preview:q.get('preview')==='1',name:(q.get('name')||'').trim().slice(0,24)};
+}
+const req=readSerial(), host=$('cardhost'), side=$('side');
+const ok=/^\d{1,6}$/.test(req.raw), n=ok?parseInt(req.raw,10):0;
+const INSTALL='<code><span>&gt;</span> /plugin marketplace add nibbl-dev/nibbl<br><span>&gt;</span> /plugin install nibbl@nibbl</code>';
+function cta(title,body){return '<div class="panel px cta"><h2>'+title+'</h2><p>'+body+'</p>'+INSTALL+'<a class="btn px" href="/#install">Hatch your own</a></div>';}
+
+if(ok&&n>=1&&(req.preview||n<=HATCHED)){
+  const d=petData(n,req.preview?{preview:true,name:req.name||'Mystery'}:undefined);
+  document.title=req.preview?d.name+', a preview nibbl':d.name+' #'+d.id+' on nibbl';
+  host.innerHTML=cardHTML(d);
+  mountCardPet(host,d,12);
+  const rt=rarestTrait(d.g), url=shareUrl(n);
+  if(req.preview){
+    side.innerHTML='<div><span class="lbl kicker">preview card</span><h1>'+esc(d.name)+' is only a preview</h1>'+
+      '<p class="lead">Rolled from a nickname on the landing page, so it has no serial yet. A real nibbl rolls its own genome when it hatches after real work in Claude Code.</p></div>'+
+      cta('Hatch it for real','Install the mod and your first egg hatches after your first real session.')+
+      '<p class="note">Rarest trait of this roll: '+rt.label+', '+fmtPct(rt.p)+' odds.</p>';
+  }else{
+    const text=d.name+' #'+d.id+' is a lvl '+d.level+' '+d.stage+' nibbl. Rarest trait: '+rt.label+', '+fmtPct(rt.p)+' odds.';
+    const near=[n>1?n-1:null,n<HATCHED?n+1:null];
+    side.innerHTML='<div><span class="lbl kicker">nibbl #'+d.id+(d.genesis?' · genesis':'')+'</span><h1>'+esc(d.name)+', a lvl '+d.level+' '+d.form+'</h1>'+
+      '<p class="lead">'+(d.genesis?'One of the first 100 nibbls ever hatched. ':'')+'Hatched '+d.hatched+' for @'+esc(d.owner)+'. It has nibbled '+d.bugs+' bugs so far. Click it for a heart.</p></div>'+
+      '<div class="panel px"><span class="lbl">share this nibbl</span><div class="url num" id="url">'+url.replace('https://','')+'</div>'+
+      '<div class="btns"><button class="btn px" id="copy" type="button">Copy link</button>'+
+      '<a class="btn px ghost" target="_blank" rel="noopener" href="https://x.com/intent/post?text='+encodeURIComponent(text)+'&url='+encodeURIComponent(url)+'">Post on X</a>'+
+      (navigator.share?'<button class="btn px ghost" id="nshare" type="button">Share</button>':'')+'</div></div>'+
+      cta('Hatch your own','Two commands in Claude Code. Your nibbl hatches after real work, and gets a page like this one.')+
+      '<nav class="near" aria-label="Nearby serials">'+near.map((s,i)=>{if(!s) return '<span></span>';const p=petData(s);
+        return '<a class="px" href="'+cardUrl(s)+'">'+(i===0?'<span class="arr">&lt;</span>':'')+'<canvas data-s="'+s+'" role="img" aria-label="'+esc(p.name)+'"></canvas><span><b>'+esc(p.name)+'</b><br><span class="lbl">#'+p.id+'</span></span>'+(i===1?'<span class="arr">&gt;</span>':'')+'</a>';}).join('')+'</nav>';
+    side.querySelectorAll('canvas[data-s]').forEach(cv=>mountSprite(cv,petData(+cv.dataset.s).g,{scale:()=>2}));
+    $('copy').onclick=e=>{const b=e.currentTarget,done=()=>{b.textContent='Link copied';SND.play('blip');setTimeout(()=>b.textContent='Copy link',1400);};
+      if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(done,done); else done();};
+    if($('nshare')) $('nshare').onclick=()=>navigator.share({title:document.title,text,url}).catch(()=>{});
+  }
+}else{
+  /* friendly unhatched state */
+  const shown=req.raw?esc(req.raw.slice(0,16)):'';
+  const msg=!req.raw?'No serial in this link. Card links look like /p/000042.'
+    :!ok?'"'+shown+'" is not a serial we can read. Serials are up to six digits, like 000042.'
+    :'Serial #'+pad6(n)+' has not been issued yet. '+HATCHED+' nibbls have hatched so far, so this one is still an egg.';
+  document.title='This egg has not hatched yet';
+  host.innerHTML='<article class="pcard px egg-card" aria-label="Unhatched egg"><div class="top"><b>nibbl</b><span class="lbl">/p/'+(shown||'?')+'</span></div>'+
+    '<div class="lcd px flat"><canvas class="pc-egg" role="img" aria-label="An egg, still waiting to hatch. Click it."></canvas></div>'+
+    '<h3>This egg has not hatched yet</h3><p>'+msg+'</p>'+
+    '<div class="acts"><a class="btn px" href="/#install">Hatch your own</a><a href="'+cardUrl(42)+'">Meet Byte #000042</a></div></article>';
+  side.innerHTML='<div><span class="lbl kicker">no nibbl here</span><h1>Still warm, still an egg</h1><p class="lead">Every serial is issued once, in hatch order. When this one hatches, its card shows up right here.</p></div>'+
+    cta('Want one sooner?','Install the mod. Your egg hatches after your first real session in Claude Code.');
+  const cv=host.querySelector('.pc-egg');
+  mount(cv,{w:32,h:16,poke:true,scale:()=>Math.max(3,Math.min(12,Math.floor((cv.parentElement.clientWidth-16)/32))),draw:(t,m)=>{
+    const p=t-m.pokeT, idle=REDUCED?0:Math.floor(t/140)%30, wob=p<700&&!REDUCED?[-1,1,-1,1,0][Math.floor(p/140)]||0:idle>=24?[-1,0,1,0,-1,0][idle-24]:0;
+    return scene({props:[[EGG,12+wob,5]].concat(p<900?[[SPARK,7,2],[SPARK,22,3]]:[])});}});
+}
+startLoop();
+</script>
+</body>
+</html>
