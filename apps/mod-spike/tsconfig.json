@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "es2023",
+    "lib": ["es2023"],
+    "types": [],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "allowImportingTsExtensions": true,
+    "jsx": "react",
+    "jsxFactory": "h",
+    "jsxFragmentFactory": "Fragment"
+  },
+  "include": [
+    "/private/tmp/claude-501/bundled-skills/2.1.287/950739b6953d326d89c1d91934b0fc8a/plugin-authoring/types/claude-code.d.ts",
+    "src",
+    "types",
+    "tests"
+  ]
+}
