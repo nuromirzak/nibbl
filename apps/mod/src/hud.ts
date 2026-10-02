@@ -51,6 +51,9 @@ export const hudLines = (view: NibblPetView | null, turns: number, r: NibblReact
   return { title: titleOf(view), xp: xpLineOf(view.xp), hearts, status, compact: `${short} · lvl ${levelFromXp(view.xp).level} ${hearts} · ${status}` }
 }
 
+// Every HUD line joined: the band redraws whenever any of them changes.
+export const hudKey = (lines: HudLines): string => Object.values(lines).join('\n')
+
 export const utcText = (at: number): string => `${new Date(at).toISOString().slice(0, 16).replace('T', ' ')} UTC`
 
 export const cardUrl = (base: string, serial: number): string => `${base}/p/${serial}`
