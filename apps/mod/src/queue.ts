@@ -35,19 +35,26 @@ export const append = (q: Queue, type: ModEventType, at: number, g: number, cap 
 
 export const toWire = (events: readonly QueuedEvent[]): WireEvent[] => events.map(e => ({ type: e.type, at: e.at }))
 
-// The newest `max` events across the queues, oldest first. `upTo` covers every event seen, so the
-// older ones that did not fit are cleared too (the server would drop them as too old anyway).
+// The oldest `max` events across the queues, sent in time order. Each queue gives up its events in
+// sequence order, so `upTo` (cleared by `n` after a 200) covers exactly what was sent: an event that
+// did not fit stays queued for the next sync.
 export const takeBatch = (queues: Readonly<Record<string, Queue>>, max = MAX_BATCH): Batch => {
   const upTo: Record<string, number> = {}
-  const all: QueuedEvent[] = []
-  for (const [key, q] of Object.entries(queues)) {
-    for (const e of q.events) {
-      upTo[key] = Math.max(upTo[key] ?? 0, e.n)
-      all.push(e)
+  const lines = Object.entries(queues).map(([key, q]) => ({ key, events: [...q.events].sort((x, y) => x.n - y.n), i: 0 }))
+  const events: QueuedEvent[] = []
+  while (events.length < max) {
+    let pick: (typeof lines)[number] | null = null
+    for (const line of lines) {
+      const head = line.events[line.i]
+      if (head && (!pick || head.at < pick.events[pick.i]!.at)) pick = line
     }
+    if (!pick) break
+    const e = pick.events[pick.i++]!
+    upTo[pick.key] = e.n
+    events.push(e)
   }
-  all.sort((a, b) => a.at - b.at)
-  return { events: all.slice(Math.max(0, all.length - max)), upTo }
+  events.sort((x, y) => x.at - y.at)
+  return { events, upTo }
 }
 
 export const removeUpTo = (q: Queue, n: number): Queue => ({ ...q, events: q.events.filter(e => e.n > n) })

@@ -39,12 +39,36 @@ describe('toWire', () => {
 })
 
 describe('takeBatch', () => {
-  it('sends the newest events across queues in time order and clears everything it saw', () => {
+  it('sends the oldest events across queues in time order and clears only what it sent', () => {
     const a: Queue = { beat: 0, next: 4, events: [ev(1, 'turn', 10), ev(2, 'pet', 30), ev(3, 'turn', 50)] }
     const b: Queue = { beat: 0, next: 3, events: [ev(1, 'commit', 20), ev(2, 'error', 40)] }
     const batch = takeBatch({ a, b }, 3)
-    expect(batch.events.map(e => e.at)).toEqual([30, 40, 50])
-    expect(batch.upTo).toEqual({ a: 3, b: 2 })
+    expect(batch.events.map(e => e.at)).toEqual([10, 20, 30])
+    expect(batch.upTo).toEqual({ a: 2, b: 1 })
+  })
+
+  it('never clears unsent events when two orphan queues hold more than 1000 together', () => {
+    let a = emptyQueue(0)
+    let b = emptyQueue(0)
+    for (let i = 0; i < 700; i++) a = append(a, 'turn', 2 * i, 0)
+    for (let i = 0; i < 700; i++) b = append(b, 'error', 2 * i + 1, 0)
+    const first = takeBatch({ a, b })
+    expect(first.events).toHaveLength(1000)
+    const left = { a: removeUpTo(a, first.upTo.a!), b: removeUpTo(b, first.upTo.b!) }
+    expect(countEvents(Object.values(left))).toBe(400)
+    const second = takeBatch(left)
+    expect(second.events).toHaveLength(400)
+    const sentAt = [...first.events, ...second.events].map(e => e.at)
+    expect(new Set(sentAt).size).toBe(1400)
+    expect(sentAt).toEqual([...sentAt].sort((x, y) => x - y))
+  })
+
+  it('keeps each queue in its own sequence order even if its clock went backwards', () => {
+    const a: Queue = { beat: 0, next: 3, events: [ev(1, 'turn', 50), ev(2, 'turn', 10)] }
+    const b: Queue = { beat: 0, next: 2, events: [ev(1, 'pet', 20)] }
+    const batch = takeBatch({ a, b }, 1)
+    expect(batch.upTo).toEqual({ b: 1 })
+    expect(takeBatch({ a, b }, 2).upTo).toEqual({ a: 1, b: 1 })
   })
 
   it('is empty for empty queues', () => {
