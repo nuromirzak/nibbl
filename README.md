@@ -51,15 +51,22 @@ One roll per machine, forever. Every nibbl also gets at least one trait rarer th
 
 ## Show it off
 
-Every nibbl gets its own card page and a rank on the [leaderboard](https://getnibbl.pages.dev/leaderboard/). Put yours on your GitHub profile:
+Every nibbl gets its own card page and a rank on the [leaderboard](https://getnibbl.pages.dev/leaderboard/). This is Byte, live:
 
-<p><a href="https://getnibbl.pages.dev/p/000013"><img src="https://getnibbl.pages.dev/p/000013/badge.svg" alt="A live nibbl badge"></a></p>
+<p>
+  <a href="https://getnibbl.pages.dev/p/000013"><img src="https://getnibbl.pages.dev/p/000013/badge.svg" alt="Byte, a live nibbl badge"></a>
+</p>
+
+<details>
+<summary>Put yours on your GitHub profile</summary>
+
+Run `/nibbl` to see your serial, then paste this into your profile README with your serial instead of `000013`:
 
 ```markdown
 [![nibbl](https://getnibbl.pages.dev/p/000013/badge.svg)](https://getnibbl.pages.dev/p/000013)
 ```
 
-Replace `000013` with your own serial.
+</details>
 
 ## FAQ
 
