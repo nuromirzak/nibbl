@@ -24,6 +24,12 @@ describe('GET /p/:serial', () => {
     expect(html).toContain('% odds')
   })
 
+  it('links to the leaderboard with the pet as ?me=', async () => {
+    await insertPet(byte)
+    const html = await (await call('/p/000042')).text()
+    expect(html).toContain('<a href="/leaderboard?me=42">See its rank</a>')
+  })
+
   it('accepts unpadded serials', async () => {
     await insertPet(byte)
     expect((await call('/p/42')).status).toBe(200)

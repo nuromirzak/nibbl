@@ -124,7 +124,7 @@ footer{margin-top:20px;font-size:13px}
 ${v.label ? `<p class="label">${e(v.label)}</p>` : ''}
 <div class="tags">${tags}</div>
 <dl><dt>level</dt><dd>${v.level}</dd><dt>xp</dt><dd>${v.xp}</dd><dt>rarest</dt><dd>${e(traitLine(v.rarest))}</dd></dl>
-<footer><a href="/">Hatch your own nibbl</a></footer>
+<footer><a href="/leaderboard?me=${v.serial}">See its rank</a> · <a href="/">Hatch your own nibbl</a></footer>
 </main>
 </body>
 </html>`
