@@ -1,6 +1,7 @@
 import { drawPet, drawScene, genome, rarestTrait, stageForLevel, type Genome, type Stage, type Tier, type TraitOdds } from '@nibbl/core'
 import type { Env } from '../env'
 import { petBySerial, type PetRow } from '../lib/db'
+import { NIGHT, OG_H, OG_SCALE, OG_W, renderGridPng } from '../lib/png'
 import { badgeSvg, escapeXml as e, gridSvg } from '../lib/svg'
 
 const CARD_PATH = /^\/p\/(\d{1,6})(\.png|\/badge\.svg)?$/
@@ -151,7 +152,11 @@ export const card = async (request: Request, env: Env): Promise<Response> => {
       headers: { 'content-type': 'image/svg+xml; charset=utf-8', 'cache-control': 'public, max-age=300', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'" },
     })
   }
-  // The .png branch arrives in Task 10; until then it must not answer with the HTML card.
-  if (match[2] === '.png') return notFound()
+  if (match[2] === '.png') {
+    const scene = drawScene(view.genome, { stage: view.stage, petX: CENTER_X })
+    return new Response(await renderGridPng(scene, OG_SCALE, OG_W, OG_H, NIGHT), {
+      headers: { 'content-type': 'image/png', 'cache-control': 'public, max-age=300' },
+    })
+  }
   return new Response(cardHtml(view, url.origin), { headers: HTML_HEADERS })
 }
