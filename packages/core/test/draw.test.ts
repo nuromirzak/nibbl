@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { drawPet, faceRow, type Expression, type Stage } from '../src/draw'
 import { genome } from '../src/genome'
 import { gridHash } from '../src/grid'
+import { C } from '../src/palette'
 import { MARK_MOTIFS, MARK_SPOTS } from '../src/genes'
 import { TIERS } from '../src/odds'
 
@@ -114,6 +115,33 @@ describe('drawPet', () => {
     }
     expect(hidden).toEqual([])
   }, 60_000)
+
+  it('marks shiny pets with a corner sparkle that never touches the outline', () => {
+    for (let s = 0; s < 1000; s++) {
+      const g = genome(s, TIERS[s % 5], false)
+      for (const stage of STAGES) {
+        const plain = drawPet(g, stage, 'idle')
+        const shiny = drawPet({ ...g, shiny: true }, stage, 'idle')
+        expect([shiny[1][14], shiny[0][15]]).toEqual([C.white, C.cyan])
+        for (let y = 0; y <= 3; y++) for (let x = 13; x <= 15; x++) expect(plain[y][x]).toBeNull()
+      }
+    }
+  })
+
+  it('always lands at least one spot on spotted teens and adults', () => {
+    const bare: string[] = []
+    for (let s = 0; s < 3000; s++) {
+      const g = { ...genome(s, TIERS[s % 5], false), pattern: 'spots' as const }
+      for (const stage of ['teen', 'adult'] as const) {
+        const spotted = drawPet(g, stage, 'idle')
+        const plain = drawPet({ ...g, pattern: 'none' }, stage, 'idle')
+        let diff = 0
+        for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) if (spotted[y][x] !== plain[y][x]) diff++
+        if (diff < 2) bare.push(`${s}/${stage}`)
+      }
+    }
+    expect(bare).toEqual([])
+  })
 
   it('draws the same pixels on every runtime (fixed hashes)', () => {
     // Snapshot values are recorded on the first run and must never change afterwards:

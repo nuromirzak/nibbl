@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { BP, SHINY_BP, TIERS, TIER_BP, shinyFromRoll, tierFromRoll, tierRank } from '../src/odds'
-import { RAMPS, SHINY_OF, SWEETIE } from '../src/palette'
+import { RAMPS, SHINY_RAMPS, SWEETIE } from '../src/palette'
 import { mulberry32 } from '../src/prng'
 
 describe('palette', () => {
@@ -12,8 +12,11 @@ describe('palette', () => {
     }
   })
 
-  it('maps every ramp to a different shiny ramp', () => {
-    for (const [name, shiny] of Object.entries(SHINY_OF)) expect(shiny).not.toBe(name)
+  it('gives every ramp a dedicated shiny triplet unlike any base ramp or other shiny ramp', () => {
+    const triplets = [...Object.values(RAMPS), ...Object.values(SHINY_RAMPS)].map(r => r.join(','))
+    expect(new Set(triplets).size).toBe(triplets.length)
+    expect(Object.keys(SHINY_RAMPS).sort()).toEqual(Object.keys(RAMPS).sort())
+    for (const ramp of Object.values(SHINY_RAMPS)) for (const i of ramp) expect(i >= 0 && i < 16).toBe(true)
   })
 })
 

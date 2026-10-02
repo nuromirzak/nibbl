@@ -1,6 +1,8 @@
 import { HAT_BY_TIER, MARK_MOTIFS, MARK_SPOTS, POOLS, type Eyes, type Family, type Hat, type Head, type Mark, type Option, type Pattern } from './genes'
 import { BP, SHINY_BP, TIERS, type Tier, tierProbability, tierRank } from './odds'
 import type { RampName } from './palette'
+import { drawPet } from './draw'
+import { gridHash } from './grid'
 import { mulberry32, pickIndex, type Rng } from './prng'
 
 export type Genome = {
@@ -18,9 +20,13 @@ export type Genome = {
   head: Head
   hat: Hat
   mark: Mark
+  // Seeds pattern placement; 16 layouts per pattern.
+  patternVariant: number
 }
 
 export type TraitOdds = { gene: string; value: string; probability: number }
+
+export const PATTERN_VARIANTS = 16
 
 const SHINY_PROBABILITY = SHINY_BP / BP
 const MARK_PROBABILITY = 1 / (MARK_MOTIFS.length * MARK_SPOTS.length)
@@ -109,6 +115,7 @@ export const genome = (seed: number, tier: Tier, shiny: boolean): Genome => {
     head: pick(rng, POOLS.head, tier),
     hat: HAT_BY_TIER[tier],
     mark: { motif: MARK_MOTIFS[pickIndex(rng, MARK_MOTIFS.length)], spot: MARK_SPOTS[pickIndex(rng, MARK_SPOTS.length)] },
+    patternVariant: pickIndex(rng, PATTERN_VARIANTS),
   }
   if (family === 'sprout') g.head = 'leaf'
   // A hat replaces ears and horns so it can never be clipped off the canvas.
@@ -117,20 +124,24 @@ export const genome = (seed: number, tier: Tier, shiny: boolean): Genome => {
 }
 
 export const genomeKey = (g: Genome): string =>
-  [g.family, g.halfW, g.halfH, g.ramp, g.pattern, g.belly ? 1 : 0, g.eyes, g.blush ? 1 : 0, g.head, g.hat, `${g.mark.motif}.${g.mark.spot}`, g.shiny ? 1 : 0].join('.')
+  [
+    g.family, g.halfW, g.halfH, g.ramp, g.pattern, g.pattern === 'none' ? '-' : g.patternVariant, g.belly ? 1 : 0,
+    g.eyes, g.blush ? 1 : 0, g.head, g.hat, `${g.mark.motif}.${g.mark.spot}`, g.shiny ? 1 : 0,
+  ].join('.')
 
-export const firstUnique = (
-  seeds: Iterable<number>,
-  tier: Tier,
-  shiny: boolean,
-  isTaken: (key: string) => boolean,
-  maxAttempts = 64,
+// Pixel identity of the adult idle pose, the frame other people see on the leaderboard.
+export const visualKey = (g: Genome): string => gridHash(drawPet(g, 'adult', 'idle'))
+
+// The server derives several candidates for one hatch, asks D1 once with `IN (...)` which
+// genome and visual keys are taken, then calls this. Pure and synchronous.
+export const pickUnique = (
+  candidates: readonly Genome[],
+  isTakenKey: (key: string) => boolean,
+  isTakenVisual: (key: string) => boolean,
 ): Genome | null => {
-  let attempts = 0
-  for (const seed of seeds) {
-    if (attempts++ >= maxAttempts) return null
-    const g = genome(seed, tier, shiny)
-    if (!isTaken(genomeKey(g))) return g
+  for (const g of candidates) {
+    if (isTakenKey(genomeKey(g))) continue
+    if (!isTakenVisual(visualKey(g))) return g
   }
   return null
 }

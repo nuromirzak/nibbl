@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { firstUnique, genome, genomeKey, markLabel, rarestTrait, traitOdds } from '../src/genome'
+import { genome, genomeKey, markLabel, rarestTrait, traitOdds } from '../src/genome'
 import { MARK_MOTIFS, MARK_SPOTS } from '../src/genes'
 import { TIERS, type Tier } from '../src/odds'
 
@@ -93,11 +93,17 @@ describe('genome', () => {
     expect(genomeKey(g)).toBe(genomeKey({ ...g, seed: 999 }))
   })
 
-  it('firstUnique skips taken keys and gives up after maxAttempts', () => {
-    const taken = new Set([genomeKey(genome(1, 'common', false))])
-    const g = firstUnique([1, 2, 3], 'common', false, k => taken.has(k))
-    expect(g).not.toBeNull()
-    expect(taken.has(genomeKey(g!))).toBe(false)
-    expect(firstUnique([1, 2, 3], 'common', false, () => true, 3)).toBeNull()
+  it('keys patternVariant only when there is a pattern to place', () => {
+    const plain = { ...genome(5, 'rare', false), pattern: 'none' as const }
+    expect(genomeKey(plain)).toBe(genomeKey({ ...plain, patternVariant: (plain.patternVariant + 1) % 16 }))
+    expect(genomeKey(plain).split('.')[5]).toBe('-')
+    const spotted = { ...plain, pattern: 'spots' as const }
+    expect(genomeKey(spotted)).not.toBe(genomeKey({ ...spotted, patternVariant: (spotted.patternVariant + 1) % 16 }))
+  })
+
+  it('draws patternVariant uniformly from 0..15', () => {
+    const counts = Array(16).fill(0)
+    for (let s = 0; s < 32_000; s++) counts[genome(s, 'common', false).patternVariant]++
+    for (const c of counts) expect(Math.abs(c - 2000)).toBeLessThan(200)
   })
 })

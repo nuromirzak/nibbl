@@ -22,7 +22,15 @@ export const RAMPS: Record<RampName, readonly [shade: number, base: number, hi: 
   aurora: [C.navy, C.teal, C.cyan],
 }
 
-export const SHINY_OF: Record<RampName, RampName> = {
-  ember: 'frost', moss: 'jam', ocean: 'moss', frost: 'ember',
-  ghost: 'gold', jam: 'moss', gold: 'aurora', aurora: 'gold',
+// Dedicated shiny ramps: every triplet differs from every base ramp and from each other,
+// so a shiny pet can never look like a plain pet of another ramp.
+export const SHINY_RAMPS: Record<RampName, readonly [shade: number, base: number, hi: number]> = {
+  ember: [C.plum, C.orange, C.yellow],
+  moss: [C.teal, C.cyan, C.white],
+  ocean: [C.dusk, C.blue, C.cyan],
+  frost: [C.slate, C.cyan, C.white],
+  ghost: [C.plum, C.silver, C.white],
+  jam: [C.plum, C.red, C.yellow],
+  gold: [C.red, C.yellow, C.white],
+  aurora: [C.navy, C.green, C.lime],
 }

@@ -2,6 +2,6 @@
 
 exports[`drawPet > draws the same pixels on every runtime (fixed hashes) 1`] = `"2ca8df85"`;
 
-exports[`drawPet > draws the same pixels on every runtime (fixed hashes) 2`] = `"1ef93446"`;
+exports[`drawPet > draws the same pixels on every runtime (fixed hashes) 2`] = `"a388861c"`;
 
-exports[`drawPet > draws the same pixels on every runtime (fixed hashes) 3`] = `"3cec635d"`;
+exports[`drawPet > draws the same pixels on every runtime (fixed hashes) 3`] = `"e116857f"`;

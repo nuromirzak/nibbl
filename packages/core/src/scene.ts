@@ -62,5 +62,10 @@ export const drawScene = (g: Genome, opts: SceneOpts = {}): Grid => {
     setCell(scene, petX + 1, on ? 2 : 5, C.yellow)
     setCell(scene, petX + 14, on ? 5 : 2, C.white)
   }
+  if (g.shiny) {
+    // A second twinkle beside the pet's own corner sparkle, only on empty sky.
+    const [x, y] = frame % 2 === 0 ? [petX + 15, 2] : [petX + 13, 0]
+    if (scene[y][x] === null) scene[y][x] = C.white
+  }
   return scene
 }

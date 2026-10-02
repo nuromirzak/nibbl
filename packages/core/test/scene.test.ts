@@ -30,6 +30,20 @@ describe('drawScene', () => {
   })
 })
 
+describe('shiny sparkle in the scene', () => {
+  it('twinkles between two empty-sky spots by frame', () => {
+    const g = { ...genome(8, 'common', false), shiny: true }
+    const even = drawScene(g, { petX: 6, frame: 0 })
+    const odd = drawScene(g, { petX: 6, frame: 1 })
+    expect(even[2][21]).toBe(C.white)
+    expect(odd[2][21]).toBeNull()
+    expect(odd[0][19]).toBe(C.white)
+    expect(even[0][19]).toBeNull()
+    const plain = drawScene({ ...g, shiny: false }, { petX: 6, frame: 0 })
+    expect(plain[2][21]).toBeNull()
+  })
+})
+
 describe('drawEgg', () => {
   it('adds crack pixels as cracks grow', () => {
     const ink = (n: 0 | 1 | 2 | 3) => drawEgg(n).flat().filter(c => c === C.ink).length
