@@ -13,7 +13,7 @@
 <style>
 /* hero */
 .hero{padding:40px 0 96px}
-.hero .wrap{display:grid;grid-template-columns:1.05fr .95fr;grid-template-areas:"copy device" "roll device";gap:40px 48px;align-items:start}
+.hero .wrap{display:grid;grid-template-columns:1.05fr .95fr;grid-template-areas:"copy device";gap:40px 48px;align-items:start}
 .hero .copy{grid-area:copy}
 .hero h1{font-size:clamp(44px,6.2vw,76px);line-height:1;max-width:11ch}
 .hero .sub{margin-top:24px;max-width:44ch;color:#c9d3df;font-size:16px}
@@ -27,28 +27,6 @@
 .counter b{color:var(--bug);font-weight:400}
 .dot{width:8px;height:8px;background:var(--bug);animation:blink 1.2s steps(1) infinite}
 @keyframes blink{50%{opacity:0}}
-
-/* roll your nibbl */
-.roll{grid-area:roll;padding:20px;max-width:520px;--bg:#14161f}
-.roll-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
-.roll-head h2{font-size:28px;font-weight:500}
-.roll-head .lbl{color:var(--slate)}
-.roll-form{margin-top:14px;display:flex;gap:16px;align-items:stretch;flex-wrap:wrap}
-.field{flex:1 1 180px;min-width:0;--bg:#0f111a;--bd:var(--line);display:flex}
-.field:focus-within{--bd:var(--yellow)}
-.field input{flex:1;min-width:0;background:transparent;border:0;color:var(--white);font:400 14px/1 var(--f-body);padding:12px 12px;outline:none}
-.field input::placeholder{color:var(--slate)}
-.traits{list-style:none;margin:16px 0 0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;min-height:132px;align-content:start}
-.traits li{display:flex;align-items:center;gap:6px;font-size:13px;border-bottom:2px dashed #2a3044;padding:2px 0;animation:tin .24s steps(3)}
-.traits li .k{color:var(--silver);width:56px;flex:none}
-.traits li .badge{margin:2px 4px}
-.traits li .pc{margin-left:auto;font-size:11px;color:var(--slate)}
-.traits .ph{grid-column:1/-1;color:var(--slate);border:0;font-size:13px;animation:none}
-@keyframes tin{0%{opacity:0;transform:translateY(6px)}100%{opacity:1;transform:none}}
-.roll-out{margin-top:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.roll-out .rt{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.roll-out .rt .num{color:var(--yellow);font-size:14px}
-.roll-out a{margin-left:auto}
 
 /* device */
 .device{grid-area:device;position:relative;justify-self:center;display:flex;flex-direction:column;align-items:center}
@@ -117,6 +95,15 @@ section{padding:96px 0}
 .branch h4{margin:0 0 4px;font:500 24px/1.2 var(--f-head)}
 .branch p{font-size:13px;color:#c9d3df}
 .branch .lbl{color:var(--slate);display:block;margin-bottom:8px}
+.branch.locked canvas{margin-bottom:12px}
+.branch.locked h4{color:var(--slate)}
+.secret{margin-top:32px;color:var(--yellow);text-align:center}
+.tile.locked .scr{height:136px;align-items:center}
+.tile.locked h3{color:var(--slate)}
+.ocell{display:flex;flex-direction:column;align-items:center;gap:2px}
+.ocell .lbl{font-size:10px;line-height:10px;color:var(--slate)}
+.lrow.ghost{opacity:.7;border-bottom:0;border-top:2px dashed #2a3044}
+.lrow.ghost .nm b{color:var(--silver)}
 
 /* reactions */
 .tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:24px}
@@ -207,8 +194,7 @@ footer h2{font-size:clamp(36px,5vw,56px)}
   .branches{grid-template-columns:repeat(2,1fr)}
 }
 @media (max-width:860px){
-  .hero .wrap{grid-template-columns:1fr;grid-template-areas:"copy" "device" "roll";gap:48px}
-  .roll{max-width:none}
+  .hero .wrap{grid-template-columns:1fr;grid-template-areas:"copy" "device";gap:48px}
 }
 @media (max-width:760px){
   nav .links a:not(.gh){display:none}
@@ -235,10 +221,6 @@ footer h2{font-size:clamp(36px,5vw,56px)}
   .lrow .lv{grid-column:4;grid-row:1}
   .lrow .tg{grid-column:3 / 5;grid-row:2;margin-top:-4px}
   .lrow.h{display:none}
-  .traits{grid-template-columns:1fr;min-height:0}
-  .field{flex-basis:100%}
-  .roll-form .btn{flex:1;min-height:44px}
-  .roll{padding:16px}
   .recent-list{grid-template-columns:repeat(2,minmax(0,1fr))}
   .tenets{grid-template-columns:1fr 1fr}
   .bugchip{right:12px;bottom:12px}
@@ -247,7 +229,7 @@ footer h2{font-size:clamp(36px,5vw,56px)}
   .tiles{grid-template-columns:1fr}
 }
 @media (prefers-reduced-motion:reduce){
-  .dot,.caret,.traits li,.lvlup.on{animation:none}
+  .dot,.caret,.lvlup.on{animation:none}
 }
 </style>
 </head>
@@ -279,27 +261,15 @@ footer h2{font-size:clamp(36px,5vw,56px)}
       <div class="counter"><i class="dot"></i><span class="lbl">hatched: <b>1 337</b> nibbls so far</span></div>
     </div>
 
-    <div class="roll px" id="roll">
-      <div class="roll-head"><h2>Roll your nibbl</h2><span class="lbl">a preview, not a real hatch</span></div>
-      <form class="roll-form" id="rollf" autocomplete="off">
-        <label class="sr" for="nick">Nickname to roll a nibbl from</label>
-        <div class="field px flat"><input id="nick" name="nick" maxlength="24" placeholder="your nickname" spellcheck="false"></div>
-        <button class="btn px" id="rollbtn" type="submit">Roll</button>
-        <button class="btn px ghost" id="rnd" type="button">Random</button>
-      </form>
-      <ol class="traits" id="traits" aria-live="polite"><li class="ph">Same nickname, same nibbl. Traits show up here as the egg hatches.</li></ol>
-      <div class="roll-out" id="rollout" hidden></div>
-    </div>
-
     <div class="device">
       <div class="device-stage" id="stage">
         <canvas id="hero" role="img" aria-label="An egg-shaped handheld device with an LCD screen showing your nibbl. Click the screen to pet it."></canvas>
         <button class="device-btn" id="bA" type="button" aria-label="A: pet your nibbl" aria-keyshortcuts="A 1"></button>
         <button class="device-btn" id="bB" type="button" aria-label="B: switch between green and color screen" aria-keyshortcuts="B 2"></button>
-        <button class="device-btn" id="bC" type="button" aria-label="C: hatch a new egg" aria-keyshortcuts="C 3"></button>
+        <button class="device-btn" id="bC" type="button" aria-label="C: wobble the egg" aria-keyshortcuts="C 3"></button>
         <div class="lvlup px" id="lvlup" aria-hidden="true"><b>LEVEL UP</b><span id="lvlup-n">lvl 8</span></div>
       </div>
-      <div class="device-legend lbl"><span><b>A</b> pet</span><span><b>B</b> color</span><span><b>C</b> new egg</span><button class="spk px" id="spk" type="button"></button></div>
+      <div class="device-legend lbl"><span><b>A</b> pet</span><span><b>B</b> color</span><span><b>C</b> egg</span><button class="spk px" id="spk" type="button"></button></div>
       <div class="dev-hud">
         <div class="id lbl" id="devid">&nbsp;</div>
         <div class="meter"><span class="lbl lv">lvl <span id="lvl">7</span></span><span class="xpseg" id="xpseg" aria-hidden="true"></span><span class="hearts" id="hearts" role="img" aria-label="hearts"></span></div>
@@ -339,12 +309,10 @@ footer h2{font-size:clamp(36px,5vw,56px)}
           <span class="lbl">try it</span>
           <button class="btn sm ghost px" type="button" data-act="tests">run tests</button>
           <button class="btn sm ghost px" type="button" data-act="error">throw error</button>
-          <button class="btn sm ghost px" type="button" data-act="commit">git commit</button>
-          <button class="btn sm ghost px" type="button" data-act="sleep">sleep</button>
         </div>
       </div>
       <div class="notes">
-        <div><h3>It reacts to real events</h3><p>Tests, errors, commits. If nothing happened, your nibbl just breathes.</p></div>
+        <div><h3>It reacts to real events</h3><p>Tests pass, errors land, and a few things we won't spoil. If nothing happened, your nibbl just breathes.</p></div>
         <div><h3>Expeditions</h3><p>While Claude works, your nibbl heads out. When the turn ends it comes back with loot.</p></div>
         <div><h3>Hearts</h3><p>Click your nibbl for a heart. Up to 5 hearts an hour count toward XP.</p></div>
       </div>
@@ -354,11 +322,12 @@ footer h2{font-size:clamp(36px,5vw,56px)}
       <h3>From egg to elder</h3>
       <div class="stages" id="stages"></div>
       <div class="branches">
-        <div class="branch px"><span class="lbl">adult branch</span><h4>Night owl</h4><p>Most of your commits land after midnight.</p></div>
-        <div class="branch px"><span class="lbl">adult branch</span><h4>Knight</h4><p>You keep the tests green.</p></div>
-        <div class="branch px"><span class="lbl">adult branch</span><h4>Gremlin</h4><p>Errors, reverts, glorious chaos.</p></div>
-        <div class="branch px"><span class="lbl">adult branch</span><h4>Builder</h4><p>Small commits, all day, every day.</p></div>
+        <div class="branch px locked"><canvas role="img" aria-label="Locked"></canvas><span class="lbl">adult branch</span><h4>???</h4><p>for night owls</p></div>
+        <div class="branch px locked"><canvas role="img" aria-label="Locked"></canvas><span class="lbl">adult branch</span><h4>???</h4><p>for those who keep tests green</p></div>
+        <div class="branch px locked"><canvas role="img" aria-label="Locked"></canvas><span class="lbl">adult branch</span><h4>???</h4><p>for glorious chaos</p></div>
+        <div class="branch px locked"><canvas role="img" aria-label="Locked"></canvas><span class="lbl">adult branch</span><h4>???</h4><p>for small commits every day</p></div>
       </div>
+      <p class="secret lbl">There is a secret form. Nobody has found it yet.</p>
     </div>
   </div>
 </section>
@@ -377,7 +346,7 @@ footer h2{font-size:clamp(36px,5vw,56px)}
   <div class="wrap">
     <div class="head">
       <h2>Luck gives the start</h2>
-      <p>Every nibbl rolls a genome when it hatches: body, colors, pattern, eyes, ears. Effort gives the form later.</p>
+      <p>Every nibbl rolls its own genome when it hatches. Effort gives the form later.</p>
     </div>
     <div class="rar">
       <div>
@@ -399,7 +368,7 @@ footer h2{font-size:clamp(36px,5vw,56px)}
   <div class="wrap">
     <div class="head">
       <h2>Leaderboard</h2>
-      <p>Ranked by level. Every serial number is issued once and never reused. Open any row for its card.</p>
+      <p>The top five by level. Every serial number is issued once and never reused. Open any row for its card.</p>
     </div>
     <div class="lb px" id="lb">
       <div class="lrow h lbl"><span>#</span><span></span><span>nibbl</span><span>form</span><span>lvl</span><span>tier</span></div>
@@ -430,7 +399,7 @@ footer h2{font-size:clamp(36px,5vw,56px)}
   <div class="wrap">
     <h2>Quiet, honest, yours.</h2>
     <div class="tenets">
-      <div><h3>Honest</h3><p>Reacts only to real events: tests pass, errors, commits.</p></div>
+      <div><h3>Honest</h3><p>Reacts only to real events, never to fake ones.</p></div>
       <div><h3>Quiet</h3><p>Never blocks, never nags, never dies. Zero tokens.</p></div>
       <div><h3>Yours</h3><p>A unique genome and a serial number. One of a kind.</p></div>
       <div><h3>Earned</h3><p>Luck gives the start. How you code decides the form.</p></div>
@@ -454,7 +423,7 @@ mountSprite($('logo'),BYTE,{scale:()=>2,poke:true,life:9});
 
 /* ---------- hero device ---------- */
 const hero={g:BYTE,id:'#000042 · Byte',mono:true,hatchStart:0,lastHF:-1,hearts:[],L:makeLife(5),U:0,reactT:-1e9,
-  level:7,xp:30,need:60,petTimes:[],onDone:null,busy:false};
+  level:7,xp:30,need:60,petTimes:[],onDone:null,busy:false,msgUntil:0};
 const BTNS=[[10,39],[17,41],[24,39]]; // top-left cell of each 5x5 cap, in shell cells
 function buildShell(U){
   const W=40,H=52,c=document.createElement('canvas');c.width=W*U;c.height=H*U;const x2=c.getContext('2d');
@@ -529,6 +498,22 @@ function heroFrame(t){
     else S=scene({pet:g,petX:8,dy:[-3,-1,0,0][F-22],expr:'happy',props:[[SPARK,6,2],[SPARK,23,3]]});
   }else{
     if(hero.onDone){const f=hero.onDone;hero.onDone=null;hero.busy=false;hero.reactT=t;f();}
+    if(t<hero.msgUntil){
+      const w=REDUCED?0:[-1,0,1,0][Math.floor(t/110)%4], q=REDUCED?0:Math.floor(t/110)%2;
+      S=scene({props:[[EGG,21+w,5-q*(w===0?1:0)]]});
+      const mk=JSON.stringify(S)+hero.mono+'msg';
+      if(mk===hero.lastKey) return; hero.lastKey=mk;
+      ctx.clearRect(0,0,heroCv.width,heroCv.height); ctx.drawImage(shell.canvas,0,0);
+      ctx.fillStyle=hero.mono?LCD[0]:'#2a3044'; ctx.fillRect(L.x,L.y,L.w,L.h);
+      const ox=L.x+Math.floor((L.w-32*s)/2), oy=L.y+Math.floor((L.h-16*s)/2);
+      if(hero.mono) paint(ctx,S,ox,oy,s,{mono:true,map:lcdMap(g),ghost:'#bcc89a',gap:1}); else paint(ctx,S,ox,oy,s,{gap:0});
+      const lines=['your egg','hatches in','Claude','Code'], maxW=19*s-6; let fs=Math.floor(s*2.6);
+      ctx.font=fs+'px Silkscreen, monospace'; while(fs>7&&ctx.measureText('hatches in').width>maxW){fs--;ctx.font=fs+'px Silkscreen, monospace';}
+      ctx.fillStyle=hero.mono?LCD[3]:P.white; ctx.textBaseline='top';
+      const lh=Math.round(fs*1.5), y0=oy+Math.round((16*s-lh*lines.length)/2);
+      lines.forEach((tx,i)=>ctx.fillText(tx,ox+4,y0+i*lh));
+      return;
+    }
     const f=lifeFrame(hero.L,t), props=[];
     hero.hearts=hero.hearts.filter(h=>t-h.t<1400);
     for(const h of hero.hearts){const k=REDUCED?2:Math.floor((t-h.t)/140);props.push([HEART,h.x,Math.max(-4,8-k)]);}
@@ -545,13 +530,6 @@ function heroFrame(t){
   else paint(ctx,S,ox,oy,s,{gap:0});
 }
 function updateDevId(){const g=hero.g;$('devid').textContent=hero.id+' · '+rampOf(g)+' '+g.family+(isShiny(g)?' · shiny':'');}
-function hatch(seed,id,onDone){
-  hero.g=genome(seed);hero.id=id;hero.hearts=[];hero.busy=true;hero.lastHF=-1;
-  hero.hatchStart=REDUCED?-1e9:now();
-  hero.onDone=onDone||(()=>{});
-  if(REDUCED) SND.play('fanfare');
-  updateDevId(); hint(REDUCED?'hatched':'hatching...');
-}
 /* XP + level */
 function renderHud(){
   $('lvl').textContent=hero.level;
@@ -591,8 +569,8 @@ function petHero(){
   renderHud();
 }
 function toggleLcd(){hero.mono=!hero.mono;hero.lastKey='';hint(hero.mono?'green screen':'color screen',1400);}
-function newEgg(){if(hero.busy) return;const seed=1+Math.floor(Math.random()*999998);hatch(seed,'#'+pad6(seed),()=>{SND.play('happy');hint('hatched, say hi with A');});}
-const ACTIONS={A:petHero,B:toggleLcd,C:newEgg};
+function wobbleEgg(){if(hero.busy) return;hero.msgUntil=now()+2000;hero.lastKey='';SND.play('chirp');setTimeout(()=>SND.play('tick'),180);setTimeout(()=>SND.play('tick'),360);hint('your egg hatches in Claude Code',2000);}
+const ACTIONS={A:petHero,B:toggleLcd,C:wobbleEgg};
 function press(k){
   const el=$('b'+k); el.classList.add('pressed'); clearTimeout(el._p); el._p=setTimeout(()=>el.classList.remove('pressed'),130);
   SND.play('click'); ACTIONS[k]();
@@ -608,38 +586,6 @@ addEventListener('keydown',e=>{
 speaker($('spk'));
 addActor(heroFrame);
 addEventListener('nibbl:shiny',()=>{hero.lastKey='';updateDevId();});
-
-/* ---------- roll your nibbl ---------- */
-(function(){
-  const form=$('rollf'), input=$('nick'), list=$('traits'), out=$('rollout'), rbtn=$('rollbtn'), rnd=$('rnd');
-  const ADJ=['sleepy','tiny','brave','loud','quiet','lucky','grumpy','swift','cosmic','soggy'], NOUN=['otter','byte','moth','crab','owl','gecko','yak','newt','lynx','koi'];
-  let token=0;
-  function roll(nick){
-    const my=++token, seed=hashText(nick.toLowerCase()), g=genome(seed);
-    list.innerHTML=''; out.hidden=true; rbtn.disabled=rnd.disabled=true;
-    hero.busy=false; // a roll can interrupt a C hatch
-    hatch(seed,'preview · '+nick,()=>{
-      if(my!==token) return;
-      const tr=traitsOf(g), step=REDUCED?0:260;
-      tr.forEach((t,i)=>setTimeout(()=>{
-        if(my!==token) return;
-        const li=document.createElement('li');
-        li.innerHTML='<span class="k">'+t.k+'</span><span class="badge t-'+t.tier+'">'+t.v+'</span><span class="pc num">'+fmtPct(t.p)+'</span>';
-        list.appendChild(li); SND.play('blip');
-      },i*step));
-      setTimeout(()=>{
-        if(my!==token) return;
-        const rt=rarestTrait(g);
-        out.innerHTML='<span class="rt"><span class="lbl muted">rarest</span><span class="badge t-'+rt.tier+'">'+rt.label+'</span><span class="num">'+fmtPct(rt.p)+' odds</span></span><a class="btn sm px" href="'+previewUrl(seed,nick)+'">See its card</a>';
-        out.hidden=false; rbtn.disabled=rnd.disabled=false;
-        SND.play(rt.p<0.015?'fanfare':'happy'); gainXP(10); hint('+10 xp for rolling');
-      },tr.length*step+200);
-    });
-  }
-  form.addEventListener('submit',e=>{e.preventDefault();let n=input.value.trim();if(!n){n=randomNick();input.value=n;}roll(n);});
-  rnd.addEventListener('click',()=>{input.value=randomNick();roll(input.value);});
-  function randomNick(){return ADJ[Math.floor(Math.random()*ADJ.length)]+'_'+NOUN[Math.floor(Math.random()*NOUN.length)]+Math.floor(Math.random()*90+10);}
-})();
 
 /* ---------- bugs nibbled counter (shared by terminal + crawling bug) ---------- */
 let bugsN=0;
@@ -673,19 +619,10 @@ const band={state:'idle',t0:0,bug:true,hadBug:true,fired:{}};
       if(F<16) return scene({pet:BYTE,petX:3,dy:F===8||F===9?-2:0,expr:F<7?'wide':'idle',
         props:(F<10?[[BANG,11,F%2]]:[]).concat([[BUG,22,Math.min(11,-4+F*3)]])});
       st=band.state='idle';
-    }else if(st==='commit'){
-      if(F<4) return scene({pet:BYTE,petX:3,expr:'happy',props:[headBox(BYTE,3,F<2?-2:0)]});
-      if(F<34){const x=3+(F-4),b=F%2;if(F===30&&!band.fired.ship){band.fired.ship=1;SND.play('ship');}return scene({pet:BYTE,petX:x,dy:b,under:bugP,props:[headBox(BYTE,x,b)]});}
-      if(F<53){const x=-16+(F-34);return scene({pet:BYTE,petX:x,dy:F%2,under:bugP});}
-      st=band.state='idle';
-    }else if(st==='sleep'){
-      const spr=sprite(BYTE),top=spriteTop(spr),dy=REDUCED?0:Math.floor(t/700)%2;
-      return scene({pet:BYTE,petX:3,dy,expr:happy?'happy':'blink',hop,under:bugP,props:[[CAP,8,top-4+dy]].concat(zProps(REDUCED?12:Math.floor(t/120),19,4))});
     }
     return scene({pet:BYTE,petX:3,dy:f.dy,hop,expr:happy?'happy':f.expr,under:bugP});
   }});
   function addLog(html){const d=document.createElement('div');d.className='ln';d.innerHTML=html;log.appendChild(d);while(log.children.length>12) log.firstElementChild.remove();}
-  const hex=()=>Math.floor(Math.random()*0xfffffff).toString(16).padStart(7,'0');
   let expTimer=0, sec=42;
   const tickExp=()=>{const el=$('exp');if(el) el.textContent=Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0');sec++;};
   if(!REDUCED) expTimer=setInterval(tickExp,1000);
@@ -696,16 +633,10 @@ const band={state:'idle',t0:0,bug:true,hadBug:true,fired:{}};
       SND.play('blip');status(band.hadBug?'✓ tests green, eating the bug':'✓ tests green, nothing to eat');gainXP(5);},
     error(){band.bug=true;addLog('<span class="c-sky">⏺</span> Bash <span class="c-dim">npm run dev</span>');
       setTimeout(()=>addLog('  <span class="c-err">TypeError: session is undefined</span> <span class="c-dim">src/session.ts:88</span>'),200);
-      SND.play('error');status('⚠ a bug dropped onto the scene');gainXP(5);},
-    commit(){const h=hex();addLog('<span class="c-sky">⏺</span> Bash <span class="c-dim">git commit -m "fix: token refresh race"</span>');
-      setTimeout(()=>addLog('  <span class="c-dim">[main '+h+'] 1 file changed, 4 insertions(+)</span>'),250);
-      SND.play('box');status('▣ hauling commit '+h+' off scene');gainXP(5);},
-    sleep(){addLog('<span class="c-sky">⏺</span> <span class="c-dim">clock 02:14 local</span>  <span class="c-dim">nibbl: nightcap on</span>');
-      SND.play('sleep');status('z asleep, wakes on the next event');gainXP(5);}
+      SND.play('error');status('⚠ a bug dropped onto the scene');gainXP(5);}
   };
   document.querySelectorAll('.demo [data-act]').forEach(b=>b.addEventListener('click',()=>{
     const a=b.dataset.act;
-    if(band.state==='sleep'&&a!=='sleep') addLog('<span class="c-dim">  nibbl: Byte woke up</span>');
     band.state=a;band.t0=now();band.fired={};ACT[a]();bm.redraw();
   }));
 })();
@@ -714,32 +645,31 @@ const band={state:'idle',t0:0,bug:true,hadBug:true,fired:{}};
 (function(){
   const host=$('stages');
   const stages=[['egg','lvl 0',0],['baby','lvl 1',3],['teen','lvl 10',4],['adult','lvl 25',6],['elder','lvl 50',6]];
+  const SIL=P.dusk;
   stages.forEach(([name,lvl,sc],i)=>{
     const d=document.createElement('div');d.className='stage';
-    d.innerHTML='<div class="pad"></div><b>'+name+'</b><span class="lbl">'+lvl+'</span>';
-    const cv=document.createElement('canvas');cv.setAttribute('role','img');cv.setAttribute('aria-label',name+' stage');
+    d.innerHTML='<div class="pad"></div><b>'+(i>=2?'???':name)+'</b><span class="lbl">'+lvl+'</span>';
+    const cv=document.createElement('canvas');cv.setAttribute('role','img');cv.setAttribute('aria-label',i>=2?'Locked silhouette, unlocks at '+lvl:name+' stage');
     d.querySelector('.pad').appendChild(cv);host.appendChild(d);
     const L=makeLife(100+i);
     if(i===0){
       mount(cv,{w:8,h:10,poke:true,cssHop:true,scale:()=>small()?3:6,draw:t=>{const f=REDUCED?0:Math.floor(t/400)%8;const w=f<4?0:[-1,1,-1,1][f-4];const G=grid(10,10);blit(G,EGG,1+w,0);return G.map(r=>r.slice(1,9));}});
       return;
     }
-    const size=i===4?20:16, off=i===4?2:0;
-    mount(cv,{w:size,h:size,poke:true,cssHop:true,scale:()=>small()?Math.max(2,Math.floor(sc/2)):sc,draw:(t,m)=>{
-      const f=lifeFrame(L,t), aura=Math.floor(t/300)%2, G=grid(size,size), spr=sprite(BYTE,m.happy(t)?'happy':f.expr);
-      if(i===4){
-        for(let y=0;y<16;y++)for(let x=0;x<16;x++){if(spr[y][x]) continue;
-          const near=[[-1,0],[1,0],[0,-1],[0,1],[-2,0],[2,0],[0,-2]].some(([dx,dy])=>{const X=x+dx,Y=y+dy;return X>=0&&X<16&&Y>=0&&Y<16&&spr[Y][X]===P.ink;});
-          if(near&&((x+y+aura)%3===0)) G[y+off][x+off]=(x+y)%2?P.yellow:P.cyan;}
-      }
-      blit(G,spr,off,off+Math.max(0,f.dy));return G;}});
+    const size=i===4?20:16, off=i===4?2:0, sil=i>=2;
+    mount(cv,{w:size,h:size,poke:!sil,cssHop:true,scale:()=>small()?Math.max(2,Math.floor(sc/2)):sc,draw:(t,m)=>{
+      const f=lifeFrame(L,t), G=grid(size,size), spr=sprite(BYTE,sil?'idle':(m.happy(t)?'happy':f.expr));
+      const src=sil?spr.map(r=>r.map(c=>c?SIL:null)):spr;
+      blit(G,src,off,off+(sil?0:Math.max(0,f.dy)));return G;}});
   });
+  const lock=art(["..SSS..",".S...S.",".S...S.","SSSSSSS","SSSkSSS","SSSkSSS","SSSSSSS"]);
+  document.querySelectorAll('.branch canvas').forEach(cv=>paint(setupCanvas(cv,28,28),lock,0,0,4));
 })();
 
 /* ---------- reaction tiles ---------- */
 (function(){
   const host=$('tiles');
-  const pets=[genome(1201),genome(77),genome(310),genome(42)];
+  const pets=[genome(1201),genome(77)];
   const tiles=[
     {lbl:'npm test: 42 passed',h:'Tests pass',p:'Your nibbl walks over and eats the bug.',n:34,f:(i,g)=>{
       let x=2; if(i>=6&&i<16) x=2+(i-6); else if(i>=16) x=12;
@@ -750,12 +680,6 @@ const band={state:'idle',t0:0,bug:true,hadBug:true,fired:{}};
       const props=[]; if(i>=6&&i<14) props.push([BANG,10,1+(i%2)]);
       if(i>=8) props.push([BUG,24,Math.min(11,-4+(i-8)*3)]);
       return {pet:g,petX:2,dy:i===8||i===9?-2:0,expr:i>=6&&i<12?'wide':i>12&&i%7===0?'blink':'idle',props};}},
-    {lbl:'git commit -m "auth"',h:'Commit',p:'It hauls the box off the scene on its head.',n:44,f:(i,g)=>{
-      const x=-12+i, bob=i%2;
-      return {pet:g,petX:x,dy:bob,props:[headBox(g,x,bob)]};}},
-    {lbl:'02:14 local time',h:'After midnight',p:'Nightcap on. It sleeps while you ship.',n:48,f:(i,g)=>{
-      const spr=sprite(g);const top=spriteTop(spr);const dy=Math.floor(i/6)%2;
-      return {pet:g,petX:2,dy,expr:'blink',props:[[CAP,7,top-4+dy],[MOON,28,1]].concat(zProps(i,18,4))};}}
   ];
   tiles.forEach((tl,k)=>{
     const d=document.createElement('div');d.className='tile px';
@@ -767,6 +691,13 @@ const band={state:'idle',t0:0,bug:true,hadBug:true,fired:{}};
       const o=tl.f(i,pets[k]); o.hop=m.hop(t); if(m.happy(t)) o.expr='happy';
       return scene(o);}});
   });
+  const Q=art(["..kkkk..",".kkSSkk.","kk....kk","......kk",".....kk.","...kk...","...kk...","........","...kk..."].map(r=>r.replace(/k/g,'S')));
+  for(let n=0;n<2;n++){
+    const d=document.createElement('div');d.className='tile locked px';
+    d.innerHTML='<div class="scr"><canvas role="img" aria-label="Locked reaction"></canvas></div><div><span class="lbl">locked</span><h3>???</h3></div><p>Discover it in Claude Code.</p>';
+    host.appendChild(d);
+    const cv=d.querySelector('canvas'); paint(setupCanvas(cv,8*6,9*6),Q,0,0,6);
+  }
 })();
 
 /* ---------- odds table + rarest example ---------- */
@@ -776,10 +707,12 @@ const TIER_SEEDS={common:9,uncommon:31,rare:142,epic:256,legendary:7};
   const rows=[['common',40],['uncommon',30],['rare',18],['epic',9],['legendary',3],['shiny',4]];
   rows.forEach(([t,p])=>{
     const d=document.createElement('div');d.className='orow';
-    d.innerHTML='<span><span class="badge t-'+t+'">'+t+'</span></span><canvas role="img" aria-label="'+t+' example"></canvas><div class="bar t-'+t+'" style="width:'+(p/40*100)+'%"></div><span class="pct">'+(t==='shiny'?'+':'')+p+'%</span>';
+    const secret=t==='epic'||t==='legendary'||t==='shiny';
+    d.innerHTML='<span><span class="badge t-'+t+'">'+t+'</span></span>'+(secret?'<span class="ocell"><canvas role="img" aria-label="'+t+' example, hidden"></canvas><span class="lbl">???</span></span>':'<canvas role="img" aria-label="'+t+' example"></canvas>')+'<div class="bar t-'+t+'" style="width:'+(p/40*100)+'%"></div><span class="pct">'+(t==='shiny'?'+':'')+p+'%</span>';
     host.appendChild(d);
     const g=t==='shiny'?genome(23,{shiny:true}):genome(TIER_SEEDS[t]);
-    mountSprite(d.querySelector('canvas'),g,{poke:true,scale:()=>small()?2:3});
+    if(secret){const sp=sprite(g),G=grid(16,16);blit(G,sp.map(r=>r.map(c=>c?P.dusk:null)),0,0);mount(d.querySelector('canvas'),{w:16,h:16,scale:()=>small()?2:3,draw:()=>G});}
+    else mountSprite(d.querySelector('canvas'),g,{poke:true,scale:()=>small()?2:3});
   });
   // rarest example: first issued serial whose rarest trait is under 2.5% (and not shiny)
   let n=1; for(;n<=HATCHED;n++){const d=petData(n);if(!d.g.shiny&&rarestTrait(d.g).p<0.025) break;}
@@ -794,7 +727,7 @@ const TIER_SEEDS={common:9,uncommon:31,rare:142,epic:256,legendary:7};
 /* ---------- leaderboard ---------- */
 (function(){
   const host=$('lb');
-  LEADERBOARD.forEach((ser,i)=>{
+  LEADERBOARD.slice(0,5).forEach((ser,i)=>{
     const d=petData(ser);
     const a=document.createElement('a');a.className='lrow';a.href=cardUrl(ser);a.setAttribute('aria-label',d.name+' #'+d.id+', level '+d.level+', open card');
     const tags='<span class="badge t-'+d.tier+'">'+d.tier+'</span>'+(d.g.shiny?'<span class="badge t-shiny">shiny</span>':'')+(d.genesis?'<span class="badge t-genesis">genesis</span>':'');
@@ -802,6 +735,10 @@ const TIER_SEEDS={common:9,uncommon:31,rare:142,epic:256,legendary:7};
     host.appendChild(a);
     mountSprite(a.querySelector('canvas'),d.g,{poke:'stop',phase:i*170,life:500+i});
   });
+  const gh=document.createElement('div');gh.className='lrow ghost';
+  gh.innerHTML='<span class="rk">6</span><canvas role="img" aria-label="An egg"></canvas><span class="nm"><b>your nibbl could be here</b></span>';
+  host.appendChild(gh);
+  mount(gh.querySelector('canvas'),{w:16,h:16,poke:true,cssHop:true,scale:()=>small()?2:3,draw:t=>{const f=REDUCED?0:Math.floor(t/400)%8;const w=f<4?0:[-1,1,-1,1][f-4];const G=grid(16,16);blit(G,EGG,4+w,5);return G;}});
 })();
 
 /* ---------- pet card example + recent ---------- */
