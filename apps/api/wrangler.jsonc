@@ -1,0 +1,36 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // One Worker serves the landing (static assets), /api/* and /p/* on one host.
+  "name": "nibbl-pet",
+  "main": "src/index.ts",
+  // Pinned to the workerd bundled with @cloudflare/vitest-pool-workers 0.22; bump both together.
+  "compatibility_date": "2026-08-15",
+  "workers_dev": true,
+  "preview_urls": false,
+  "assets": {
+    // Swap to the built web app once apps/web exists.
+    "directory": "../web/prototype",
+    "binding": "ASSETS",
+    // Only these paths run the Worker; every other request is a free static asset hit.
+    "run_worker_first": ["/api/*", "/p/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "nibbl-pet",
+      // Written by scripts/provision.sh. The zero id is fine for local dev, tests and --dry-run.
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "triggers": {
+    // Leaderboard rebuild, bot growth, hatch_ip cleanup.
+    "crons": ["*/5 * * * *"]
+  },
+  "vars": {
+    // Genesis = hatched before LAUNCH_AT + 30 days. Set to the real launch moment before launch.
+    "LAUNCH_AT": "2026-10-31T00:00:00Z"
+  },
+  "observability": { "enabled": true },
+  "upload_source_maps": true
+}

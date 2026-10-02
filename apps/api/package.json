@@ -1,0 +1,30 @@
+{
+  "name": "@nibbl/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json && tsc -p scripts/tsconfig.json",
+    "migrate": "wrangler d1 migrations apply nibbl-pet --local",
+    "migrate:remote": "wrangler d1 migrations apply nibbl-pet --remote",
+    "gen:bots": "tsx scripts/gen-bot-migration.ts",
+    "provision": "bash scripts/provision.sh",
+    "secrets": "bash scripts/set-secrets.sh",
+    "deploy:dry": "wrangler deploy --dry-run --outdir dist",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "@nibbl/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.22.0",
+    "@cloudflare/workers-types": "^5.20261002.1",
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vitest": "^4.1.0",
+    "wrangler": "^4.147.0"
+  }
+}
