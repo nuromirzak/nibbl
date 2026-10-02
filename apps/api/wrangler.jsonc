@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   // One Worker serves the landing (static assets), /api/* and /p/* on one host.
-  "name": "nibbl-pet",
+  "name": "nibbl",
   // The owner's personal Cloudflare account (Nur.omirzaq@gmail.com). The owner's wrangler login
   // also sees another account; pinning the id means no command can silently target it.
   "account_id": "42544c84ffaa32a531766a26562c080d",
@@ -20,7 +20,7 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "nibbl-pet",
+      "database_name": "nibbl",
       // Written by scripts/provision.sh. The zero id is fine for local dev, tests and --dry-run.
       "database_id": "00000000-0000-0000-0000-000000000000",
       "migrations_dir": "migrations"

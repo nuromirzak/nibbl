@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Finds or creates every Cloudflare resource nibbl-pet needs that a deploy does not create.
+# Finds or creates every Cloudflare resource nibbl needs that a deploy does not create.
 # Safe to run again: existing resources are reused, applied migrations are skipped.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-DB_NAME="nibbl-pet"
+DB_NAME="nibbl"
 DB_LOCATION="weur"
 WRANGLER=(pnpm exec wrangler)
 

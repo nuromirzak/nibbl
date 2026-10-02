@@ -21,13 +21,13 @@ const fakePlugin = () => {
 test('packs a zip and writes a URL-safe marketplace.json pinned by sha256', () => {
   const out = mkdtempSync(join(tmpdir(), 'nibbl-assets-'))
   const printed = JSON.parse(
-    execFileSync('node', [script, '--plugin-dir', fakePlugin(), '--origin', 'https://nibbl-pet.example.workers.dev', '--out', out], { encoding: 'utf8' }),
+    execFileSync('node', [script, '--plugin-dir', fakePlugin(), '--origin', 'https://nibbl.example.workers.dev', '--out', out], { encoding: 'utf8' }),
   )
   const zipPath = join(out, 'plugin', 'nibbl-0.1.0.zip')
   assert.ok(existsSync(zipPath))
   const sha = createHash('sha256').update(readFileSync(zipPath)).digest('hex')
   assert.equal(printed.sha256, sha)
-  assert.equal(printed.url, 'https://nibbl-pet.example.workers.dev/plugin/nibbl-0.1.0.zip')
+  assert.equal(printed.url, 'https://nibbl.example.workers.dev/plugin/nibbl-0.1.0.zip')
 
   const market = JSON.parse(readFileSync(join(out, 'marketplace.json'), 'utf8'))
   assert.equal(market.name, 'nibbl')

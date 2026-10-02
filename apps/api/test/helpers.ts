@@ -8,7 +8,7 @@ import type { HatchResult } from '../src/routes/hatch'
 export type TestEnv = Env & { TEST_MIGRATIONS: D1Migration[] }
 export const testEnv = env as unknown as TestEnv
 
-export const ORIGIN = 'https://nibbl-pet.test'
+export const ORIGIN = 'https://nibbl.test'
 // Tuesday 2026-10-20 12:00 UTC: inside the Genesis window of LAUNCH_AT 2026-10-31.
 export const T0 = Date.UTC(2026, 9, 20, 12, 0, 0)
 
