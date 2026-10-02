@@ -22,7 +22,7 @@
       "binding": "DB",
       "database_name": "nibbl",
       // Written by scripts/provision.sh. The zero id is fine for local dev, tests and --dry-run.
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "13602d33-2e42-47a5-8c5b-1cd5c4ecb8bf",
       "migrations_dir": "migrations"
     }
   ],
