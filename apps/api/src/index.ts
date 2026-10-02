@@ -1,6 +1,7 @@
 import type { Deps, Env } from './env'
 import { HttpError, json } from './lib/http'
 import { hatch } from './routes/hatch'
+import { name } from './routes/name'
 import { sync } from './routes/sync'
 
 export type Route = { method: 'GET' | 'POST'; handler: (request: Request, env: Env, deps: Deps) => Promise<Response> }
@@ -8,6 +9,7 @@ export type Route = { method: 'GET' | 'POST'; handler: (request: Request, env: E
 // Every /api route. Later tasks add one line each.
 const API: Record<string, Route> = {
   '/api/hatch': { method: 'POST', handler: hatch },
+  '/api/name': { method: 'POST', handler: name },
   '/api/sync': { method: 'POST', handler: sync },
 }
 
