@@ -2,7 +2,7 @@
 
 Date: 2026-10-02. Status: draft for owner review. Companion to `docs/superpowers/specs/2026-10-02-nibbl-design.md` and `docs/product-principles.md`.
 
-Placeholders used below: GitHub `nibbl-dev/nibbl`, landing `https://nibbl-pet.pages.dev`. Both are open decisions (spec §13).
+Placeholders used below: GitHub `nuromirzak/nibbl`, landing `https://nibbl-pet.pages.dev`. Both are open decisions (spec §13).
 
 ## 1. What makes it shareable
 
@@ -115,7 +115,7 @@ Recommended: option 2. It explains the loop in one line and the "eats bugs when 
 >
 > Install:
 > ```
-> /plugin marketplace add nibbl-dev/nibbl
+> /plugin marketplace add nuromirzak/nibbl
 > /plugin install nibbl@nibbl
 > ```
 >
@@ -146,7 +146,7 @@ Post the thread from the owner's personal account, not a brand account. Reply to
 **Entry (match the list's format):**
 
 ```markdown
-- [Nibbl](https://github.com/nibbl-dev/nibbl) - A tiny pixel pet above your prompt that reacts to real events (errors, passing tests, commits). Zero tokens, works offline.
+- [Nibbl](https://github.com/nuromirzak/nibbl) - A tiny pixel pet above your prompt that reacts to real events (errors, passing tests, commits). Zero tokens, works offline.
 ```
 
 **PR body:**
@@ -202,7 +202,7 @@ All of them are third-party image services fetched by GitHub through its camo pr
 | Service | Used for | Privacy | Uptime and tradeoffs |
 |---|---|---|---|
 | [shields.io](https://shields.io) | Stars, version, license, "made for Claude Code" badges | Sees only camo requests; for dynamic badges it calls the GitHub API | Very reliable, widely used. Dynamic badges cache for minutes, so numbers lag. Static badges never change |
-| [hits.sh](https://hits.sh) (**chosen** view counter) | `hits.sh/github.com/nibbl-dev/nibbl.svg` | Counts image requests; stores the URL key and counts, no user data from GitHub readers | Keyed by any URL, so it works for a repo README (not only profiles), shields-style options to match the badges row. Counts camo fetches, so caching can under- or over-count; treat it as rough social proof. If it goes down the badge breaks, nothing else |
+| [hits.sh](https://hits.sh) (**chosen** view counter) | `hits.sh/github.com/nuromirzak/nibbl.svg` | Counts image requests; stores the URL key and counts, no user data from GitHub readers | Keyed by any URL, so it works for a repo README (not only profiles), shields-style options to match the badges row. Counts camo fetches, so caching can under- or over-count; treat it as rough social proof. If it goes down the badge breaks, nothing else |
 | [komarev.com ghpvc](https://komarev.com/ghpvc/) (alternative) | `komarev.com/ghpvc/?username=...` | Same model as hits.sh | Built for profile READMEs, keyed by a username string. Works for a repo with a made-up key, but hits.sh is the more natural fit for a repo. Good choice later for a "nibbl on your profile" counter |
 | [star-history.com](https://star-history.com) | Star history chart (light and dark via `<picture>`) | Calls the GitHub API for stargazer dates | Free, popular. Heavy repos can hit GitHub API limits and render slowly; the chart is a nice-to-have |
 | GitHub Insights → Traffic | Real views, unique visitors, referrers | First party, owner only | Only 14 days of history; export weekly if you want a long series |

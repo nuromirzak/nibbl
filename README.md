@@ -1,8 +1,8 @@
 <!--
   PLACEHOLDERS, replace before publishing:
-  - GitHub org/repo: nibbl-dev/nibbl          (spec §13: org name not decided)
+  - GitHub org/repo: nuromirzak/nibbl          (spec §13: org name not decided)
   - Landing / card URL: https://nibbl-pet.pages.dev   (spec §13: domain not decided)
-  This README is written for the public repo (nibbl-dev/nibbl). Copy docs/assets/ along with it.
+  This README is written for the public repo (nuromirzak/nibbl). Copy docs/assets/ along with it.
   Regenerate the images with `pnpm assets` in the private monorepo.
 -->
 
@@ -15,11 +15,11 @@
 <p align="center"><b>A tiny pixel pet that nibbles your bugs.</b><br>It lives above your Claude Code prompt, reacts to real work and grows over months.</p>
 
 <p align="center">
-  <a href="https://github.com/nibbl-dev/nibbl/stargazers"><img src="https://img.shields.io/github/stars/nibbl-dev/nibbl?style=flat-square&color=ef7d57&labelColor=1a1c2c" alt="GitHub stars"></a>
-  <a href="https://github.com/nibbl-dev/nibbl/releases"><img src="https://img.shields.io/github/v/release/nibbl-dev/nibbl?style=flat-square&color=a7f070&labelColor=1a1c2c&label=version" alt="Latest version"></a>
+  <a href="https://github.com/nuromirzak/nibbl/stargazers"><img src="https://img.shields.io/github/stars/nuromirzak/nibbl?style=flat-square&color=ef7d57&labelColor=1a1c2c" alt="GitHub stars"></a>
+  <a href="https://github.com/nuromirzak/nibbl/releases"><img src="https://img.shields.io/github/v/release/nuromirzak/nibbl?style=flat-square&color=a7f070&labelColor=1a1c2c&label=version" alt="Latest version"></a>
   <img src="https://img.shields.io/badge/license-All%20rights%20reserved-566c86?style=flat-square&labelColor=1a1c2c" alt="License: All rights reserved">
   <a href="https://docs.claude.com/en/docs/claude-code"><img src="https://img.shields.io/badge/made%20for-Claude%20Code-ef7d57?style=flat-square&labelColor=1a1c2c" alt="Made for Claude Code"></a>
-  <img src="https://hits.sh/github.com/nibbl-dev/nibbl.svg?style=flat-square&label=views&color=41a6f6&labelColor=1a1c2c" alt="Repo views">
+  <img src="https://hits.sh/github.com/nuromirzak/nibbl.svg?style=flat-square&label=views&color=41a6f6&labelColor=1a1c2c" alt="Repo views">
 </p>
 
 ## Install
@@ -27,7 +27,7 @@
 Inside Claude Code:
 
 ```
-/plugin marketplace add nibbl-dev/nibbl
+/plugin marketplace add nuromirzak/nibbl
 /plugin install nibbl@nibbl
 ```
 
@@ -114,13 +114,13 @@ No. One roll per machine, forever, and nothing is for sale. That is what makes y
 
 Every nibbl has a public card page at `https://nibbl-pet.pages.dev/p/<serial>`. Run `/nibbl` to get yours. Sharing is always your choice; the mod never posts anything for you.
 
-To show it on your GitHub profile README, paste this and replace `000042` with your serial:
+To show it on your GitHub profile README, paste this and replace `000042` with your serial (the image URL goes live with the v1 API):
 
 ```markdown
 [![My nibbl](https://nibbl-pet.pages.dev/p/000042.png)](https://nibbl-pet.pages.dev/p/000042)
 ```
 
-A compact pixel badge is coming after v1. It will look like this:
+A compact pixel badge ships with the v1 API too. It looks like this:
 
 <p><img src="docs/assets/badge-example.svg" alt="Example nibbl badge: Byte #000042 · lvl 7"></p>
 
@@ -130,10 +130,10 @@ A compact pixel badge is coming after v1. It will look like this:
 
 ## Star history
 
-<a href="https://star-history.com/#nibbl-dev/nibbl&Date">
+<a href="https://star-history.com/#nuromirzak/nibbl&Date">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=nibbl-dev/nibbl&type=Date&theme=dark">
-    <img src="https://api.star-history.com/svg?repos=nibbl-dev/nibbl&type=Date" alt="Star history chart" width="600">
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=nuromirzak/nibbl&type=Date&theme=dark">
+    <img src="https://api.star-history.com/svg?repos=nuromirzak/nibbl&type=Date" alt="Star history chart" width="600">
   </picture>
 </a>
 
