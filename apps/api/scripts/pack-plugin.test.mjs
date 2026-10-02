@@ -15,6 +15,7 @@ const fakePlugin = () => {
   writeFileSync(join(dir, '.claude-plugin', 'plugin.json'), JSON.stringify({ name: 'nibbl', version: '0.1.0', description: 'test' }))
   writeFileSync(join(dir, 'hooks', 'hooks.json'), '{ "modules": ["./register.js"] }')
   writeFileSync(join(dir, 'hooks', 'register.js'), 'export const register = () => {}\n')
+  writeFileSync(join(dir, 'README.md'), '# Nibbl\n')
   // Engine-written dev files that must never ship: they list the author's MCP servers.
   mkdirSync(join(dir, '.claude-plugin', 'types', 'claude-code-mcp'), { recursive: true })
   writeFileSync(join(dir, '.claude-plugin', 'types', 'claude-code-mcp', 'index.d.ts'), 'mcp__secret_work_server__\n')
@@ -45,6 +46,7 @@ test('packs a zip and writes a URL-safe marketplace.json pinned by sha256', () =
   const listing = execFileSync('unzip', ['-Z1', zipPath], { encoding: 'utf8' }).split('\n')
   assert.ok(listing.includes('.claude-plugin/plugin.json'))
   assert.ok(listing.includes('hooks/register.js'))
+  assert.ok(listing.includes('README.md'), 'the plugin README with odds and the privacy note ships')
   assert.ok(!listing.some(f => f.startsWith('.claude-plugin/types')), 'engine types must not ship')
   assert.ok(!listing.includes('tsconfig.json'))
   assert.equal(market.owner.name, 'nibbl')

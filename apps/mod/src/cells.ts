@@ -1,6 +1,6 @@
-import { SWEETIE, SWEETIE_RGB, toCellPairs, type CellPair, type Grid } from '@nibbl/core'
+import { SWEETIE_RGB, type CellPair } from '@nibbl/core'
 
-// RasterProps: a color is 0x00RRGGBB, or bit 24 alone for the terminal's default.
+// RasterProps: a color is 0x00RRGGBB, or bit 24 alone for the terminal's default (transparent sky).
 export const TERMINAL_DEFAULT = 0x01000000
 
 const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
@@ -54,38 +54,4 @@ export const encodeRaster = (pairs: CellPair[][]): RasterCells => {
     }
   }
   return { columns, rows, cells: toBase64(out) }
-}
-
-// One styled run of a row: text with an optional color and background (absent = terminal default).
-export type Run = { text: string; color?: string; backgroundColor?: string }
-
-const hexOf = (index: number | null): string | undefined => (index === null ? undefined : SWEETIE[index])
-
-// Collapses each row into runs of identical style, the Text-segment fallback for a scene.
-export const toRuns = (pairs: CellPair[][]): Run[][] =>
-  pairs.map(row => {
-    const runs: Run[] = []
-    for (const cell of row) {
-      // A blank cell's foreground is irrelevant, so it can join any run with the same background.
-      const color = cell.glyph === ' ' ? undefined : hexOf(cell.fg)
-      const backgroundColor = hexOf(cell.bg)
-      const last = runs[runs.length - 1]
-      if (last && last.backgroundColor === backgroundColor && (cell.glyph === ' ' || last.color === color)) {
-        last.text += cell.glyph
-        if (last.color === undefined && color !== undefined) last.color = color
-        continue
-      }
-      const run: Run = { text: cell.glyph }
-      if (color !== undefined) run.color = color
-      if (backgroundColor !== undefined) run.backgroundColor = backgroundColor
-      runs.push(run)
-    }
-    return runs
-  })
-
-export type SceneDrawing = { raster: RasterCells; runs: Run[][] }
-
-export const drawingOf = (grid: Grid): SceneDrawing => {
-  const pairs = toCellPairs(grid)
-  return { raster: encodeRaster(pairs), runs: toRuns(pairs) }
 }

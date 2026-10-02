@@ -1,0 +1,21 @@
+{
+  "name": "@nibbl/mod",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "types": "node scripts/sync-types.mjs",
+    "build": "node build.mjs",
+    "typecheck": "node scripts/sync-types.mjs && tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:plugin": "node build.mjs && claude plugin validate dist && claude plugin test dist"
+  },
+  "dependencies": {
+    "@nibbl/core": "workspace:*"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "typescript": "^5.6.0",
+    "vitest": "^3.0.0"
+  }
+}

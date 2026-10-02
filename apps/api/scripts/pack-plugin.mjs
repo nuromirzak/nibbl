@@ -33,7 +33,7 @@ mkdirSync(dirname(zipPath), { recursive: true })
 rmSync(zipPath, { force: true })
 // Allowlist, never the whole folder: the engine writes .claude-plugin/types/ into a dev plugin, and its
 // claude-code-mcp types list the author's connected MCP servers. -X drops extra attributes, -r recurses.
-const INCLUDE = ['.claude-plugin/plugin.json', 'hooks', 'types', 'assets'].filter(p => existsSync(join(pluginDir, p)))
+const INCLUDE = ['.claude-plugin/plugin.json', 'hooks', 'types', 'assets', 'README.md'].filter(p => existsSync(join(pluginDir, p)))
 execFileSync('zip', ['-X', '-r', '-q', zipPath, ...INCLUDE, '-x', '*.DS_Store', '*/tests/*', '*/node_modules/*'], { cwd: pluginDir })
 
 const sha256 = createHash('sha256').update(readFileSync(zipPath)).digest('hex')

@@ -15,6 +15,12 @@ export type SceneOpts = {
   bugs?: number
   heart?: boolean
   frame?: number
+  // Reactions, all off by default so every existing scene draws exactly as before.
+  away?: boolean // off on an expedition: no pet, shadow or pet effects; ground, bugs and hearts stay
+  loot?: boolean // a sparkle in the pet's top-right corner, back from an expedition
+  box?: boolean // a box held in front of the pet (a commit)
+  nightcap?: boolean // a sleeping cap over the top of the head (02:00-05:00 local)
+  zzz?: boolean // a Z bobbing in the pet's top-right corner while it sleeps
 }
 
 // Non-finite input (NaN, Infinity from a bad option) maps to min so a scene always draws.
@@ -32,23 +38,85 @@ export const drawGround = (scene: Grid): void => {
   for (let x = 0; x < SCENE_W; x++) scene[GROUND][x] = x % 2 === 0 ? C.slate : C.dusk
 }
 
+const LOOT: [number, number, number][] = [[1, 0, C.yellow], [0, 1, C.yellow], [1, 1, C.white], [2, 1, C.yellow], [1, 2, C.yellow]]
+// A 4x3 box inside a 1 px ink outline (6x5). Interior colours by row: lid, body, base.
+const BOX_W = 6
+const BOX_H = 5
+const BOX_Y = 8 // outline rows 8-12: above the bug rows (13-14), so a box and bugs never meet
+const BOX: [number, number, number][] = []
+for (let y = 0; y < BOX_H; y++) {
+  for (let x = 0; x < BOX_W; x++) {
+    const edge = x === 0 || y === 0 || x === BOX_W - 1 || y === BOX_H - 1
+    const inner = y === 1 ? (x === 2 || x === 3 ? C.yellow : C.orange) : y === 2 ? C.orange : C.red
+    BOX.push([x, y, edge ? C.ink : inner])
+  }
+}
+const ZED: [number, number][] = [[0, 0], [1, 0], [2, 0], [1, 1], [0, 2], [1, 2], [2, 2]]
+// The shiny sparkle sits at pet cells (14,1) and (15,0), and pets reach column 12 in rows 0-3, 13 in
+// row 4 and 14 in row 5. Loot starts at (13,2) and the Z drifts (14,2) -> (15,3), so both stay clear of
+// the pet and of the sparkle. The Z may be clipped by the scene edge when the pet stands far right.
+const LOOT_X = 13
+const LOOT_Y = 2
+
+// The pet's top row and the middle column of that row, ignoring the corner a shiny sparkle uses.
+const crownOf = (pet: Grid): { top: number; mid: number } | null => {
+  for (let y = 0; y < pet.length; y++) {
+    const xs: number[] = []
+    for (let x = 0; x < pet[y].length; x++) if (pet[y][x] !== null && !(y <= 3 && x >= 13)) xs.push(x)
+    if (xs.length > 0) return { top: y, mid: Math.floor((xs[0] + xs[xs.length - 1]) / 2) }
+  }
+  return null
+}
+
+const drawNightcap = (scene: Grid, pet: Grid, petX: number, lift: number): void => {
+  const crown = crownOf(pet)
+  if (!crown) return
+  const y = crown.top - lift
+  const x = petX + crown.mid
+  for (let dx = -1; dx <= 1; dx++) setCell(scene, x + dx, y, C.blue)
+  for (let dx = -2; dx <= 2; dx++) setCell(scene, x + dx, y + 1, C.blue)
+  setCell(scene, x + 2, y, C.white)
+}
+
+// The box stands beside the pet's body (right of it, or left when the right side has no room) and never
+// overlaps a pet pixel.
+const drawBox = (scene: Grid, pet: Grid, petX: number, lift: number): void => {
+  let left = PET_SIZE
+  let right = -1
+  for (let y = BOX_Y + lift; y < BOX_Y + BOX_H + lift && y < PET_SIZE; y++) {
+    for (let x = 0; x < PET_SIZE; x++) {
+      if (pet[y][x] === null) continue
+      left = Math.min(left, x)
+      right = Math.max(right, x)
+    }
+  }
+  if (right < 0) return
+  const onRight = petX + right + 1 + BOX_W <= SCENE_W
+  const bx = onRight ? petX + right + 1 : petX + left - BOX_W
+  for (const [dx, dy, color] of BOX) setCell(scene, bx + dx, BOX_Y + dy, color)
+}
+
 export const drawScene = (g: Genome, opts: SceneOpts = {}): Grid => {
   const scene = blankGrid(SCENE_W, SCENE_H)
   drawGround(scene)
   const petX = clamp(opts.petX ?? 6, 0, SCENE_W - PET_SIZE)
   const lift = clamp(opts.lift ?? 0, 0, 3)
   const frame = clamp(opts.frame ?? 0, 0, 1_000_000)
+  const isHome = opts.away !== true
 
-  for (let x = petX + 4; x <= petX + 11; x++) setCell(scene, x, GROUND - 1, C.dusk)
-
-  const pet = drawPet(g, opts.stage ?? 'adult', opts.expression ?? 'idle')
-  for (let y = 0; y < PET_SIZE; y++) {
-    const sy = y - lift
-    if (sy < 0 || sy >= GROUND) continue
-    for (let x = 0; x < PET_SIZE; x++) {
-      const cell = pet[y][x]
-      if (cell !== null) scene[sy][petX + x] = cell
+  if (isHome) {
+    for (let x = petX + 4; x <= petX + 11; x++) setCell(scene, x, GROUND - 1, C.dusk)
+    const pet = drawPet(g, opts.stage ?? 'adult', opts.expression ?? 'idle')
+    for (let y = 0; y < PET_SIZE; y++) {
+      const sy = y - lift
+      if (sy < 0 || sy >= GROUND) continue
+      for (let x = 0; x < PET_SIZE; x++) {
+        const cell = pet[y][x]
+        if (cell !== null) scene[sy][petX + x] = cell
+      }
     }
+    if (opts.nightcap) drawNightcap(scene, pet, petX, lift)
+    if (opts.box) drawBox(scene, pet, petX, lift)
   }
 
   const bugs = clamp(opts.bugs ?? 0, 0, 3)
@@ -59,15 +127,23 @@ export const drawScene = (g: Genome, opts: SceneOpts = {}): Grid => {
 
   if (opts.heart) for (const [dx, dy] of HEART) setCell(scene, SCENE_W - 8 + dx, 2 + dy, C.red)
 
-  if (g.tier === 'legendary') {
-    const on = frame % 2 === 0
-    setCell(scene, petX + 1, on ? 2 : 5, C.yellow)
-    setCell(scene, petX + 14, on ? 5 : 2, C.white)
-  }
-  if (g.shiny) {
-    // A second twinkle beside the pet's own corner sparkle, only on empty sky.
-    const [x, y] = frame % 2 === 0 ? [petX + 15, 2] : [petX + 13, 0]
-    if (scene[y][x] === null) scene[y][x] = C.white
+  if (isHome) {
+    if (g.tier === 'legendary') {
+      const on = frame % 2 === 0
+      setCell(scene, petX + 1, on ? 2 : 5, C.yellow)
+      setCell(scene, petX + 14, on ? 5 : 2, C.white)
+    }
+    if (g.shiny) {
+      // A second twinkle beside the pet's own corner sparkle, only on empty sky.
+      const [x, y] = frame % 2 === 0 ? [petX + 15, 2] : [petX + 13, 0]
+      if (scene[y][x] === null) scene[y][x] = C.white
+    }
+    // Last, so the twinkles above never cost a reaction pixel.
+    if (opts.loot) for (const [dx, dy, color] of LOOT) setCell(scene, petX + LOOT_X + dx, LOOT_Y + dy, color)
+    if (opts.zzz) {
+      const [zx, zy] = frame % 2 === 0 ? [14, 2] : [15, 3]
+      for (const [dx, dy] of ZED) setCell(scene, petX + zx + dx, zy + dy, C.white)
+    }
   }
   return scene
 }
