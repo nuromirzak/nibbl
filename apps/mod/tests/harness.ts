@@ -71,7 +71,8 @@ export const harness = (on: On, opts: HarnessOptions = {}) => {
     name: (pet.name ?? null) as string | null,
     label: (pet.label ?? null) as string | null,
   }
-  const net = { offline: false }
+  // hang: the fetch never answers (a stuck connection), so only the mod's own timeout ends it.
+  const net = { offline: false, hang: false }
   const toasts: string[] = []
   const calls: Call[] = []
   const blits: { requestId: string; key: string; cells?: string }[] = []
@@ -118,6 +119,7 @@ export const harness = (on: On, opts: HarnessOptions = {}) => {
       raw,
     }
     calls.push(call)
+    if (net.hang) return new Promise<never>(() => undefined)
     const reply = answerFor(call)
     if (reply === 'offline') return { deny: 'getaddrinfo ENOTFOUND getnibbl.pages.dev' }
     const text = 'text' in reply ? reply.text : JSON.stringify(reply.body)

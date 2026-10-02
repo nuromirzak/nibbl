@@ -1,8 +1,9 @@
 import { HOUR_MS } from '@nibbl/core'
 import type { EngineInterface } from 'claude-code'
 
-import { apiBase, backoff, holdUntil, post, type Wait } from './api'
+import { apiBase, backoff, holdUntil, postWithin, type Wait } from './api'
 import { CONFLICT_RETRY_MS, K, TRIM_AFTER_413 } from './config'
+import { hatchNow } from './hatch'
 import { refreshView } from './model'
 import type { ServerPet } from './pet'
 import { countEvents, isOrphan, isSyncDue, keepNewest, removeUpTo, sendable, takeBatch, toWire } from './queue'
@@ -24,7 +25,7 @@ const clearSent = async ($: EngineInterface, upTo: Readonly<Record<string, numbe
   for (const [key, n] of Object.entries(upTo)) await editQueue($, key, q => (q ? removeUpTo(q, n) : null))
 }
 
-const send = async ($: EngineInterface, sid: string, pet: ServerPet, now: number, reason: SyncReason): Promise<SyncResult> => {
+const send = async ($: EngineInterface, sid: string, pet: ServerPet, now: number, reason: SyncReason, mayReauth = true): Promise<SyncResult> => {
   const own = queueKey(sid)
   const all = await loadQueues($)
   // Empty queues of sessions that ended are garbage.
@@ -32,7 +33,7 @@ const send = async ($: EngineInterface, sid: string, pet: ServerPet, now: number
   const batch = takeBatch(sendable(all, own, now))
   if (batch.events.length === 0) return 'empty'
   const wait = await loadWait($, K.syncWait)
-  const out = await post($, await apiBase($), '/api/sync', { serial: pet.serial, token: pet.token, events: toWire(batch.events) })
+  const out = await postWithin($, await apiBase($), '/api/sync', { serial: pet.serial, token: pet.token, events: toWire(batch.events) })
   if (out.kind === 'offline') return fail($, reason, `offline (${out.reason})`, backoff(wait, now))
   if (out.kind === 'ok') {
     const { xp, level, heartsLeft } = out.body
@@ -49,6 +50,14 @@ const send = async ($: EngineInterface, sid: string, pet: ServerPet, now: number
     await clearSent($, batch.upTo)
     await $.store.delete(K.syncWait)
     return 'synced'
+  }
+  if ((out.status === 401 || out.code === 'invalid_token' || out.code === 'invalid_serial') && mayReauth) {
+    // The token was rotated (a reinstall, another session's re-hatch) or lost: re-hatch by machineHash,
+    // which returns this machine's pet with a fresh token, and resend once.
+    const result = await hatchNow($, 'reauth', { isLeased: true })
+    if (result === 'moved') return 'failed'
+    const fresh = result === 'hatched' ? await loadPet($) : null
+    return fresh ? send($, sid, fresh, now, reason, false) : fail($, reason, out.code, backoff(wait, now))
   }
   if (out.status === 409) return fail($, reason, out.code, holdUntil(wait, now + CONFLICT_RETRY_MS))
   if (out.status === 429) return fail($, reason, out.code, holdUntil(wait, Math.max(now + 1_000, out.retryAt ?? now + CONFLICT_RETRY_MS)))

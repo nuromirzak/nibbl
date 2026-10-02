@@ -1,7 +1,7 @@
-// Behaviour the controller ruled on for Task 6, beyond the plan's sync tests.
+// Behaviour the controller ruled on for Tasks 6 and 7, beyond the plan's sync and lifecycle tests.
 import { expect, mock, test } from 'claude-code/testing'
 
-import { answer, bash, end, harness, hatchedStore, nibbl, start, START, subagentAnswer, TOKEN_A, turnStart } from './harness.ts'
+import { answer, bash, end, harness, hatchedStore, HOUR, nibbl, start, START, subagentAnswer, TOKEN_A, turnStart } from './harness.ts'
 
 type Raise = { tool: { call: (e: unknown) => Promise<unknown> }; session: { start: (e: unknown) => Promise<unknown> } }
 
@@ -17,13 +17,14 @@ test('subagent turns and tool calls feed nothing', async ($, on) => {
   expect(h.syncs()).toHaveLength(0)
 })
 
-test('a 401 keeps every event and backs off; the token never reaches a toast or command text', async ($, on) => {
+test('a 401 whose re-hatch fails keeps every event and backs off; the token never reaches a toast or command text', async ($, on) => {
   const h = harness(on, { store: hatchedStore() })
   await start($)
   await answer($)
   h.respondOnce('/api/sync', { status: 401, body: { error: 'unauthorized' } })
+  h.respondOnce('/api/hatch', { status: 503, body: { error: 'unavailable' } })
   await end($)
-  expect(h.syncs()).toHaveLength(1)
+  expect(h.calls.map(c => c.path)).toEqual(['/api/sync', '/api/hatch'])
   const stats = await nibbl($)
   expect(stats).toMatch(/1 event waiting/)
   expect(stats).not.toContain(TOKEN_A)
@@ -107,4 +108,55 @@ test('a rejected /nibbl registration is retried at the next start', async ($, on
   expect(tries).toBe(2)
   await turnStart($)
   expect(tries).toBe(2)
+})
+
+test('two orphan queues over 1000 events in total: the first sync sends 1000, the rest wait and go next', { timeoutMs: 20_000 }, async ($, on) => {
+  const queue = (offset: number) => ({
+    beat: START - 20 * 60_000,
+    next: 701,
+    events: Array.from({ length: 700 }, (_, i) => ({ type: 'error', at: START - 1_400_000 + 2 * i * 1_000 + offset, n: i + 1, g: 0 })),
+  })
+  const h = harness(on, { store: { ...hatchedStore(), 'v1.q.sess-x': queue(0), 'v1.q.sess-y': queue(1_000) } })
+  await start($)
+  await end($)
+  expect(h.syncs()).toHaveLength(1)
+  expect(h.syncs()[0]!.body.events).toHaveLength(1000)
+  expect(await nibbl($)).toMatch(/400 events waiting/)
+  await end($)
+  expect(h.syncs()).toHaveLength(2)
+  expect(h.syncs()[1]!.body.events).toHaveLength(400)
+  const sent = h.syncs().flatMap(c => (c.body.events as { at: number }[]).map(e => e.at))
+  expect(new Set(sent).size).toBe(1400)
+  expect(await nibbl($)).toMatch(/0 events waiting/)
+})
+
+test('a sync whose fetch never answers times out, so the next due sync still runs', { timeoutMs: 20_000 }, async ($, on) => {
+  const h = harness(on, { store: hatchedStore({ lastSyncAt: START - 3 * HOUR }) })
+  h.net.hang = true
+  await start($)
+  await answer($)
+  await h.clock.advance(21_000)
+  expect(h.syncs()).toHaveLength(1)
+  h.net.hang = false
+  await h.clock.advance(61_000)
+  await answer($)
+  await h.clock.advance(1)
+  expect(h.syncs()).toHaveLength(2)
+  expect(await nibbl($)).toMatch(/0 events waiting/)
+})
+
+test('a hatch whose fetch never answers times out, so the egg still hatches later', { timeoutMs: 20_000 }, async ($, on) => {
+  const h = harness(on)
+  h.net.hang = true
+  await start($)
+  for (let i = 0; i < 10; i++) await answer($)
+  await h.clock.advance(1_500)
+  await h.clock.advance(21_000)
+  expect(h.hatches()).toHaveLength(1)
+  h.net.hang = false
+  await h.clock.advance(61_000)
+  await answer($)
+  await h.clock.advance(1_500)
+  expect(h.hatches()).toHaveLength(2)
+  expect(await nibbl($)).toMatch(/^Nibbl #000042/)
 })

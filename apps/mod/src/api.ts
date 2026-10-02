@@ -1,7 +1,7 @@
 import type { EngineInterface } from 'claude-code'
 
-import { BACKOFF_BASE_MS, BACKOFF_MAX_MS, DEFAULT_API } from './config'
-import { rt } from './runtime'
+import { BACKOFF_BASE_MS, BACKOFF_MAX_MS, DEFAULT_API, POST_TIMEOUT_MS } from './config'
+import { rt, withTimeout } from './runtime'
 
 export type ApiOutcome =
   | { kind: 'ok'; status: number; body: Record<string, unknown> }
@@ -36,6 +36,13 @@ export const post = async ($: EngineInterface, base: string, path: string, paylo
   } catch (err) {
     return { kind: 'offline', reason: err instanceof Error ? err.message : String(err) }
   }
+}
+
+// $.http.fetch has no timeout: a hung request would hold the sync or hatch guard forever, so these
+// posts give up after POST_TIMEOUT_MS and count as offline (the request may still land: at-least-once).
+export const postWithin = async ($: EngineInterface, base: string, path: string, payload: unknown, ms = POST_TIMEOUT_MS): Promise<ApiOutcome> => {
+  const out = await withTimeout($, ms, post($, base, path, payload))
+  return out === 'timeout' ? { kind: 'offline', reason: `no answer in ${ms} ms` } : out
 }
 
 export type Wait = { until: number; failures: number }

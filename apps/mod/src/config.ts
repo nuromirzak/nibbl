@@ -16,6 +16,7 @@ export const BACKOFF_BASE_MS = 60_000
 export const BACKOFF_MAX_MS = 60 * 60_000
 export const CONFLICT_RETRY_MS = 30_000
 export const SESSION_END_WAIT_MS = 2_500
+export const POST_TIMEOUT_MS = 20_000
 
 export const TICK_MS = 500
 export const MOOD_MS = 6_000
