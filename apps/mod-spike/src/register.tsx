@@ -175,8 +175,11 @@ const petPressed = async ($: EngineInterface): Promise<void> => {
   }
   const accepted = await score($, 'pet')
   await feel($, 'happy', HEART_MS)
-  if (accepted > 0) await update($, heartUntil, () => now + HEART_MS)
-  else $.ui.toast(`${current.name} is all petted out this hour.`)
+  if (accepted > 0) {
+    await update($, heartUntil, () => now + HEART_MS)
+    const left = heartsLeft((await read($, windows)) as unknown as Windows, now)
+    $.ui.toast(`${current.name} loved that! +2 XP  ${'♥'.repeat(left)}${'♡'.repeat(5 - left)}`)
+  } else $.ui.toast(`${current.name} is all petted out this hour.`)
 }
 
 const statsText = async ($: EngineInterface): Promise<string> => {
@@ -221,6 +224,11 @@ export const register: Register = on => {
     await ensureLoaded($)
     await markActive($)
     await ensureRunning($)
+    return next(e)
+  })
+
+  on('ui.press', { plugin: 'nibbl', element: 'pet' }, async ($, e, next) => {
+    await petPressed($)
     return next(e)
   })
 
@@ -324,7 +332,8 @@ export const register: Register = on => {
     const { Box, Text, Button } = ui
     const sceneMode = await read($, mode)
 
-    const petButton = <Button key="pet" label="♥" hotkey="p" onPress={() => void petPressed($)} />
+    // The render-time `$` is dead once this hook returns; the press is handled in `ui.press` below.
+    const petButton = <Button key="pet" label="♥" hotkey="p" onPress={() => {}} />
 
     // Draws the scene per mode; Raster exists on the terminal table alone.
     const sceneOf = (drawing: { raster: { columns: number; rows: number; cells: string }; runs: Run[][] }) => {
