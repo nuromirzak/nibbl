@@ -106,15 +106,55 @@ describe('reaction overlays', () => {
     expect(s.slice(0, SCENE_H - 1).flat().filter(c => c !== null)).toHaveLength(12)
   })
 
-  it('box paints a 4x3 box in front of the pet, beside its body', () => {
-    const d = changed(drawScene(g, { petX: 6 }), drawScene(g, { petX: 6, box: true }))
-    expect(d.length).toBeGreaterThan(0)
-    for (const c of d) {
-      expect([C.orange, C.yellow, C.red]).toContain(c.after)
-      expect(c.x).toBeGreaterThanOrEqual(17)
-      expect(c.x).toBeLessThanOrEqual(20)
-      expect(c.y).toBeGreaterThanOrEqual(11)
-      expect(c.y).toBeLessThanOrEqual(13)
+  it('box is a 4x3 box in an ink outline beside the pet and never overwrites a pet pixel', () => {
+    for (const petX of [0, 6, 10, 16]) {
+      for (const lift of [0, 3]) {
+        for (const stage of ['baby', 'teen', 'adult'] as const) {
+          const base = drawScene(g, { petX, lift, stage })
+          const d = changed(base, drawScene(g, { petX, lift, stage, box: true }))
+          const label = `${petX}/${lift}/${stage}`
+          expect(d.length, label).toBe(30) // 6x5, all painted: there is always room on one side
+          for (const c of d) expect(c.before, label).toBeNull()
+          const xs = d.map(c => c.x)
+          const ys = d.map(c => c.y)
+          const [x0, y0] = [Math.min(...xs), Math.min(...ys)]
+          for (const c of d) {
+            const edge = c.x === x0 || c.x === x0 + 5 || c.y === y0 || c.y === y0 + 4
+            if (edge) expect(c.after, label).toBe(C.ink)
+            else expect([C.orange, C.yellow, C.red], label).toContain(c.after)
+          }
+        }
+      }
+    }
+  })
+
+  it('box never meets the bugs', () => {
+    const withBugs = drawScene(g, { petX: 6, bugs: 3 })
+    const d = changed(withBugs, drawScene(g, { petX: 6, bugs: 3, box: true }))
+    expect(d).toHaveLength(30)
+    for (const c of d) expect(c.before).toBeNull()
+  })
+
+  it('loot and zzz keep every pixel on a shiny pet, clear of the pet and its sparkle', () => {
+    const LOOT = [[14, 2, C.yellow], [13, 3, C.yellow], [14, 3, C.white], [15, 3, C.yellow], [14, 4, C.yellow]]
+    const zed = (x: number, y: number) => [[0, 0], [1, 0], [2, 0], [1, 1], [0, 2], [1, 2], [2, 2]].map(([dx, dy]) => [x + dx, y + dy, C.white])
+    for (const tier of ['common', 'legendary'] as const) {
+      const s = genome(8, tier, true)
+      for (const frame of [0, 1]) {
+        const base = drawScene(s, { petX: 6, frame })
+        const pet = drawScene(s, { petX: 6, frame, away: false })
+        const loot = drawScene(s, { petX: 6, frame, loot: true })
+        const zzz = drawScene(s, { petX: 6, frame, zzz: true })
+        const expected: [Grid, number[][]][] = [[loot, LOOT], [zzz, zed(...(frame === 0 ? [14, 2] : [15, 3]) as [number, number])]]
+        for (const [scene, cells] of expected) {
+          for (const [x, y, color] of cells) {
+            expect(scene[y][6 + x], `${tier}/${frame}/${x},${y}`).toBe(color)
+            // Nothing of the pet or its sparkle was under it (legendary twinkles aside).
+            if (tier === 'common') expect(base[y][6 + x] === null || base[y][6 + x] === C.white, `${x},${y}`).toBe(true)
+          }
+        }
+        expect(pet).toEqual(base)
+      }
     }
   })
 
