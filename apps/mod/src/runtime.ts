@@ -10,6 +10,7 @@ export type BandMount = { requestId: string; sceneId: string | null; hud: string
 export const rt = {
   options: {} as PluginOptions,
   ticker: null as { cancel: () => void } | null,
+  isRegistered: false,
   tzRead: false,
   anim: { frame: 0, petX: HOME_X, blink: false } as Anim,
   band: null as BandMount | null,
