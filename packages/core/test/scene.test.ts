@@ -13,20 +13,30 @@ describe('drawScene', () => {
     expect(s[15].every(c => c === C.slate || c === C.dusk)).toBe(true)
   })
 
-  it('clamps petX, lift and bugs instead of throwing', () => {
+  it('clamps petX, lift and bugs and keeps the ground row intact', () => {
     const g = genome(3, 'legendary', true)
-    for (const petX of [-10, 0, 16, 99]) {
-      for (const lift of [-5, 0, 3, 20]) {
-        expect(() => drawScene(g, { petX, lift, bugs: 99, heart: true, frame: 7 })).not.toThrow()
+    const ground = drawScene(g)[15]
+    for (const petX of [-10, 0, 16, 99, NaN, Infinity, -Infinity]) {
+      for (const lift of [-5, 0, 3, 20, NaN, Infinity]) {
+        const s = drawScene(g, { petX, lift, bugs: 99, heart: true, frame: 7 })
+        expect(s[15]).toEqual(ground)
+        for (const row of s) expect(Object.keys(row)).toHaveLength(SCENE_W)
       }
     }
   })
 
-  it('draws bugs only when asked', () => {
+  it('draws the pet at petX 0 and lift 0 when given NaN', () => {
+    const g = genome(3, 'legendary', true)
+    expect(drawScene(g, { petX: NaN, lift: NaN })).toEqual(drawScene(g, { petX: 0, lift: 0 }))
+    expect(drawScene(g, { petX: NaN, lift: NaN, bugs: NaN, frame: NaN })).toEqual(drawScene(g, { petX: 0, lift: 0, bugs: 0, frame: 0 }))
+  })
+
+  it('adds exactly one bug sprite of lime pixels per bug clear of the pet', () => {
     const g = genome(8, 'common', false)
     const count = (bugs: number) => drawScene(g, { bugs, petX: 0 }).flat().filter(c => c === C.lime).length
-    expect(count(0)).toBe(count(0))
-    expect(count(2)).toBeGreaterThan(count(0))
+    const perBug = 5
+    expect(count(1) - count(0)).toBe(perBug)
+    expect(count(2) - count(0)).toBe(2 * perBug)
   })
 })
 

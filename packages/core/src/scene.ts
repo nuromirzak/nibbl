@@ -17,7 +17,9 @@ export type SceneOpts = {
   frame?: number
 }
 
-const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, Math.trunc(v)))
+// Non-finite input (NaN, Infinity from a bad option) maps to min so a scene always draws.
+const clamp = (v: number, min: number, max: number) =>
+  Number.isFinite(v) ? Math.min(max, Math.max(min, Math.trunc(v))) : min
 
 const BUG: [number, number, number][] = [
   [0, 0, C.lime], [4, 0, C.lime], [2, 0, C.ink], [1, 1, C.lime], [2, 1, C.lime], [3, 1, C.lime],
