@@ -5,9 +5,8 @@ const NOW = 1_800_000_000_000
 
 describe('levels', () => {
   it('follows round(10 * n^1.4)', () => {
-    expect(xpToNext(1)).toBe(10)
-    expect(xpToNext(2)).toBe(26)
-    expect(xpToNext(9)).toBe(217)
+    expect([1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(xpToNext)).toEqual([10, 26, 47, 70, 95, 123, 152, 184, 217, 251])
+    expect(xpToNext(98)).toBe(6134)
   })
 
   it('converts xp to level', () => {
@@ -117,6 +116,13 @@ describe('scoreEvents', () => {
     )
     expect(r.xpGained).toBe(2)
     expect(r.accepted).toBe(1)
+  })
+
+  it('returns a zero result when events is not an array', () => {
+    for (const bad of [null, undefined, 'pet', 42, { type: 'pet', at: NOW }, { length: 3 }]) {
+      const r = scoreEvents(bad as never, { 1: { pet: 1 } }, NOW, null)
+      expect(r).toEqual({ xpGained: 0, windows: { 1: { pet: 1 } }, accepted: 0 })
+    }
   })
 
   it('returns zero xp when now is non-finite', () => {

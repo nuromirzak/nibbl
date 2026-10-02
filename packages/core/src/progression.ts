@@ -22,7 +22,7 @@ export const scoreEvents = (
   now: number,
   lastSyncAt: number | null,
 ): { xpGained: number; windows: Windows; accepted: number } => {
-  if (!Number.isFinite(now) || (lastSyncAt !== null && !Number.isFinite(lastSyncAt))) {
+  if (!Array.isArray(events) || !Number.isFinite(now) || (lastSyncAt !== null && !Number.isFinite(lastSyncAt))) {
     return { xpGained: 0, windows: Object.fromEntries(Object.entries(windows).map(([h, w]) => [h, { ...w }])), accepted: 0 }
   }
   const oldest = lastSyncAt === null ? now - FIRST_SYNC_LOOKBACK_MS : lastSyncAt - SYNC_GRACE_MS

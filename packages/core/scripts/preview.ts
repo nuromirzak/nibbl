@@ -1,5 +1,5 @@
 import { writeFileSync } from 'node:fs'
-import { SWEETIE, drawScene, genome, isTier, mulberry32, rarestTrait, rollFromBytes, toCellPairs } from '../src/index'
+import { SWEETIE_RGB, drawScene, genome, isTier, mulberry32, rarestTrait, rollFromBytes, toCellPairs } from '../src/index'
 
 const arg = process.argv[2]
 const seedArg = arg === undefined ? Math.floor(Math.random() * 2 ** 32) : Number(arg)
@@ -21,7 +21,7 @@ const seed = seedArg >>> 0
 const g = genome(seed, tier, roll.shiny)
 const scene = drawScene(g, { heart: true, bugs: 1 })
 
-const rgb = (i: number) => [1, 3, 5].map(o => Number.parseInt(SWEETIE[i].slice(o, o + 2), 16))
+const rgb = (i: number) => SWEETIE_RGB[i]
 const fg = (i: number) => `\x1b[38;2;${rgb(i).join(';')}m`
 const bg = (i: number) => `\x1b[48;2;${rgb(i).join(';')}m`
 

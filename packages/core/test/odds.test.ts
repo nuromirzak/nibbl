@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { BP, SHINY_BP, TIERS, TIER_BP, isTier, rollFromBytes, shinyFromRoll, tierFromRoll, tierRank } from '../src/odds'
-import { RAMPS, SHINY_RAMPS, SWEETIE } from '../src/palette'
+import { RAMPS, SHINY_RAMPS, SWEETIE, SWEETIE_RGB } from '../src/palette'
 import { mulberry32 } from '../src/prng'
 
 describe('palette', () => {
@@ -10,6 +10,13 @@ describe('palette', () => {
       for (const i of ramp) expect(i).toBeGreaterThanOrEqual(0)
       for (const i of ramp) expect(i).toBeLessThan(16)
     }
+  })
+
+  it('derives SWEETIE_RGB from the hex palette', () => {
+    expect(SWEETIE_RGB).toHaveLength(16)
+    expect(SWEETIE_RGB[0]).toEqual([0x1a, 0x1c, 0x2c])
+    expect(SWEETIE_RGB[12]).toEqual([0xf4, 0xf4, 0xf4])
+    SWEETIE_RGB.forEach((rgb, i) => expect('#' + rgb.map(c => c.toString(16).padStart(2, '0')).join('')).toBe(SWEETIE[i]))
   })
 
   it('gives every ramp a dedicated shiny triplet unlike any base ramp or other shiny ramp', () => {

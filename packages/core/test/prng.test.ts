@@ -18,6 +18,26 @@ describe('mulberry32', () => {
     }
   })
 
+  it('matches known vectors and an independent reference implementation', () => {
+    expect(mulberry32(0)()).toBe(1144304738)
+    expect(mulberry32(42)()).toBe(2581720956)
+    // Written separately from src: the original float form of mulberry32, scaled back to uint32.
+    const reference = (seed: number) => {
+      let a = seed | 0
+      return () => {
+        a = (a + 0x6d2b79f5) | 0
+        let t = Math.imul(a ^ (a >>> 15), 1 | a)
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+        return (((t ^ (t >>> 14)) >>> 0) / 4294967296) * 4294967296
+      }
+    }
+    for (const seed of [0, 1, 42, 0x7fffffff, 0xffffffff]) {
+      const ours = mulberry32(seed)
+      const theirs = reference(seed)
+      for (let i = 0; i < 1000; i++) expect(ours()).toBe(theirs())
+    }
+  })
+
   it('treats -1 and 0xffffffff as the same seed', () => {
     expect(mulberry32(-1)()).toBe(mulberry32(0xffffffff)())
   })

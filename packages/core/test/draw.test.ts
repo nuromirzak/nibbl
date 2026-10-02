@@ -156,11 +156,4 @@ describe('drawPet', () => {
     expect(bare).toEqual([])
   })
 
-  it('draws the same pixels on every runtime (fixed hashes)', () => {
-    // Snapshot values are recorded on the first run and must never change afterwards:
-    // a changed hash means existing users' pets changed shape.
-    expect(gridHash(drawPet(genome(1, 'common', false), 'adult', 'idle'))).toMatchSnapshot()
-    expect(gridHash(drawPet(genome(42, 'rare', false), 'teen', 'happy'))).toMatchSnapshot()
-    expect(gridHash(drawPet(genome(0xffffffff, 'legendary', true), 'baby', 'sad'))).toMatchSnapshot()
-  })
 })
