@@ -357,29 +357,28 @@ const OVERRIDES={
   1102:{name:'Zuzu',owner:'ren',level:13,tier:'rare'},
   1219:{name:'Pip',owner:'hana.k',level:11,tier:'common'},
   1290:{name:'Waffle',owner:'bkrs',level:9,tier:'uncommon'},
-  42:{name:'Byte',owner:'nmk',level:7,tier:'rare',branch:'night owl',xp:40,stats:[318,1204,211,57],hatched:'2026-09-14'}
+  1:{name:'Byte',owner:'nmk',level:7,tier:'rare',branch:'night owl',xp:40,stats:[318,1204,211,57],hatched:'2026-09-14'}
 };
 const LEADERBOARD=[7,118,23,504,388,612,291,845,930,1102,1219,1290];
 const stageOf=l=>l<1?'egg':l<10?'baby':l<25?'teen':l<50?'adult':'elder';
 const XP_NEED=100;
-function petData(n,opt){
-  opt=opt||{};
+function petData(n){
   const o=OVERRIDES[n]||{}; const r=rng(n*2654435761>>>0^0x5eed);
   const g=genome(n,o.shiny!==undefined?{shiny:o.shiny}:undefined);
   let tier=o.tier; if(!tier){let x=r.random()*100;for(let i=0;i<5;i++){x-=TIER_W[i];if(x<0){tier=TIERS[i];break;}} tier=tier||'common';}
-  const level=opt.preview?1:o.level!==undefined?o.level:1+Math.floor(r.random()*r.random()*8);
+  const level=o.level!==undefined?o.level:1+Math.floor(r.random()*r.random()*8);
   const branch=o.branch||r.choice(BRANCHES), stage=stageOf(level);
   const lean=stage==='adult'||stage==='elder'?null:(stage==='baby'&&level<3?null:'leaning '+branch);
   const form=stage==='adult'||stage==='elder'?stage+' '+branch:stage;
-  const st=opt.preview?[0,0,0,0]:o.stats||[Math.floor(level*(8+r.random()*30)),Math.floor(level*(20+r.random()*90)),Math.floor(level*(6+r.random()*24)),Math.floor(level*(2+r.random()*7))];
+  const st=o.stats||[Math.floor(level*(8+r.random()*30)),Math.floor(level*(20+r.random()*90)),Math.floor(level*(6+r.random()*24)),Math.floor(level*(2+r.random()*7))];
   const day=Math.floor((n-1)/HATCHED*22), dt=new Date(Date.UTC(2026,8,10+day));
   return {
-    serial:n, id:pad6(n), g, tier, level, stage, branch, lean, form, preview:!!opt.preview,
-    name:opt.name||o.name||r.choice(NAMES), owner:o.owner||r.choice(OWNERS),
-    xp:opt.preview?0:o.xp!==undefined?o.xp:r.randint(5,95), need:XP_NEED,
+    serial:n, id:pad6(n), g, tier, level, stage, branch, lean, form, 
+    name:o.name||r.choice(NAMES), owner:o.owner||r.choice(OWNERS),
+    xp:o.xp!==undefined?o.xp:r.randint(5,95), need:XP_NEED,
     bugs:st[0], hearts:st[1], commits:st[2], expeditions:st[3],
-    hatched:opt.preview?null:o.hatched||dt.toISOString().slice(0,10),
-    genesis:!opt.preview&&n<=100
+    hatched:o.hatched||dt.toISOString().slice(0,10),
+    genesis:n<=100
   };
 }
 
@@ -413,30 +412,28 @@ function rarestTrait(g){
 }
 
 /* ---------- urls ---------- */
-const LOCAL=location.protocol==='file:'||/^(localhost|127\.0\.0\.1|\[::1\]|)$/.test(location.hostname);
-function cardUrl(n){return LOCAL?'/p/?s='+pad6(n):'/p/'+pad6(n);}
-function previewUrl(seed,name){return '/p/?s='+pad6(seed)+'&preview=1'+(name?'&name='+encodeURIComponent(name):'');}
-const shareUrl=n=>'https://nibbl.dev/p/'+pad6(n);
+const cardUrl=n=>'/p/'+pad6(n);
+const shareUrl=n=>'https://nibbl.nur-omirzaq.workers.dev/p/'+pad6(n);
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
-/* ---------- pet card (shared by landing + /p/) ---------- */
+/* ---------- example pet card (landing teaser; real cards are served by the Worker at /p/) ---------- */
 function cardHTML(d){
   const g=d.g, rt=rarestTrait(g), sh=isShiny(g);
   const genes=[['family',g.family],['body',sizeName(g)+' '+g.w*2+'x'+g.h*2],['colors',rampOf(g)],['pattern',PAT[g.pattern]],['eyes',g.eyes],['ears',g.family==='sprout'?'leaf':g.ears],['belly',g.belly?'yes':'no'],['blush',g.blush?'yes':'no']];
-  const link=d.preview?null:cardUrl(d.serial);
-  const nm=link?'<a href="'+link+'">'+esc(d.name)+'</a>':esc(d.name);
-  const tags=(d.preview?'<span class="badge t-preview">preview</span>':'')+'<span class="badge t-'+d.tier+'">'+d.tier+'</span>'+(g.shiny?'<span class="badge t-shiny">shiny</span>':'')+(d.genesis?'<span class="badge t-genesis">genesis</span>':'')+
+  const link=cardUrl(d.serial);
+  const nm='<a href="'+link+'">'+esc(d.name)+'</a>';
+  const tags='<span class="badge t-'+d.tier+'">'+d.tier+'</span>'+(g.shiny?'<span class="badge t-shiny">shiny</span>':'')+(d.genesis?'<span class="badge t-genesis">genesis</span>':'')+
     '<span class="badge t-plain">lvl '+d.level+' '+d.stage+'</span>'+(d.lean?'<span class="badge t-plain">'+d.lean+'</span>':d.stage==='adult'||d.stage==='elder'?'<span class="badge t-plain">'+d.branch+'</span>':'');
   return '<article class="pcard px'+(g.shiny?' shiny':'')+'" aria-label="Pet card for '+esc(d.name)+'">'+
-    '<div class="top"><b>nibbl</b>'+(link?'<a class="lbl" href="'+link+'">/p/'+d.id+'</a>':'<span class="lbl">preview, not a real serial</span>')+'</div>'+
+    '<div class="top"><b>nibbl</b>'+'<a class="lbl" href="'+link+'">/p/'+d.id+'</a>'+'</div>'+
     '<div class="lcd px flat"><canvas class="pc-pet" role="img" aria-label="'+esc(d.name)+', a '+g.ramp+' '+g.family+'. Click to pet."></canvas></div>'+
-    '<h3>'+nm+' <span class="lbl">'+(d.preview?'#preview':'#'+d.id)+'</span></h3>'+
+    '<h3>'+nm+' <span class="lbl">'+'#'+d.id+'</span></h3>'+
     '<div class="tags">'+tags+'</div>'+
     '<div class="xp"><span class="lbl lv">lvl '+d.level+'</span><div class="xpbar" role="progressbar" aria-label="XP to next level" aria-valuemin="0" aria-valuemax="'+d.need+'" aria-valuenow="'+d.xp+'"><i style="width:'+Math.round(d.xp/d.need*100)+'%"></i></div><span class="lbl">'+d.xp+'/'+d.need+' xp</span></div>'+
     '<div class="rarest t-'+rt.tier+'"><span class="lbl">rarest trait</span><b>'+rt.label+'</b><span class="odds">'+fmtPct(rt.p)+' odds</span></div>'+
     '<div class="genes">'+genes.map(([k,v])=>'<div><span>'+k+'</span><b>'+v+'</b></div>').join('')+'</div>'+
     '<div class="stats"><div><b>'+d.bugs+'</b><span>bugs nibbled</span></div><div><b>'+d.hearts+'</b><span>hearts</span></div><div><b>'+d.commits+'</b><span>commits</span></div><div><b>'+d.expeditions+'</b><span>expeditions</span></div></div>'+
-    '<div class="foot lbl"><span>'+(d.hatched?'hatched '+d.hatched:'not hatched yet')+'</span><span>'+(d.preview?'rolled by you':'by @'+esc(d.owner))+'</span></div>'+
+    '<div class="foot lbl"><span>'+'hatched '+d.hatched+'</span><span>'+'by @'+esc(d.owner)+'</span></div>'+
     '</article>';
 }
 function mountCardPet(root,d,maxScale){

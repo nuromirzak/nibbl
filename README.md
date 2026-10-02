@@ -1,11 +1,3 @@
-<!--
-  PLACEHOLDERS, replace before publishing:
-  - GitHub org/repo: nuromirzak/nibbl          (spec §13: org name not decided)
-  - Landing / card URL: https://nibbl-pet.pages.dev   (spec §13: domain not decided)
-  This README is written for the public repo (nuromirzak/nibbl). Copy docs/assets/ along with it.
-  Regenerate the images with `pnpm assets` in the private monorepo.
--->
-
 <p align="center">
   <img src="docs/assets/hero.gif" width="640" alt="A pixel egg wobbles, cracks and hatches into a small blue pet that blinks and pops a heart">
 </p>
@@ -27,11 +19,11 @@
 Inside Claude Code:
 
 ```
-/plugin marketplace add nuromirzak/nibbl
+/plugin marketplace add https://nibbl.nur-omirzaq.workers.dev/marketplace.json
 /plugin install nibbl@nibbl
 ```
 
-That is it. No account, no login, no API key. An egg appears above your prompt and hatches after 10 turns of real work.
+Requires Claude Code 2.1.224 or later. That is it. No account, no login, no API key. An egg appears above your prompt and hatches after 10 turns of real work.
 
 <!-- TODO before launch (spec §9.2): if function hooks still need CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1, put that on the first line of this section. -->
 
@@ -112,12 +104,12 @@ No. One roll per machine, forever, and nothing is for sale. That is what makes y
 
 ## Show your nibbl
 
-Every nibbl has a public card page at `https://nibbl-pet.pages.dev/p/<serial>`. Run `/nibbl` to get yours. Sharing is always your choice; the mod never posts anything for you.
+Every nibbl has a public card page at `https://nibbl.nur-omirzaq.workers.dev/p/<serial>`. Run `/nibbl` to get yours. Sharing is always your choice; the mod never posts anything for you.
 
 To show it on your GitHub profile README, paste this and replace `000042` with your serial (the image URL goes live with the v1 API):
 
 ```markdown
-[![My nibbl](https://nibbl-pet.pages.dev/p/000042.png)](https://nibbl-pet.pages.dev/p/000042)
+[![My nibbl](https://nibbl.nur-omirzaq.workers.dev/p/000042.png)](https://nibbl.nur-omirzaq.workers.dev/p/000042)
 ```
 
 A compact pixel badge ships with the v1 API too. It looks like this:
@@ -125,7 +117,7 @@ A compact pixel badge ships with the v1 API too. It looks like this:
 <p><img src="docs/assets/badge-example.svg" alt="Example nibbl badge: Byte #000042 · lvl 7"></p>
 
 ```markdown
-[![My nibbl](https://nibbl-pet.pages.dev/p/000042/badge.svg)](https://nibbl-pet.pages.dev/p/000042)
+[![My nibbl](https://nibbl.nur-omirzaq.workers.dev/p/000042/badge.svg)](https://nibbl.nur-omirzaq.workers.dev/p/000042)
 ```
 
 ## Star history
@@ -140,6 +132,6 @@ A compact pixel badge ships with the v1 API too. It looks like this:
 ---
 
 <p align="center">
-  <a href="https://nibbl-pet.pages.dev">nibbl-pet.pages.dev</a> · made for <a href="https://docs.claude.com/en/docs/claude-code">Claude Code</a> · not affiliated with Anthropic<br>
+  <a href="https://nibbl.nur-omirzaq.workers.dev">nibbl.nur-omirzaq.workers.dev</a> · made for <a href="https://docs.claude.com/en/docs/claude-code">Claude Code</a> · not affiliated with Anthropic<br>
   Pet palette: <a href="https://lospec.com/palette-list/sweetie-16">Sweetie 16</a> by GrafxKid · © Nibbl, all rights reserved
 </p>
