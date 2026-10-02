@@ -18,3 +18,6 @@ Early users get a populated board and something to compare against.
 ## Consequences
 - Known risk: client and API behavior are inspectable, so the community may notice.
 - `is_bot` lets the owner label or retire them at any time, for example after 100 real pets.
+
+## Update 2026-10-02
+Bots are counted in the hatched counter to avoid a 0-vs-12 tell: migration 0002 sets `counters.hatched` to 12 and real hatches add to it. Retiring a bot (`is_hidden`) does not change the counter. This replaces "excluded from public counts" above.
