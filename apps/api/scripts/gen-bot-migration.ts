@@ -27,6 +27,8 @@ for (const b of BOTS) {
   )
 }
 lines.push(`UPDATE counters SET value = ${Math.max(...BOTS.map(b => b.serial))} WHERE name = 'serial';`)
+// Bots count as hatched, so /api/stats never shows a 0-vs-12 tell. Retiring a bot keeps the count.
+lines.push(`UPDATE counters SET value = ${BOTS.length} WHERE name = 'hatched';`)
 
 writeFileSync(new URL('../migrations/0002_seed_bots.sql', import.meta.url), `${lines.join('\n')}\n`)
 console.log(`wrote ${BOTS.length} bots to migrations/0002_seed_bots.sql`)

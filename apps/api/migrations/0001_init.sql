@@ -43,6 +43,6 @@ CREATE INDEX hatch_ip_last ON hatch_ip (last_at);
 
 CREATE TABLE leaderboard_cache (id INTEGER PRIMARY KEY CHECK (id = 1), json TEXT NOT NULL, built_at INTEGER NOT NULL);
 
--- serial: last issued serial. hatched: real hatches only (bots never touch it). bot_hour: last UTC hour bots grew.
+-- serial: last issued serial. hatched: every pet ever hatched, the 12 seeded bots included (set by 0002). bot_hour: last UTC hour bots grew.
 CREATE TABLE counters (name TEXT PRIMARY KEY, value INTEGER NOT NULL);
 INSERT INTO counters (name, value) VALUES ('serial', 0), ('hatched', 0), ('bot_hour', 0);

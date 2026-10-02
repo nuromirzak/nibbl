@@ -13,3 +13,4 @@ INSERT INTO pets (serial, machine_hash, token_hash, seed, genome_key, visual_key
 INSERT INTO pets (serial, machine_hash, token_hash, seed, genome_key, visual_key, tier, shiny, genesis, name, label, xp, level, is_bot, hatched_at, last_sync_at) VALUES (11, 'bot:11', 'bot:disabled', 531282100, 'mochi.6.6.moss.stripes.1.1.dot.1.none.bow.star.left-cheek.0', 'ff5e7639', 'epic', 0, 1, 'Ziggy', 'it works locally', 1064, 10, 1, 1790242680000, 1790242680000);
 INSERT INTO pets (serial, machine_hash, token_hash, seed, genome_key, visual_key, tier, shiny, genesis, name, label, xp, level, is_bot, hatched_at, last_sync_at) VALUES (12, 'bot:12', 'bot:disabled', 935890398, 'sprout.7.5.ember.none.-.0.big.0.leaf.none.sparkle.left-cheek.0', '9ea156f4', 'common', 0, 1, 'Bitsy', '2am debugger', 737, 9, 1, 1790453640000, 1790453640000);
 UPDATE counters SET value = 12 WHERE name = 'serial';
+UPDATE counters SET value = 12 WHERE name = 'hatched';
