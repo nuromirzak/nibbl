@@ -62,6 +62,23 @@ describe('drawPet', () => {
     }
   })
 
+  it('keeps every hat visible (at least 2 cells differ from the hatless pet)', () => {
+    const failures: string[] = []
+    for (let s = 0; s < 3000; s++) {
+      for (const tier of ['rare', 'epic', 'legendary'] as const) {
+        const g = genome(s, tier, false)
+        for (const stage of STAGES) {
+          const a = drawPet(g, stage, 'idle')
+          const b = drawPet({ ...g, hat: 'none' }, stage, 'idle')
+          let diff = 0
+          for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) if (a[y][x] !== b[y][x]) diff++
+          if (diff < 2) failures.push(`${s}/${tier}/${stage}`)
+        }
+      }
+    }
+    expect(failures).toEqual([])
+  }, 60_000)
+
   it('draws the same pixels on every runtime (fixed hashes)', () => {
     // Snapshot values are recorded on the first run and must never change afterwards:
     // a changed hash means existing users' pets changed shape.

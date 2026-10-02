@@ -49,7 +49,7 @@ const buildMask = (g: Genome, stage: Stage): MaskCell[][] => {
     if (y >= 0 && y < PET_SIZE && x >= 0 && x < PET_SIZE && mask[y][x] === 'none') mask[y][x] = cell
   }
   if (g.head === 'leaf') {
-    for (const [x, dy] of LEAF) put(x, top + dy, 'leaf')
+    if (g.hat === 'none') for (const [x, dy] of LEAF) put(x, top + dy, 'leaf')
   } else if (g.head !== 'none') {
     for (const [ox, oy] of EAR_SHAPES[g.head]) {
       for (const x of [8 + ox, 7 - ox]) put(x, top + 1 + oy, g.head === 'horns' ? 'horn' : 'body')

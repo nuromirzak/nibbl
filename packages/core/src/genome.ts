@@ -89,6 +89,8 @@ export const genome = (seed: number, tier: Tier, shiny: boolean): Genome => {
     hat: HAT_BY_TIER[tier],
   }
   if (family === 'sprout') g.head = 'leaf'
+  // A hat replaces ears and horns so it can never be clipped off the canvas.
+  if (g.hat !== 'none' && family !== 'sprout') g.head = 'none'
   if (rarestTrait(g).probability >= RARE_THRESHOLD) {
     const spice = SPICES[pickIndex(rng, SPICES.length)]
     if (spice.gene === 'pattern') g.pattern = spice.value
