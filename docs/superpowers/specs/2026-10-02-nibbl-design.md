@@ -185,16 +185,19 @@ Interactions stay below ~20% of a heavy user's hourly XP. Over the cap the pet s
 ## 6. `apps/api` (Cloudflare Worker + D1)
 
 ### 6.1 Endpoints
+API routes live under the `/api/` prefix. Card routes (`/p/:serial`, `/p/:serial.png`, `/p/:serial/badge.svg`) are served by the same Worker without the prefix. Everything else is a static asset.
+
 | Method | Path | Body / result |
 |---|---|---|
-| POST | `/hatch` | `{machineHash}` → `{serial, token, seed, tier, shiny, genesis, hatchedAt}`. Idempotent per `machineHash`: the same machine gets the same pet. |
-| POST | `/sync` | `{serial, token, events:[{type, at}]}` → `{xp, level, heartsLeft}` |
-| POST | `/name` | `{serial, token, name?, label?}` → `{name, label}` |
-| POST | `/import` | `{serial, token, machineHash}` → pet, rebinds machine |
-| GET | `/leaderboard` | top 100 by XP, cached, rebuilt by cron every 5 min |
-| GET | `/p/:serial` | HTML card page with OG tags |
+| POST | `/api/hatch` | `{machineHash}` → `{serial, token, seed, tier, shiny, genesis, hatchedAt}`. Idempotent per `machineHash`: the same machine gets the same pet. |
+| POST | `/api/sync` | `{serial, token, events:[{type, at}]}` → `{xp, level, heartsLeft}` |
+| POST | `/api/name` | `{serial, token, name?, label?}` → `{name, label}` |
+| POST | `/api/import` | `{serial, token, machineHash}` → pet, rebinds machine |
+| GET | `/api/leaderboard` | top 100 by XP, cached, rebuilt by cron every 5 min |
+| GET | `/p/:serial` | HTML card page with OG tags (not under `/api/`) |
 | GET | `/p/:serial.png` | OG image rendered by `core` |
-| GET | `/stats` | `{hatched}` for the live counter |
+| GET | `/p/:serial/badge.svg` | Embeddable badge |
+| GET | `/api/stats` | `{hatched}` for the live counter |
 
 ### 6.2 Roll
 - `core.rollFromBytes(HMAC-SHA256(ROLL_SECRET, machineHash))` reads big-endian uint32 words: offset 0 is the seed, offset 4 the tier roll, offset 8 the shiny roll (at least 12 bytes, else it throws).
