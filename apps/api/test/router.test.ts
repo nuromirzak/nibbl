@@ -59,7 +59,13 @@ describe('ipBucket', () => {
     expect(ipBucket('2001:DB8:0000:0000:1:2:3:4')).toBe(ipBucket('2001:db8::1'))
     expect(ipBucket('2001:db8::1')).toBe('2001:0db8:0000:0000::/64')
     expect(ipBucket('2001:db8:0:1::1')).not.toBe(ipBucket('2001:db8::1'))
-    expect(ipBucket('::1')).toBe('0000:0000:0000:0000::/64')
+  })
+
+  it('buckets IPv4-mapped IPv6 as the embedded IPv4 and ::1 as itself', () => {
+    expect(ipBucket('::ffff:1.2.3.4')).toBe('1.2.3.4')
+    expect(ipBucket('::FFFF:203.0.113.7')).toBe(ipBucket('203.0.113.7'))
+    expect(ipBucket('0:0:0:0:0:ffff:1.2.3.4')).toBe('1.2.3.4')
+    expect(ipBucket('::1')).toBe('::1')
   })
 })
 

@@ -106,6 +106,21 @@ describe('POST /api/hatch', () => {
     expect((await hatchRaw(101, '192.0.2.10', NEXT_MIDNIGHT)).status).toBe(200)
   })
 
+  it('holds the per-IP cap under a burst: one winner at count 99, the rest get 429', async () => {
+    const ip = '192.0.2.50'
+    const hash = await ipDayHash(testEnv.IP_SALT, ipBucket(ip), T0)
+    await testEnv.DB.prepare('INSERT INTO hatch_ip (ip_hash, count, last_at) VALUES (?, ?, ?)').bind(hash, HATCHES_PER_IP_DAY - 1, T0).run()
+    const results = await Promise.all(Array.from({ length: 20 }, (_, i) => hatchRaw(i + 1, ip, T0 + 1000)))
+    const statuses = results.map(r => r.status)
+    expect(statuses.filter(s => s === 200)).toHaveLength(1)
+    expect(statuses.filter(s => s === 429)).toHaveLength(19)
+    for (const r of results) if (r.status === 429) expect(await r.json()).toEqual({ error: 'hatch_rate_limited', retryAt: NEXT_MIDNIGHT })
+    expect(await ipCount(ip, T0)).toBe(HATCHES_PER_IP_DAY)
+    expect(await counterValue(testEnv.DB, 'serial')).toBe(1)
+    expect(await counterValue(testEnv.DB, 'hatched')).toBe(1)
+    expect((await testEnv.DB.prepare('SELECT COUNT(*) AS n FROM pets').first<number>('n'))).toBe(1)
+  })
+
   it('shares one IPv6 limit across a /64', async () => {
     await fillIp('2001:db8:1:2::1', T0)
     expect((await hatchRaw(2, '2001:db8:1:2:aaaa:bbbb:cccc:dddd', T0 + 60_000)).status).toBe(429)

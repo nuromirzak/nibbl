@@ -1,8 +1,11 @@
 // One person usually holds a whole IPv6 /64, so per-IP limits key on that prefix.
-// IPv4 and anything unparseable are used as is.
+// IPv4, IPv4-mapped IPv6 (bucketed as the embedded IPv4), ::1 and anything unparseable are used as is.
 export const ipBucket = (ip: string): string => {
   const raw = ip.trim().toLowerCase()
   if (!raw.includes(':')) return raw
+  if (raw === '::1') return raw
+  const mapped = /^(?:0:0:0:0:0|::):?ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/.exec(raw) ?? /^::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/.exec(raw)
+  if (mapped) return mapped[1]
   const [head, tail, extra] = raw.split('::')
   if (extra !== undefined) return raw
   const left = head ? head.split(':') : []

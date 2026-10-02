@@ -37,7 +37,9 @@ CREATE TABLE xp_windows (
 ) WITHOUT ROWID;
 
 -- One row per (salted IP or IPv6 /64, UTC day): new hatches that day. Known-machine re-hatches never count.
-CREATE TABLE hatch_ip (ip_hash TEXT PRIMARY KEY, count INTEGER NOT NULL, last_at INTEGER NOT NULL);
+-- The CHECK is the real cap: it must equal HATCHES_PER_IP_DAY in src/routes/hatch.ts (keep both in sync).
+-- The upsert shares a D1 batch with the counter bump and pet insert, so a violation rolls all three back.
+CREATE TABLE hatch_ip (ip_hash TEXT PRIMARY KEY, count INTEGER NOT NULL CHECK (count <= 100), last_at INTEGER NOT NULL);
 -- The cron prune deletes by last_at; without this it scans every row each tick.
 CREATE INDEX hatch_ip_last ON hatch_ip (last_at);
 

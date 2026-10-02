@@ -30,12 +30,17 @@ export const HATCHES_PER_IP_DAY = 100
 export const ipDayHash = (salt: string, bucket: string, now: number): Promise<string> =>
   sha256Hex(`${bucket}|${salt}|${Math.floor(now / DAY_MS)}`)
 
-// Concurrent hatches can overshoot by a few: the check and the counted insert are separate
-// statements. The cap is a soft abuse brake, not an accounting system.
+// Fast path only: it spares the genome roll for IPs already at the cap. The hard cap is the
+// CHECK (count <= 100) on hatch_ip.count (migration 0001, keep in sync with HATCHES_PER_IP_DAY),
+// which fails the hatch batch atomically when concurrent hatches race past this read.
+const limitedUntil = (now: number) => new HttpError(429, 'hatch_rate_limited', { retryAt: (Math.floor(now / DAY_MS) + 1) * DAY_MS })
+
+const isCheckViolation = (err: unknown): boolean => err instanceof Error && err.message.includes('CHECK constraint failed')
+
 const assertIpAllowed = async (db: D1Database, ipHash: string, now: number) => {
   const count = await db.prepare('SELECT count FROM hatch_ip WHERE ip_hash = ?').bind(ipHash).first<number | null>('count')
   if (count !== null && count >= HATCHES_PER_IP_DAY) {
-    throw new HttpError(429, 'hatch_rate_limited', { retryAt: (Math.floor(now / DAY_MS) + 1) * DAY_MS })
+    throw limitedUntil(now)
   }
 }
 
@@ -108,6 +113,12 @@ export const hatch = async (request: Request, env: Env, deps: Deps): Promise<Res
     } catch (err) {
       // A concurrent hatch took this machine or this genome; re-read and try again.
       if (isUniqueViolation(err)) continue
+      // Lost the race for the last slots of this IP's day; the batch rolled back.
+      if (isCheckViolation(err)) {
+        const raced = await petByMachine(env.DB, machineHash)
+        if (raced) return json(await reissue(env.DB, raced, now))
+        throw limitedUntil(now)
+      }
       throw err
     }
   }
