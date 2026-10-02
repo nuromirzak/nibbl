@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { HOUR_MS, heartsLeft, levelFromXp, scoreEvents, stageForLevel, xpToNext } from '../src/progression'
+import { HOUR_MS, MAX_LEVEL, heartsLeft, levelFromXp, scoreEvents, stageForLevel, xpToNext } from '../src/progression'
 
 const NOW = 1_800_000_000_000
 
@@ -21,6 +21,28 @@ describe('levels', () => {
     expect(stageForLevel(1)).toBe('baby')
     expect(stageForLevel(10)).toBe('teen')
     expect(stageForLevel(25)).toBe('adult')
+  })
+
+  it('handles non-finite xp values', () => {
+    const infResult = levelFromXp(Infinity)
+    expect(infResult.level).toBeGreaterThanOrEqual(1)
+    expect(infResult.level).toBeLessThanOrEqual(MAX_LEVEL)
+    expect(Number.isFinite(infResult.intoLevel)).toBe(true)
+
+    const nanResult = levelFromXp(NaN)
+    expect(nanResult.level).toBe(1)
+    expect(nanResult.intoLevel).toBe(0)
+
+    const negResult = levelFromXp(-5)
+    expect(negResult.level).toBe(1)
+    expect(negResult.intoLevel).toBe(0)
+  })
+
+  it('stops progression at MAX_LEVEL', () => {
+    const bigResult = levelFromXp(1e300)
+    expect(bigResult.level).toBe(MAX_LEVEL)
+    expect(Number.isFinite(bigResult.intoLevel)).toBe(true)
+    expect(bigResult.intoLevel).toBeGreaterThanOrEqual(0)
   })
 })
 
@@ -69,5 +91,43 @@ describe('scoreEvents', () => {
   it('never exceeds caps for 10 000 duplicates', () => {
     const flood = Array.from({ length: 10_000 }, () => ({ type: 'turn' as const, at: NOW }))
     expect(scoreEvents(flood, {}, NOW, null).xpGained).toBe(20 * 3)
+  })
+
+  it('rejects prototype pollution attempts', () => {
+    const r = scoreEvents(
+      [
+        { type: 'toString' as never, at: NOW },
+        { type: '__proto__' as never, at: NOW },
+        { type: 'constructor' as never, at: NOW },
+      ],
+      {},
+      NOW,
+      null,
+    )
+    expect(r.xpGained).toBe(0)
+    expect(r.accepted).toBe(0)
+  })
+
+  it('skips null and non-object elements', () => {
+    const r = scoreEvents(
+      [null as never, {} as never, { type: 'pet' as const, at: NOW }],
+      {},
+      NOW,
+      null,
+    )
+    expect(r.xpGained).toBe(2)
+    expect(r.accepted).toBe(1)
+  })
+
+  it('returns zero xp when now is non-finite', () => {
+    const r = scoreEvents([{ type: 'pet', at: NOW }], {}, NaN, null)
+    expect(r.xpGained).toBe(0)
+    expect(r.accepted).toBe(0)
+  })
+
+  it('returns zero xp when lastSyncAt is non-finite', () => {
+    const r = scoreEvents([{ type: 'pet', at: NOW }], {}, NOW, Infinity)
+    expect(r.xpGained).toBe(0)
+    expect(r.accepted).toBe(0)
   })
 })
