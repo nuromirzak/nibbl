@@ -1,0 +1,139 @@
+import { genome, genomeKey, HOUR_MS, levelFromXp, visualKey, type Tier } from '@nibbl/core'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { BOT_CATCH_UP_HOURS, BOTS, botHourCounts, MAX_HOURLY_XP, xpForCounts } from '../src/bots'
+import { growBots, runCron } from '../src/cron'
+import type { Env } from '../src/env'
+import { checkText, LABEL_MAX, NAME_MAX } from '../src/lib/filter'
+import type { PetRow } from '../src/lib/db'
+import { call, hatchPet, resetDb, T0, testEnv } from './helpers'
+
+const LAUNCH_AT = Date.parse('2026-10-31T00:00:00Z')
+
+const seedBots = async () => {
+  const migration = testEnv.TEST_MIGRATIONS.find(m => m.name.startsWith('0002'))
+  if (!migration) throw new Error('0002 bot migration missing')
+  for (const q of migration.queries) await testEnv.DB.prepare(q).run()
+}
+
+const bots = async () =>
+  (await testEnv.DB.prepare('SELECT * FROM pets WHERE is_bot = 1 ORDER BY serial').all<PetRow>()).results
+
+beforeEach(async () => {
+  await resetDb()
+  await seedBots()
+})
+
+describe('seeded bots', () => {
+  it('seeds 12 bots with varied tiers, one shiny, all genesis, levels 9-31', async () => {
+    const rows = await bots()
+    expect(rows).toHaveLength(12)
+    expect(rows.filter(r => r.shiny === 1)).toHaveLength(1)
+    expect(rows.every(r => r.genesis === 1)).toBe(true)
+    expect(new Set(rows.map(r => r.tier)).size).toBe(5)
+    for (const r of rows) {
+      expect(r.level).toBeGreaterThanOrEqual(9)
+      expect(r.level).toBeLessThanOrEqual(31)
+      expect(r.level).toBe(levelFromXp(r.xp).level)
+      expect(checkText(r.name, NAME_MAX)).toEqual({ ok: true, value: r.name })
+      expect(checkText(r.label, LABEL_MAX)).toEqual({ ok: true, value: r.label })
+    }
+  })
+
+  it('hatches bots in serial order within the 10 days before launch', async () => {
+    const rows = await bots()
+    for (let i = 0; i < rows.length; i++) {
+      expect(rows[i]!.hatched_at).toBeGreaterThanOrEqual(LAUNCH_AT - 10 * 24 * HOUR_MS)
+      expect(rows[i]!.hatched_at).toBeLessThan(LAUNCH_AT)
+      if (i > 0) expect(rows[i]!.hatched_at).toBeGreaterThan(rows[i - 1]!.hatched_at)
+    }
+  })
+
+  it('matches current core keys (regenerate 0002 if core changed)', async () => {
+    for (const r of await bots()) {
+      const g = genome(r.seed, r.tier as Tier, r.shiny === 1)
+      expect(r.genome_key).toBe(genomeKey(g))
+      expect(r.visual_key).toBe(visualKey(g))
+    }
+  })
+
+  it('moves the serial counter past the bots without counting them as hatched', async () => {
+    expect((await hatchPet(1)).serial).toBe(13)
+    expect(await (await call('/api/stats')).json()).toEqual({ hatched: 1 })
+  })
+
+  it('cannot be driven with any token', async () => {
+    const res = await call('/api/sync', { body: { serial: 1, token: 'A'.repeat(43), events: [] } })
+    expect(res.status).toBe(401)
+  })
+})
+
+describe('bot growth', () => {
+  it('never exceeds the player caps in any hour', () => {
+    for (const bot of BOTS) {
+      for (let h = 490_000; h < 490_000 + 24 * 30; h++) expect(xpForCounts(botHourCounts(bot, h))).toBeLessThanOrEqual(MAX_HOURLY_XP)
+    }
+    expect(MAX_HOURLY_XP).toBe(130)
+  })
+
+  it('grows like a steady human over a week', () => {
+    for (const bot of BOTS) {
+      let week = 0
+      for (let h = 490_000; h < 490_000 + 24 * 7; h++) week += xpForCounts(botHourCounts(bot, h))
+      expect(week).toBeGreaterThan(100)
+      expect(week).toBeLessThan(2000)
+    }
+  })
+
+  it('applies each completed hour once', async () => {
+    const hour = Math.floor(T0 / HOUR_MS) - 1
+    await testEnv.DB.prepare("UPDATE counters SET value = ? WHERE name = 'bot_hour'").bind(hour - 2).run()
+    const before = new Map((await bots()).map(r => [r.serial, r.xp]))
+    expect(await growBots(testEnv.DB, T0)).toBe(2)
+    for (const r of await bots()) {
+      const spec = BOTS.find(b => b.serial === r.serial)!
+      const gain = xpForCounts(botHourCounts(spec, hour - 1)) + xpForCounts(botHourCounts(spec, hour))
+      expect(r.xp).toBe(before.get(r.serial)! + gain)
+      expect(r.level).toBe(levelFromXp(r.xp).level)
+    }
+    expect(await growBots(testEnv.DB, T0)).toBe(0)
+  })
+
+  it('caps catch-up after an outage and skips retired bots', async () => {
+    await testEnv.DB.prepare('UPDATE pets SET is_hidden = 1 WHERE serial = 1').run()
+    const before = new Map((await bots()).map(r => [r.serial, r.xp]))
+    expect(await growBots(testEnv.DB, T0)).toBe(BOT_CATCH_UP_HOURS)
+    for (const r of await bots()) {
+      const gain = r.xp - before.get(r.serial)!
+      if (r.serial === 1) expect(gain).toBe(0)
+      expect(gain).toBeLessThanOrEqual(BOT_CATCH_UP_HOURS * MAX_HOURLY_XP)
+    }
+  })
+})
+
+describe('runCron step isolation', () => {
+  it('runs the other steps when one throws, then rethrows without leaking details', async () => {
+    const failing = new Proxy(testEnv.DB, {
+      get(target, prop) {
+        if (prop === 'prepare') {
+          return (sql: string) => {
+            if (sql.startsWith('DELETE FROM hatch_ip')) throw new Error('boom hatch_ip')
+            return target.prepare(sql)
+          }
+        }
+        const value = Reflect.get(target, prop, target)
+        return typeof value === 'function' ? value.bind(target) : value
+      },
+    }) as D1Database
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const before = new Map((await bots()).map(r => [r.serial, r.xp]))
+
+    await expect(runCron({ ...testEnv, DB: failing } as Env, T0)).rejects.toThrow(/hatch_ip/)
+
+    const cached = await testEnv.DB.prepare('SELECT built_at FROM leaderboard_cache WHERE id = 1').first<{ built_at: number }>()
+    expect(cached?.built_at).toBe(T0)
+    expect((await bots()).some(r => r.xp > before.get(r.serial)!)).toBe(true)
+    expect(log).toHaveBeenCalled()
+    for (const c of log.mock.calls) expect(c.every(a => typeof a === 'string')).toBe(true)
+    log.mockRestore()
+  })
+})
