@@ -15,12 +15,25 @@ import { HttpError, json, MAX_SYNC_BYTES, readJson } from '../lib/http'
 
 export const MAX_EVENTS = 1000
 export const MIN_SYNC_INTERVAL_MS = 30_000
+export const MAX_CLOCK_SKEW_MS = 5 * 60_000
 
 type WindowRow = { hour: number; pets: number; turns: number; checks: number; commits: number }
 const KINDS = ['pet', 'turn', 'check_pass', 'commit'] as const
 
 const toWindows = (rows: WindowRow[]): Windows =>
   Object.fromEntries(rows.map(r => [r.hour, { pet: r.pets, turn: r.turns, check_pass: r.checks, commit: r.commits }]))
+
+// Nothing counts from before the pet existed, so a first sync cannot claim the core's 24 h
+// lookback for a pet hatched a minute ago. A client clock up to 5 min fast is pulled back to
+// `now`; anything further ahead is dropped. Junk entries pass through for core to reject.
+export const clampEvents = (events: unknown[], hatchedAt: number, now: number): unknown[] =>
+  events.flatMap(e => {
+    if (!e || typeof e !== 'object') return [e]
+    const at = (e as { at?: unknown }).at
+    if (typeof at !== 'number' || !Number.isFinite(at)) return [e]
+    if (at < hatchedAt || at > now + MAX_CLOCK_SKEW_MS) return []
+    return [at > now ? { ...e, at: now } : e]
+  })
 
 const sameWindow = (a: HourWindow | undefined, b: HourWindow): boolean => KINDS.every(k => (a?.[k] ?? 0) === (b[k] ?? 0))
 
@@ -42,7 +55,7 @@ export const sync = async (request: Request, env: Env, deps: Deps): Promise<Resp
     .bind(pet.serial)
     .all<WindowRow>()
   const before = toWindows(results)
-  const scored = scoreEvents(events as NibblEvent[], before, now, last)
+  const scored = scoreEvents(clampEvents(events, pet.hatched_at, now) as NibblEvent[], before, now, last)
   // Pruned with the same `now` that becomes last_sync_at, as core requires.
   const windows = pruneWindows(scored.windows, now)
   const xp = pet.xp + scored.xpGained

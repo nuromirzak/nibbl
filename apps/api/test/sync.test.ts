@@ -15,7 +15,7 @@ const ev = (type: string, at: number, n = 1) => Array.from({ length: n }, () => 
 
 describe('POST /api/sync', () => {
   it('scores events and stores xp and level', async () => {
-    const pet = await hatchPet(1)
+    const pet = await hatchPet(1, { now: T0 - HOUR })
     const res = await sync(pet, [...ev('turn', T0 - 10 * MIN, 3), ...ev('commit', T0 - 5 * MIN)], T0 + MIN)
     expect(res.status).toBe(200)
     const xp = 3 * 3 + 2
@@ -37,6 +37,22 @@ describe('POST /api/sync', () => {
     const events = [...ev('turn', T0 + MIN, 25), ...ev('check_pass', T0 + MIN, 25), ...ev('commit', T0 + MIN, 15), ...ev('error', T0 + MIN, 5)]
     const body = (await (await sync(pet, events, T0 + 20 * MIN)).json()) as { xp: number }
     expect(body.xp).toBe(20 * 3 + 20 * 2 + 10 * 2)
+  })
+
+  it('never scores events from before the pet hatched', async () => {
+    const pet = await hatchPet(1, { now: T0 - MIN })
+    const backdated = Array.from({ length: 24 }, (_, k) => ev('turn', T0 - (k + 1) * HOUR, 20)).flat()
+    const body = (await (await sync(pet, [...backdated, ...ev('turn', T0 - 30_000)], T0)).json()) as { xp: number }
+    expect(body.xp).toBe(3)
+  })
+
+  it('scores events up to 5 min ahead of the server clock and drops later ones', async () => {
+    const pet = await hatchPet(1)
+    const ahead = (await (await sync(pet, ev('turn', T0 + 3 * MIN), T0 + MIN)).json()) as { xp: number }
+    expect(ahead.xp).toBe(3)
+    const pet2 = await hatchPet(2)
+    const far = (await (await sync(pet2, ev('turn', T0 + 11 * MIN), T0 + MIN)).json()) as { xp: number }
+    expect(far.xp).toBe(0)
   })
 
   it('ignores future events, junk and events older than the first-sync lookback', async () => {
