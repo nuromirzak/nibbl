@@ -1,6 +1,6 @@
 import { writeFileSync } from 'node:fs'
 import { genome, genomeKey, levelFromXp, visualKey } from '@nibbl/core'
-import { BOTS, totalXpForLevel } from '../src/bots'
+import { BOTS, SEED_LAUNCH_AT, seedXpBudget, totalXpForLevel } from '../src/bots'
 
 const q = (s: string) => `'${s.replace(/'/g, "''")}'`
 const seenGenome = new Set<string>()
@@ -19,6 +19,9 @@ for (const b of BOTS) {
   seenVisual.add(visual)
   const xp = totalXpForLevel(b.level) + b.extraXp
   if (levelFromXp(xp).level !== b.level) throw new Error(`bot ${b.serial}: extraXp ${b.extraXp} spills past level ${b.level}`)
+  const day = 24 * 3_600_000
+  if (b.hatchedAt < SEED_LAUNCH_AT - 75 * day || b.hatchedAt > SEED_LAUNCH_AT - 30 * day) throw new Error(`bot ${b.serial}: hatchedAt outside the closed-beta window`)
+  if (xp > seedXpBudget(b.hatchedAt)) throw new Error(`bot ${b.serial}: ${xp} xp exceeds the ${Math.floor(seedXpBudget(b.hatchedAt))} xp reachable since hatching`)
   lines.push(
     `INSERT INTO pets (serial, machine_hash, token_hash, seed, genome_key, visual_key, tier, shiny, genesis, name, label, xp, level, is_bot, hatched_at, last_sync_at) VALUES (${b.serial}, ${q(`bot:${b.serial}`)}, 'bot:disabled', ${g.seed}, ${q(key)}, ${q(visual)}, ${q(b.tier)}, ${b.shiny ? 1 : 0}, ${b.genesis ? 1 : 0}, ${q(b.name)}, ${q(b.label)}, ${xp}, ${b.level}, 1, ${b.hatchedAt}, ${b.hatchedAt});`,
   )

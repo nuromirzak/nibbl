@@ -1,8 +1,14 @@
 import { CAPS_PER_HOUR, mulberry32, XP_PER_EVENT, xpToNext, type Tier } from '@nibbl/core'
 
 // Decision 0009: 12 seeded nibbls. Retire one with `UPDATE pets SET is_hidden = 1 WHERE serial = N`.
-// All bots are Genesis with hatchedAt spread over the 10 days before LAUNCH_AT (2026-10-31T00:00:00Z),
-// because every real pet in the first 30 days is Genesis; a non-Genesis bot would be a visible tell.
+// All bots are Genesis (every real pet in the first 30 days is) and form a closed-beta cohort that
+// hatched 30-75 days before LAUNCH_AT (2026-10-31T00:00:00Z). Seeded XP must be reachable for the
+// bot's age at SEED_XP_PER_HOUR, measured up to SEED_REF_AT, or the numbers would give it away.
+export const SEED_LAUNCH_AT = Date.UTC(2026, 9, 31)
+export const SEED_REF_AT = SEED_LAUNCH_AT - 30 * 24 * 3_600_000
+export const SEED_XP_PER_HOUR = 10
+export const seedXpBudget = (hatchedAt: number): number => ((SEED_REF_AT - hatchedAt) / 3_600_000) * SEED_XP_PER_HOUR
+
 export type BotSpec = {
   serial: number
   name: string
@@ -19,18 +25,18 @@ export type BotSpec = {
 }
 
 export const BOTS: readonly BotSpec[] = [
-  { serial: 1, name: 'Byte', label: 'night coder', tier: 'epic', shiny: false, genesis: true, seed: 2654435761, level: 31, extraXp: 120, hatchedAt: Date.UTC(2026, 9, 21, 3, 14), tz: 5, owl: true },
-  { serial: 2, name: 'Segfault', label: 'rust in prod', tier: 'rare', shiny: false, genesis: true, seed: 1013904223, level: 27, extraXp: 300, hatchedAt: Date.UTC(2026, 9, 21, 18, 40), tz: 1, owl: false },
-  { serial: 3, name: 'Mochi', label: 'frontend gremlin', tier: 'uncommon', shiny: false, genesis: true, seed: 3141592653, level: 24, extraXp: 75, hatchedAt: Date.UTC(2026, 9, 22, 11, 5), tz: -5, owl: false },
-  { serial: 4, name: 'Kernel', label: 'tabs not spaces', tier: 'common', shiny: false, genesis: true, seed: 2718281828, level: 22, extraXp: 410, hatchedAt: Date.UTC(2026, 9, 23, 7, 52), tz: 2, owl: false },
-  { serial: 5, name: 'Pico', label: 'ships on fridays', tier: 'legendary', shiny: false, genesis: true, seed: 1618033988, level: 19, extraXp: 33, hatchedAt: Date.UTC(2026, 9, 24, 14, 20), tz: -8, owl: false },
-  { serial: 6, name: 'Nimbus', label: 'on call again', tier: 'common', shiny: false, genesis: true, seed: 1414213562, level: 18, extraXp: 150, hatchedAt: Date.UTC(2026, 9, 25, 22, 33), tz: 0, owl: true },
-  { serial: 7, name: 'Tofu', label: 'types or bust', tier: 'uncommon', shiny: false, genesis: true, seed: 1732050807, level: 16, extraXp: 12, hatchedAt: Date.UTC(2026, 9, 26, 9, 18), tz: 9, owl: false },
-  { serial: 8, name: 'Rune', label: 'vim since 2009', tier: 'rare', shiny: true, genesis: true, seed: 2236067977, level: 15, extraXp: 260, hatchedAt: Date.UTC(2026, 9, 27, 16, 47), tz: 3, owl: false },
-  { serial: 9, name: 'Gizmo', label: 'monorepo enjoyer', tier: 'common', shiny: false, genesis: true, seed: 2645751311, level: 13, extraXp: 90, hatchedAt: Date.UTC(2026, 9, 28, 5, 29), tz: -3, owl: false },
-  { serial: 10, name: 'Quill', label: 'docs first', tier: 'uncommon', shiny: false, genesis: true, seed: 3316624790, level: 12, extraXp: 45, hatchedAt: Date.UTC(2026, 9, 29, 12, 11), tz: 1, owl: false },
-  { serial: 11, name: 'Ziggy', label: 'it works locally', tier: 'epic', shiny: false, genesis: true, seed: 3605551275, level: 10, extraXp: 140, hatchedAt: Date.UTC(2026, 9, 30, 1, 36), tz: -6, owl: true },
-  { serial: 12, name: 'Bitsy', label: '2am debugger', tier: 'common', shiny: false, genesis: true, seed: 4123105625, level: 9, extraXp: 60, hatchedAt: Date.UTC(2026, 9, 30, 20, 58), tz: 8, owl: true },
+  { serial: 1, name: 'Byte', label: 'night coder', tier: 'epic', shiny: false, genesis: true, seed: 2654435761, level: 25, extraXp: 140, hatchedAt: Date.UTC(2026, 7, 17, 7, 23), tz: 5, owl: true },
+  { serial: 2, name: 'Segfault', label: 'rust in prod', tier: 'rare', shiny: false, genesis: true, seed: 1013904223, level: 24, extraXp: 210, hatchedAt: Date.UTC(2026, 7, 21, 18, 47), tz: 1, owl: false },
+  { serial: 3, name: 'Mochi', label: 'frontend gremlin', tier: 'uncommon', shiny: false, genesis: true, seed: 3141592653, level: 22, extraXp: 90, hatchedAt: Date.UTC(2026, 7, 25, 11, 12), tz: -5, owl: false },
+  { serial: 4, name: 'Kernel', label: 'tabs not spaces', tier: 'common', shiny: false, genesis: true, seed: 2718281828, level: 21, extraXp: 310, hatchedAt: Date.UTC(2026, 7, 29, 21, 36), tz: 2, owl: false },
+  { serial: 5, name: 'Pico', label: 'ships on fridays', tier: 'legendary', shiny: false, genesis: true, seed: 1618033988, level: 19, extraXp: 50, hatchedAt: Date.UTC(2026, 8, 2, 9, 8), tz: -8, owl: false },
+  { serial: 6, name: 'Nimbus', label: 'on call again', tier: 'common', shiny: false, genesis: true, seed: 1414213562, level: 18, extraXp: 220, hatchedAt: Date.UTC(2026, 8, 6, 16, 51), tz: 0, owl: true },
+  { serial: 7, name: 'Tofu', label: 'types or bust', tier: 'uncommon', shiny: false, genesis: true, seed: 1732050807, level: 16, extraXp: 30, hatchedAt: Date.UTC(2026, 8, 10, 5, 29), tz: 9, owl: false },
+  { serial: 8, name: 'Rune', label: 'vim since 2009', tier: 'rare', shiny: true, genesis: true, seed: 2236067977, level: 15, extraXp: 160, hatchedAt: Date.UTC(2026, 8, 14, 19, 4), tz: 3, owl: false },
+  { serial: 9, name: 'Gizmo', label: 'monorepo enjoyer', tier: 'common', shiny: false, genesis: true, seed: 2645751311, level: 13, extraXp: 80, hatchedAt: Date.UTC(2026, 8, 18, 12, 43), tz: -3, owl: false },
+  { serial: 10, name: 'Quill', label: 'docs first', tier: 'uncommon', shiny: false, genesis: true, seed: 3316624790, level: 12, extraXp: 45, hatchedAt: Date.UTC(2026, 8, 21, 22, 17), tz: 1, owl: false },
+  { serial: 11, name: 'Ziggy', label: 'it works locally', tier: 'epic', shiny: false, genesis: true, seed: 3605551275, level: 10, extraXp: 140, hatchedAt: Date.UTC(2026, 8, 24, 9, 38), tz: -6, owl: true },
+  { serial: 12, name: 'Bitsy', label: '2am debugger', tier: 'common', shiny: false, genesis: true, seed: 4123105625, level: 9, extraXp: 30, hatchedAt: Date.UTC(2026, 8, 26, 20, 14), tz: 8, owl: true },
 ]
 
 export type HourCounts = { pet: number; turn: number; check_pass: number; commit: number }

@@ -71,7 +71,10 @@ export const growBots = async (db: D1Database, now: number): Promise<number> => 
     let gain = 0
     for (let h = from; h <= hour; h++) gain += xpForCounts(botHourCounts(spec, h))
     const xp = bot.xp + gain
-    return db.prepare('UPDATE pets SET xp = ?, level = ? WHERE serial = ?').bind(xp, levelFromXp(xp).level, bot.serial)
+    const level = levelFromXp(xp).level
+    if (gain === 0) return db.prepare('UPDATE pets SET xp = ?, level = ? WHERE serial = ?').bind(xp, level, bot.serial)
+    // A bot that gained XP last synced at the end of the last applied hour.
+    return db.prepare('UPDATE pets SET xp = ?, level = ?, last_sync_at = ? WHERE serial = ?').bind(xp, level, (hour + 1) * HOUR_MS, bot.serial)
   })
   await db.batch([...updates, db.prepare("UPDATE counters SET value = ? WHERE name = 'bot_hour'").bind(hour)])
   return hour - from + 1

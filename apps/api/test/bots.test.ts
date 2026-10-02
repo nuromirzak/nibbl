@@ -1,6 +1,6 @@
 import { genome, genomeKey, HOUR_MS, levelFromXp, visualKey, type Tier } from '@nibbl/core'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { BOT_CATCH_UP_HOURS, BOTS, botHourCounts, MAX_HOURLY_XP, xpForCounts } from '../src/bots'
+import { BOT_CATCH_UP_HOURS, BOTS, botHourCounts, MAX_HOURLY_XP, SEED_LAUNCH_AT, seedXpBudget, xpForCounts } from '../src/bots'
 import { growBots, runCron } from '../src/cron'
 import type { Env } from '../src/env'
 import { checkText, LABEL_MAX, NAME_MAX } from '../src/lib/filter'
@@ -8,6 +8,7 @@ import type { PetRow } from '../src/lib/db'
 import { call, hatchPet, resetDb, T0, testEnv } from './helpers'
 
 const LAUNCH_AT = Date.parse('2026-10-31T00:00:00Z')
+const DAY = 24 * HOUR_MS
 
 const seedBots = async () => {
   const migration = testEnv.TEST_MIGRATIONS.find(m => m.name.startsWith('0002'))
@@ -24,7 +25,7 @@ beforeEach(async () => {
 })
 
 describe('seeded bots', () => {
-  it('seeds 12 bots with varied tiers, one shiny, all genesis, levels 9-31', async () => {
+  it('seeds 12 bots with varied tiers, one shiny, all genesis, levels 9-25', async () => {
     const rows = await bots()
     expect(rows).toHaveLength(12)
     expect(rows.filter(r => r.shiny === 1)).toHaveLength(1)
@@ -32,20 +33,28 @@ describe('seeded bots', () => {
     expect(new Set(rows.map(r => r.tier)).size).toBe(5)
     for (const r of rows) {
       expect(r.level).toBeGreaterThanOrEqual(9)
-      expect(r.level).toBeLessThanOrEqual(31)
+      expect(r.level).toBeLessThanOrEqual(25)
       expect(r.level).toBe(levelFromXp(r.xp).level)
       expect(checkText(r.name, NAME_MAX)).toEqual({ ok: true, value: r.name })
       expect(checkText(r.label, LABEL_MAX)).toEqual({ ok: true, value: r.label })
     }
   })
 
-  it('hatches bots in serial order within the 10 days before launch', async () => {
+  it('hatches bots as a closed-beta cohort 30-75 days before launch, in serial order', async () => {
+    expect(SEED_LAUNCH_AT).toBe(LAUNCH_AT)
     const rows = await bots()
     for (let i = 0; i < rows.length; i++) {
-      expect(rows[i]!.hatched_at).toBeGreaterThanOrEqual(LAUNCH_AT - 10 * 24 * HOUR_MS)
-      expect(rows[i]!.hatched_at).toBeLessThan(LAUNCH_AT)
-      if (i > 0) expect(rows[i]!.hatched_at).toBeGreaterThan(rows[i - 1]!.hatched_at)
+      const at = rows[i]!.hatched_at
+      expect(at).toBeGreaterThanOrEqual(LAUNCH_AT - 75 * DAY)
+      expect(at).toBeLessThanOrEqual(LAUNCH_AT - 30 * DAY)
+      expect(at % HOUR_MS).not.toBe(0)
+      expect(at % 60_000).toBe(0)
+      if (i > 0) expect(at).toBeGreaterThan(rows[i - 1]!.hatched_at)
     }
+  })
+
+  it('seeds only xp a pet could have earned since hatching at 10 xp/h', async () => {
+    for (const r of await bots()) expect(r.xp).toBeLessThanOrEqual(seedXpBudget(r.hatched_at))
   })
 
   it('matches current core keys (regenerate 0002 if core changed)', async () => {
@@ -94,6 +103,7 @@ describe('bot growth', () => {
       const gain = xpForCounts(botHourCounts(spec, hour - 1)) + xpForCounts(botHourCounts(spec, hour))
       expect(r.xp).toBe(before.get(r.serial)! + gain)
       expect(r.level).toBe(levelFromXp(r.xp).level)
+      if (gain > 0) expect(r.last_sync_at).toBe((hour + 1) * HOUR_MS)
     }
     expect(await growBots(testEnv.DB, T0)).toBe(0)
   })
