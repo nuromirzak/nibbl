@@ -24,19 +24,22 @@ export type BotSpec = {
   owl: boolean
 }
 
+// Seeds are not hand-picked: each is the first 4 bytes (big-endian uint32) of
+// sha256("nibbl-bot:" + serial), computed once and stored here (test/bots.test.ts recomputes them).
+// Tier and shiny are chosen data, not derived from the seed.
 export const BOTS: readonly BotSpec[] = [
-  { serial: 1, name: 'Byte', label: 'night coder', tier: 'epic', shiny: false, genesis: true, seed: 2654435761, level: 25, extraXp: 140, hatchedAt: Date.UTC(2026, 7, 17, 7, 23), tz: 5, owl: true },
-  { serial: 2, name: 'Segfault', label: 'rust in prod', tier: 'rare', shiny: false, genesis: true, seed: 1013904223, level: 24, extraXp: 210, hatchedAt: Date.UTC(2026, 7, 21, 18, 47), tz: 1, owl: false },
-  { serial: 3, name: 'Mochi', label: 'frontend gremlin', tier: 'uncommon', shiny: false, genesis: true, seed: 3141592653, level: 22, extraXp: 90, hatchedAt: Date.UTC(2026, 7, 25, 11, 12), tz: -5, owl: false },
-  { serial: 4, name: 'Kernel', label: 'tabs not spaces', tier: 'common', shiny: false, genesis: true, seed: 2718281828, level: 21, extraXp: 310, hatchedAt: Date.UTC(2026, 7, 29, 21, 36), tz: 2, owl: false },
-  { serial: 5, name: 'Pico', label: 'ships on fridays', tier: 'legendary', shiny: false, genesis: true, seed: 1618033988, level: 19, extraXp: 50, hatchedAt: Date.UTC(2026, 8, 2, 9, 8), tz: -8, owl: false },
-  { serial: 6, name: 'Nimbus', label: 'on call again', tier: 'common', shiny: false, genesis: true, seed: 1414213562, level: 18, extraXp: 220, hatchedAt: Date.UTC(2026, 8, 6, 16, 51), tz: 0, owl: true },
-  { serial: 7, name: 'Tofu', label: 'types or bust', tier: 'uncommon', shiny: false, genesis: true, seed: 1732050807, level: 16, extraXp: 30, hatchedAt: Date.UTC(2026, 8, 10, 5, 29), tz: 9, owl: false },
-  { serial: 8, name: 'Rune', label: 'vim since 2009', tier: 'rare', shiny: true, genesis: true, seed: 2236067977, level: 15, extraXp: 160, hatchedAt: Date.UTC(2026, 8, 14, 19, 4), tz: 3, owl: false },
-  { serial: 9, name: 'Gizmo', label: 'monorepo enjoyer', tier: 'common', shiny: false, genesis: true, seed: 2645751311, level: 13, extraXp: 80, hatchedAt: Date.UTC(2026, 8, 18, 12, 43), tz: -3, owl: false },
-  { serial: 10, name: 'Quill', label: 'docs first', tier: 'uncommon', shiny: false, genesis: true, seed: 3316624790, level: 12, extraXp: 45, hatchedAt: Date.UTC(2026, 8, 21, 22, 17), tz: 1, owl: false },
-  { serial: 11, name: 'Ziggy', label: 'it works locally', tier: 'epic', shiny: false, genesis: true, seed: 3605551275, level: 10, extraXp: 140, hatchedAt: Date.UTC(2026, 8, 24, 9, 38), tz: -6, owl: true },
-  { serial: 12, name: 'Bitsy', label: '2am debugger', tier: 'common', shiny: false, genesis: true, seed: 4123105625, level: 9, extraXp: 30, hatchedAt: Date.UTC(2026, 8, 26, 20, 14), tz: 8, owl: true },
+  { serial: 1, name: 'Byte', label: 'night coder', tier: 'epic', shiny: false, genesis: true, seed: 695513411, level: 25, extraXp: 140, hatchedAt: Date.UTC(2026, 7, 17, 7, 23), tz: 5, owl: true },
+  { serial: 2, name: 'Segfault', label: 'rust in prod', tier: 'rare', shiny: false, genesis: true, seed: 3099761571, level: 24, extraXp: 210, hatchedAt: Date.UTC(2026, 7, 21, 18, 47), tz: 1, owl: false },
+  { serial: 3, name: 'Mochi', label: 'frontend gremlin', tier: 'uncommon', shiny: false, genesis: true, seed: 38963754, level: 22, extraXp: 90, hatchedAt: Date.UTC(2026, 7, 25, 11, 12), tz: -5, owl: false },
+  { serial: 4, name: 'Kernel', label: 'tabs not spaces', tier: 'common', shiny: false, genesis: true, seed: 660596599, level: 21, extraXp: 310, hatchedAt: Date.UTC(2026, 7, 29, 21, 36), tz: 2, owl: false },
+  { serial: 5, name: 'Pico', label: 'ships on fridays', tier: 'legendary', shiny: false, genesis: true, seed: 968327868, level: 19, extraXp: 50, hatchedAt: Date.UTC(2026, 8, 2, 9, 8), tz: -8, owl: false },
+  { serial: 6, name: 'Nimbus', label: 'on call again', tier: 'common', shiny: false, genesis: true, seed: 3732034803, level: 18, extraXp: 220, hatchedAt: Date.UTC(2026, 8, 6, 16, 51), tz: 0, owl: true },
+  { serial: 7, name: 'Tofu', label: 'types or bust', tier: 'uncommon', shiny: false, genesis: true, seed: 1333232072, level: 16, extraXp: 30, hatchedAt: Date.UTC(2026, 8, 10, 5, 29), tz: 9, owl: false },
+  { serial: 8, name: 'Rune', label: 'vim since 2009', tier: 'rare', shiny: true, genesis: true, seed: 1745295046, level: 15, extraXp: 160, hatchedAt: Date.UTC(2026, 8, 14, 19, 4), tz: 3, owl: false },
+  { serial: 9, name: 'Gizmo', label: 'monorepo enjoyer', tier: 'common', shiny: false, genesis: true, seed: 1228742997, level: 13, extraXp: 80, hatchedAt: Date.UTC(2026, 8, 18, 12, 43), tz: -3, owl: false },
+  { serial: 10, name: 'Quill', label: 'docs first', tier: 'uncommon', shiny: false, genesis: true, seed: 2815152424, level: 12, extraXp: 45, hatchedAt: Date.UTC(2026, 8, 21, 22, 17), tz: 1, owl: false },
+  { serial: 11, name: 'Ziggy', label: 'it works locally', tier: 'epic', shiny: false, genesis: true, seed: 531282100, level: 10, extraXp: 140, hatchedAt: Date.UTC(2026, 8, 24, 9, 38), tz: -6, owl: true },
+  { serial: 12, name: 'Bitsy', label: '2am debugger', tier: 'common', shiny: false, genesis: true, seed: 935890398, level: 9, extraXp: 30, hatchedAt: Date.UTC(2026, 8, 26, 20, 14), tz: 8, owl: true },
 ]
 
 export type HourCounts = { pet: number; turn: number; check_pass: number; commit: number }

@@ -25,6 +25,19 @@ beforeEach(async () => {
 })
 
 describe('seeded bots', () => {
+  it('derives each seed from sha256("nibbl-bot:" + serial), not by hand', async () => {
+    for (const b of BOTS) {
+      const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`nibbl-bot:${b.serial}`)))
+      expect(b.seed, `bot ${b.serial}`).toBe(new DataView(digest.buffer).getUint32(0))
+    }
+  })
+
+  it('gives every bot a distinct genome and visual key', () => {
+    const genomes = BOTS.map(b => genome(b.seed, b.tier, b.shiny))
+    expect(new Set(genomes.map(genomeKey)).size).toBe(BOTS.length)
+    expect(new Set(genomes.map(visualKey)).size).toBe(BOTS.length)
+  })
+
   it('seeds 12 bots with varied tiers, one shiny, all genesis, levels 9-25', async () => {
     const rows = await bots()
     expect(rows).toHaveLength(12)
