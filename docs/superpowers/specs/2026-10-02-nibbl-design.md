@@ -31,7 +31,7 @@ Feelings, success metrics and the Tamagotchi lessons live in `docs/product-princ
 | Art | Procedural, layered, from a shared TS generator. Scene 32×16, pet up to 16×16. Palette Sweetie 16. |
 | Rendering | One source (pixel grid), renders chosen by terminal. `Raster` half-blocks are the MVP renderer. |
 | Code | Private monorepo. A readable (not obfuscated) bundle is published to a public marketplace repo, license "All rights reserved". |
-| Backend | Cloudflare Workers + D1 + Pages, free tier. Infra as code with wrangler. |
+| Backend | Cloudflare Worker + D1 behind a Pages front (`getnibbl.pages.dev`), free tier. Infra as code with wrangler. |
 | Seeded bots | 12 seeded nibbls on the leaderboard at launch so early users are not alone (owner decision, see §9.4). |
 
 ## 3. Architecture
@@ -41,7 +41,7 @@ nibbl/                      private monorepo (pnpm workspaces)
   packages/core             pure TS, zero deps: PRNG, odds, genome, compat rules, draw() → 32×16 RGBA grid
   apps/mod                  Claude Code mod (function hooks) → esbuild bundle → public repo
   apps/api                  Cloudflare Worker + D1 (+ cron)
-  apps/web                  landing + leaderboard → Cloudflare Pages
+  apps/web                  landing + leaderboard + Pages Functions proxy → Cloudflare Pages
   docs/                     specs, plans
 nibbl-dev/nibbl             public repo: .claude-plugin/marketplace.json + built plugin (dist only)
 ```
@@ -185,7 +185,7 @@ Interactions stay below ~20% of a heavy user's hourly XP. Over the cap the pet s
 ## 6. `apps/api` (Cloudflare Worker + D1)
 
 ### 6.1 Endpoints
-API routes live under the `/api/` prefix. Card routes (`/p/:serial`, `/p/:serial.png`, `/p/:serial/badge.svg`) are served by the same Worker without the prefix. Everything else is a static asset.
+API routes live under the `/api/` prefix. Card routes (`/p/:serial`, `/p/:serial.png`, `/p/:serial/badge.svg`) are served by the same Worker without the prefix. The browser only ever talks to `https://getnibbl.pages.dev`: Pages Functions forward `/api/*` and `/p/*` to the Worker over a service binding, and everything else is a static Pages file. The Worker has no public URL.
 
 | Method | Path | Body / result |
 |---|---|---|
@@ -260,7 +260,7 @@ Workers: 100k requests/day. D1: 5M rows read and 100k rows written per day, 5 GB
 **Genome capacity (decision 2026-10-02).** Expected scale is at most 10 000 nibbls. Measured headroom: 100 000 sequential hatches with 16 candidates each all find a unique pet, and the first misses appear after about 115 000 common-tier pets. This is far above the expected scale, so no more genes or candidates are added now. The Worker still handles `pickUnique` returning `null` by retrying with a fresh candidate batch (n = 16..31) and, if that also fails, answering 503 so the mod retries the hatch later. Revisit only if real hatches pass 50 000.
 
 ### 6.8 Infra as code
-One Worker with static assets, configured in `apps/api/wrangler.jsonc` (Worker, `account_id` pinned to the owner's account, static assets with `run_worker_first` for `/api/*` and `/p/*`, D1 binding, cron trigger). `LAUNCH_AT` is a plain var in `wrangler.jsonc`. SQL migrations live in `apps/api/migrations`; secrets (`ROLL_SECRET`, `IP_SALT`) are set by `scripts/set-secrets.sh` via `wrangler secret put`. No Pages project. Cloudflare MCP is for logs and ad-hoc queries only, never for creating resources. Inventory and runbook: `docs/infra.md`.
+A private Worker `nibbl`, configured in `apps/api/wrangler.jsonc` (`account_id` pinned to the owner's account, D1 binding, cron trigger, `workers_dev: false` and `preview_urls: false` so it has no public URL). The public front is a Pages project `getnibbl` (`apps/web/wrangler.toml`) whose Functions forward `/api/*` and `/p/*` to the Worker through a service binding named `API`; the reason for the split is keeping the owner's name out of public URLs (decision 0012). `LAUNCH_AT` is a plain var in `wrangler.jsonc`. SQL migrations live in `apps/api/migrations`; secrets (`ROLL_SECRET`, `IP_SALT`) are set by `scripts/set-secrets.sh` via `wrangler secret put`. The Pages project is created once with `pnpm -C apps/web run project:create`. Cloudflare MCP is for logs and ad-hoc queries only, never for creating resources. Inventory and runbook: `docs/infra.md`.
 
 ## 7. `apps/web` (landing + leaderboard)
 
@@ -272,7 +272,7 @@ Static export on Cloudflare Pages (Next.js `output: 'export'`, per the owner's r
 5. Leaderboard (top 100 from `/leaderboard`), each row drawn by `core`.
 6. Example shareable card.
 
-`/p/:serial` is served by the Worker (needs per-pet OG tags).
+`/p/:serial` is served by the Worker (needs per-pet OG tags), reached through the Pages Function proxy.
 
 ## 8. Design kit
 
@@ -287,7 +287,7 @@ Static export on Cloudflare Pages (Next.js `output: 'export'`, per the owner's r
 ## 9. Distribution and launch
 
 ### 9.1 Build and publish
-- No public repo for now. `pnpm -C apps/api pack:plugin` packs the built plugin into `/plugin/nibbl-<version>.zip` and writes `/marketplace.json` (pinned by `sha256`) into the Worker's static assets directory; the next deploy serves both from the Worker.
+- No public repo for now. `node apps/api/scripts/pack-plugin.mjs` packs the built plugin into `/plugin/nibbl-<version>.zip` and writes `/marketplace.json` (pinned by `sha256`) into `apps/web/prototype`; `pnpm -C apps/web run deploy` serves both from Pages. The pack script zips an allowlist only (manifest, hooks, types, assets).
 - The archive holds the plugin manifest, `hooks/hooks.json`, `hooks/register.js` and a README with odds and the privacy note (what leaves the machine: `machineHash`, serial, token, event counts).
 
 ### 9.2 Install

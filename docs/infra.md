@@ -1,52 +1,60 @@
 # Nibbl infrastructure
 
-Everything that can be code lives in `apps/api/`: `wrangler.jsonc` (Worker, assets, D1 binding, cron, vars, compatibility date), `migrations/` (schema and seeded bots), `scripts/provision.sh` (D1 and remote migrations), `scripts/set-d1-id.mjs` (the only writer of the D1 id into `wrangler.jsonc`) and `scripts/set-secrets.sh` (secrets). This page lists every Cloudflare resource and the few steps that cannot be code.
+Everything that can be code lives in `apps/api/` (Worker, D1, cron) and `apps/web/` (Pages project and the two forwarding Functions): `apps/api/wrangler.jsonc` (Worker, D1 binding, cron, vars, compatibility date), `apps/web/wrangler.toml` (Pages project), `apps/api/migrations/` (schema and seeded bots), `apps/api/scripts/provision.sh` (D1 and remote migrations), `scripts/set-d1-id.mjs` (the only writer of the D1 id into `wrangler.jsonc`) and `scripts/set-secrets.sh` (secrets). This page lists every Cloudflare resource and the few steps that cannot be code.
 
 ## Cloudflare account
 
-Everything lives in the owner's personal account (Nur.omirzaq@gmail.com), id `42544c84ffaa32a531766a26562c080d`, pinned as `account_id` in `apps/api/wrangler.jsonc`. The owner's wrangler login also sees a second account. Never run wrangler, the provisioning scripts or the Cloudflare MCP against any other account; if a command prints a different account id, stop. Do not remove or override `account_id` (no `CLOUDFLARE_ACCOUNT_ID` pointing elsewhere).
+Everything lives in the owner's personal account (Nur.omirzaq@gmail.com), id `42544c84ffaa32a531766a26562c080d`. It is pinned as `account_id` in `apps/api/wrangler.jsonc` (Worker) and through `CLOUDFLARE_ACCOUNT_ID` in the `apps/web/package.json` scripts (Pages). The owner's wrangler login also sees a second account. Never run wrangler, the provisioning scripts or the Cloudflare MCP against any other account; if a command prints a different account id, stop. Do not remove or override the pins.
 
 ## Public host
 
-`https://getnibbl.pages.dev`. A workers.dev URL is always `<worker>.<account-subdomain>.workers.dev`. The account subdomain is `nur-omirzaq`, fixed (only the dashboard can change it) and shared by every Worker on the account. All absolute URLs (OG image, canonical) come from the request origin, so a custom domain later needs only a route or custom domain entry in `wrangler.jsonc` plus updated install docs (decision 0012).
+`https://getnibbl.pages.dev` is a Cloudflare Pages project named `getnibbl` (config `apps/web/wrangler.toml`, static files from `apps/web/prototype`). It is the only public URL. The Worker `nibbl` has no public URL: `workers_dev: false` and `preview_urls: false` in `apps/api/wrangler.jsonc`. Reason: the account's workers.dev subdomain contains the owner's name, and the owner wants their name out of every public URL. The old `nibbl.<subdomain>.workers.dev` host is disabled and stays that way.
+
+Pages Functions `apps/web/functions/api/[[path]].js` and `apps/web/functions/p/[[path]].js` forward every `/api/*` and `/p/*` request unchanged to the Worker `nibbl` through a service binding named `API`. Static files never invoke a function. All absolute URLs (OG image, canonical) come from the request origin, so a custom domain later needs only a custom domain on the Pages project plus updated install docs (decision 0012).
 
 | Path | Served by |
 |---|---|
-| `/api/*` | Worker (JSON API) |
-| `/p/:serial`, `/p/:serial.png`, `/p/:serial/badge.svg` | Worker (cards) |
-| everything else | Workers Static Assets from `apps/web/prototype` (free, no Worker run) |
+| `/api/*` | Pages Function, forwarded via service binding `API` to the Worker (JSON API) |
+| `/p/:serial`, `/p/:serial.png`, `/p/:serial/badge.svg` | Pages Function, forwarded via `API` to the Worker (cards) |
+| everything else (landing, `/marketplace.json`, `/plugin/*.zip`) | Pages static files from `apps/web/prototype` (free, no function run) |
 
 ## Resource inventory
 
 | Name | Type | Binding | How created | How to recreate | Cost tier |
 |---|---|---|---|---|---|
 | `42544c84ffaa32a531766a26562c080d` | Cloudflare account (owner's personal, Nur.omirzaq@gmail.com) | n/a | Existing account, pinned as `account_id` in `wrangler.jsonc` | n/a: never use another account | Workers Free |
-| `nibbl` | Worker | n/a | `pnpm -C apps/api run deploy` from `wrangler.jsonc` | Same command | Workers Free: 100k requests/day, 10 ms CPU per request |
-| `nibbl` static assets | Workers Static Assets | `ASSETS` | Uploaded by every deploy from `assets.directory` | Redeploy | Free; asset requests are not billed and do not count toward the 100k |
-| `/marketplace.json` | Static asset (plugin distribution, Task 12) | n/a | Added to the assets directory by the plugin build | Rebuild and redeploy | Free |
-| `/plugin/nibbl-<version>.zip` | Static asset (plugin distribution, Task 12) | n/a | Added to the assets directory by the plugin build | Rebuild and redeploy | Free |
+| `nibbl` | Worker (API, cards, cron; no public URL) | n/a | `pnpm -C apps/api run deploy` from `wrangler.jsonc` | Same command | Workers Free: 100k requests/day, 10 ms CPU per request |
+| `getnibbl` | Cloudflare Pages project (`getnibbl.pages.dev`) | n/a | Once: `pnpm -C apps/web run project:create`; then `pnpm -C apps/web run deploy` | Same two commands | Free; static requests are unlimited and not billed |
+| `API` | Service binding Pages -> Worker `nibbl` | `API` | `apps/web/wrangler.toml`, applied by the Pages deploy | Redeploy Pages (the Worker must exist first) | Free; calls draw from the shared Workers request pool |
+| Pages Functions `api/[[path]].js`, `p/[[path]].js` | Pages Functions | n/a | `apps/web/functions/`, bundled by the Pages deploy | Redeploy Pages | Count toward the 100k Workers requests/day |
+| `/marketplace.json` | Pages static file (plugin distribution) | n/a | Written into `apps/web/prototype` by `pack-plugin.mjs` | Repack and redeploy Pages | Free |
+| `/plugin/nibbl-<version>.zip` | Pages static file (plugin distribution) | n/a | Written into `apps/web/prototype` by `pack-plugin.mjs` | Repack and redeploy Pages | Free |
 | `nibbl` | D1 database | `DB` | `scripts/provision.sh` (`wrangler d1 create --location weur --update-config=false`) | `provision.sh`, then restore data (see Backups) | D1 Free: 5M rows read, 100k rows written per day (index writes count), 5 GB |
 | D1 schema | Migrations `0001_init.sql`, `0002_seed_bots.sql` | n/a | `provision.sh` or `pnpm -C apps/api migrate:remote` | Same | Free |
 | `*/5 * * * *` | Cron Trigger | `scheduled()` | `triggers.crons` in `wrangler.jsonc`, applied by deploy | Redeploy | 288 invocations/day, inside the Workers Free limit |
 | `ROLL_SECRET` | Worker secret | `env.ROLL_SECRET` | `scripts/set-secrets.sh` (random 48 bytes) | `set-secrets.sh` after deleting it; existing pets are unaffected (they are stored), only future rolls change | Free |
 | `IP_SALT` | Worker secret | `env.IP_SALT` | `scripts/set-secrets.sh` (random 48 bytes) | Same; a new salt only resets today's per-IP hatch counts | Free |
 | `LAUNCH_AT` | Worker var | `env.LAUNCH_AT` | `vars` in `wrangler.jsonc` | Edit and redeploy | Free |
-| workers.dev route | workers.dev subdomain | n/a | `workers_dev: true` in `wrangler.jsonc` | Redeploy | Free |
-| Account subdomain | Account setting | n/a | Dashboard, once | Dashboard | Free |
+| workers.dev route | Disabled on purpose | n/a | `workers_dev: false` and `preview_urls: false` in `wrangler.jsonc` | Keep disabled | n/a |
+| Account workers.dev subdomain | Account setting (contains the owner's name, never published) | n/a | Dashboard, once | n/a | Free |
 | Workers Logs | Observability | n/a | `observability.enabled` in `wrangler.jsonc` | Redeploy | Free: 200k log events/day, 3-day retention |
 
 ## Plugin distribution
 
-No public repo. The Worker serves the plugin as static assets:
+No public repo. Pages serves the plugin as static files:
 
 | Path | What |
 |---|---|
-| `/marketplace.json` | URL marketplace, generated by `pnpm -C apps/api pack:plugin` |
+| `/marketplace.json` | URL marketplace, generated by `pack-plugin.mjs` |
 | `/plugin/nibbl-<version>.zip` | Built plugin, pinned in the marketplace by `sha256` |
 
-Release: bump `version` in the built plugin's `plugin.json`, run
-`pnpm -C apps/api pack:plugin --plugin-dir <built plugin> --origin https://getnibbl.pages.dev`,
-commit the two generated files under `apps/web/prototype/`, then deploy. Users update with `/plugin marketplace update nibbl`.
+Release: bump `version` in the built plugin's `plugin.json`, then
+`node apps/api/scripts/pack-plugin.mjs --plugin-dir <built plugin> --origin https://getnibbl.pages.dev`
+and `pnpm -C apps/web run deploy`. Commit the two generated files under `apps/web/prototype/`. Users update with `/plugin marketplace update nibbl`.
+
+The pack script zips an allowlist only: `.claude-plugin/plugin.json`, `hooks`, `types`, `assets`. Never pack a dev plugin directory by other means: the engine writes `.claude-plugin/types/` into a dev plugin, including claude-code-mcp types that list the author's connected MCP servers.
+
+Incident note, 2026-10-02: a zip briefly published that types file on the old workers.dev host. It was removed within about an hour by disabling workers.dev and repacking with the allowlist. No other data was in the file. Check `unzip -l` on every new zip before deploying.
 
 Install (users): `/plugin marketplace add https://getnibbl.pages.dev/marketplace.json`, then `/plugin install nibbl@nibbl`. Needs Claude Code 2.1.224 or later.
 
@@ -55,7 +63,8 @@ Install (users): `/plugin marketplace add https://getnibbl.pages.dev/marketplace
 | Item | Why | Where it lives |
 |---|---|---|
 | Cloudflare login | Interactive OAuth | `pnpm -C apps/api exec wrangler login` on the owner's machine |
-| Account workers.dev subdomain | Account-wide dashboard setting | Already exists: `nur-omirzaq`. Only the dashboard can change it |
+| Account workers.dev subdomain | Account-wide dashboard setting | Exists and contains the owner's name. It is never used publicly: the Worker has workers.dev disabled. Only the dashboard can change it |
+| Pages project creation | Once per project, needs the login | `pnpm -C apps/web run project:create` (creates `getnibbl`) |
 | Secret values | Must never be in git | Generated by `set-secrets.sh`, stored only in Cloudflare. No human copy is needed: losing them changes only future rolls and the IP limit |
 | D1 database id | Assigned by Cloudflare at creation | Written into `wrangler.jsonc` by `provision.sh` via `set-d1-id.mjs` and committed (not a secret) |
 
@@ -81,20 +90,27 @@ pnpm -C apps/api deploy:dry     # bundles into apps/api/dist, uploads nothing
 
 Nothing below runs without the owner's explicit go-ahead.
 
+First deploy:
+
 1. `pnpm -C apps/api exec wrangler login`
 2. Set `LAUNCH_AT` in `apps/api/wrangler.jsonc` to the real launch moment.
 3. `pnpm -C apps/api provision` (creates or finds D1, writes its id, applies remote migrations). Commit the changed `wrangler.jsonc`.
-4. `pnpm -C apps/api run deploy` (use `run`: `pnpm deploy` is a pnpm built-in).
+4. `pnpm -C apps/api run deploy` (use `run`: `pnpm deploy` is a pnpm built-in). The Worker must exist before Pages, because the service binding targets it.
 5. `pnpm -C apps/api secrets` (sets `ROLL_SECRET` and `IP_SALT` if missing). Until this step, `/api/hatch` answers `503 not_configured`.
-6. Smoke test:
+6. `pnpm -C apps/web run project:create` (once), then `pnpm -C apps/web run deploy`.
+7. Smoke test:
    ```bash
    HOST=https://getnibbl.pages.dev
-   curl -s $HOST/api/stats                       # {"hatched":12} (the seeded bots count)
+   curl -s $HOST/api/stats                       # {"hatched":12} at launch (the seeded bots count)
    curl -s $HOST/api/leaderboard | head -c 300   # the 12 bots
    curl -sI $HOST/p/000001.png                   # 200 image/png
    ```
 
-Later deploys are only step 4. Schema changes ship as a new numbered file in `apps/api/migrations/` and go out with `pnpm -C apps/api migrate:remote` before the deploy that needs them.
+Later deploys, in this order:
+
+- Schema change: `pnpm -C apps/api migrate:remote` first (new numbered file in `apps/api/migrations/`).
+- API change: `pnpm -C apps/api run deploy` (Worker).
+- Static change (landing, plugin zip, marketplace): `pnpm -C apps/web run deploy` (Pages).
 
 ## Moderation and bots
 
@@ -125,7 +141,7 @@ D1 bills an index entry as one more written row whenever a write touches an inde
 | Bots, per completed hour | 13 (12 bot rows + the `bot_hour` counter), plus up to 12 `pets_board` entries for bots that gained XP; about 300-600 a day |
 | Leaderboard rebuild | 1 per 5 min, 288 a day |
 
-Realistic free ceiling: about 3-5k daily users at about 5 XP-changing syncs a day (5 x 4 rows = about 20 rows per user per day against 100k). Worker requests (100k/day) and D1 reads (5M/day: a sync reads about 5 rows, the leaderboard rebuild about 100 x 288) are not the bottleneck. CPU: the PNG render is about 3-5 ms (1200x630 indexed, native deflate); everything else is under 1 ms.
+Realistic free ceiling: about 3-5k daily users at about 5 XP-changing syncs a day (5 x 4 rows = about 20 rows per user per day against 100k). Worker and Pages Functions requests (both draw from the same Workers free pool of 100k/day; static Pages requests are free and unlimited) and D1 reads (5M/day: a sync reads about 5 rows, the leaderboard rebuild about 100 x 288) are not the bottleneck. CPU: the PNG render is about 3-5 ms (1200x630 indexed, native deflate); everything else is under 1 ms.
 
 Move to Workers Paid ($5/month: 50M rows written and 25B rows read a month included) when D1 rows written pass about 70k on any day in the dashboard, or daily users pass about 3k. Do it before launch-day spikes, not after the first outage.
 

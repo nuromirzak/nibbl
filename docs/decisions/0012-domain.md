@@ -24,7 +24,17 @@ Zero cost and zero setup until the product shows traction.
 - Moving to a custom domain later means updating install docs, OG URLs and the card links.
 
 ## Update 2026-10-02
-The public host is `getnibbl.pages.dev`. It is one Worker with static assets, not Pages: Pages cannot run the cron trigger that rebuilds the leaderboard and grows the bots. The account subdomain is chosen once in the dashboard (Workers & Pages, Settings, Subdomain). The Pages subdomain availability list above is no longer relevant.
+Superseded by the two updates below (the single-Worker host was never the final setup). The Pages subdomain availability list above is out of date: see update (3).
 
 ## Update 2026-10-02 (2)
-Update 2026-10-02 (2): the account subdomain is fixed at nur-omirzaq (Cloudflare only lets the dashboard change it), so the Worker is named nibbl and the host is https://getnibbl.pages.dev; a custom domain or a dashboard subdomain change can come later with no code change.
+Superseded by update (3): the account workers.dev subdomain is fixed and contains the owner's name, so no Worker URL is public.
+
+## Update 2026-10-02 (3)
+Final setup, deployed 2026-10-02. The public host is `https://getnibbl.pages.dev`, a Cloudflare Pages project named `getnibbl` (static files from `apps/web/prototype`, config `apps/web/wrangler.toml`). Two Pages Functions forward every `/api/*` and `/p/*` request unchanged to the Worker `nibbl` through a service binding named `API`. The Worker keeps D1, the `*/5` cron and the secrets, and has `workers_dev: false` and `preview_urls: false`, so it has no public URL.
+
+Why:
+- Name privacy. The account's workers.dev subdomain contains the owner's name and cannot be changed from the CLI; the owner wants their name out of every public URL. A Pages subdomain is chosen per project, so it carries no name.
+- `nibbl.pages.dev` is taken (see the availability list above), so the project is `getnibbl`, which was free.
+- The Worker still hosts the cron, which Pages cannot run, so the split is Pages as front door and a private Worker behind it.
+
+Consequences: both layers share the Workers free request pool (100k/day); static requests are free. Deploy order is Worker first, then Pages (see `docs/infra.md`). A custom domain later is a custom domain on the Pages project with no code change.
