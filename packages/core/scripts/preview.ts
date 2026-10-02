@@ -1,10 +1,24 @@
 import { writeFileSync } from 'node:fs'
-import { SWEETIE, TIERS, drawScene, genome, rarestTrait, shinyFromRoll, tierFromRoll, toCellPairs, mulberry32 } from '../src/index'
+import { SWEETIE, drawScene, genome, isTier, mulberry32, rarestTrait, rollFromBytes, toCellPairs } from '../src/index'
 
-const seed = Number(process.argv[2] ?? Math.floor(Math.random() * 2 ** 32))
-const roll = mulberry32(seed)
-const tier = process.argv[3] && (TIERS as readonly string[]).includes(process.argv[3]) ? (process.argv[3] as (typeof TIERS)[number]) : tierFromRoll(roll())
-const g = genome(seed, tier, shinyFromRoll(roll()))
+const arg = process.argv[2]
+const seedArg = arg === undefined ? Math.floor(Math.random() * 2 ** 32) : Number(arg)
+if (!Number.isFinite(seedArg) || (arg !== undefined && arg.trim() === '')) {
+  console.error('usage: pnpm preview [seed] [tier]')
+  process.exit(1)
+}
+
+// Stand-in for the server's HMAC output: 12 bytes from a stream separate from the genome's own.
+const words = mulberry32((seedArg ^ 0x5eed) >>> 0)
+const bytes = new Uint8Array(12)
+for (let w = 0; w < 3; w++) {
+  const v = words()
+  for (let b = 0; b < 4; b++) bytes[w * 4 + b] = (v >>> (24 - 8 * b)) & 0xff
+}
+const roll = rollFromBytes(bytes)
+const tier = isTier(process.argv[3]) ? process.argv[3] : roll.tier
+const seed = seedArg >>> 0
+const g = genome(seed, tier, roll.shiny)
 const scene = drawScene(g, { heart: true, bugs: 1 })
 
 const rgb = (i: number) => [1, 3, 5].map(o => Number.parseInt(SWEETIE[i].slice(o, o + 2), 16))

@@ -13,6 +13,11 @@ describe('genome', () => {
     expect(() => genome(0, 'legendary', true)).not.toThrow()
   })
 
+  it('throws RangeError on an unknown tier', () => {
+    expect(() => genome(1, 'mythic' as never, false)).toThrow(RangeError)
+    expect(() => genome(1, undefined as never, false)).toThrow(RangeError)
+  })
+
   it('gives sprouts a leaf and nobody else a leaf', () => {
     for (let s = 0; s < 2000; s++) {
       const g = genome(s, TIERS[s % 5], false)

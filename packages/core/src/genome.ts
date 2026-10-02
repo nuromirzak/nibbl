@@ -1,5 +1,5 @@
 import { HAT_BY_TIER, MARK_MOTIFS, MARK_SPOTS, POOLS, type Eyes, type Family, type Hat, type Head, type Mark, type Option, type Pattern } from './genes'
-import { BP, SHINY_BP, TIERS, type Tier, tierProbability, tierRank } from './odds'
+import { BP, SHINY_BP, TIERS, isTier, type Tier, tierProbability, tierRank } from './odds'
 import type { RampName } from './palette'
 import { drawPet } from './draw'
 import { gridHash } from './grid'
@@ -97,6 +97,7 @@ export const rarestTrait = (g: Genome): TraitOdds =>
   traitOdds(g).reduce((min, t) => (t.probability < min.probability ? t : min))
 
 export const genome = (seed: number, tier: Tier, shiny: boolean): Genome => {
+  if (!isTier(tier)) throw new RangeError(`unknown tier: ${String(tier)}`)
   const normalized = seed >>> 0
   const rng = mulberry32(normalized)
   const family = pick(rng, POOLS.family, tier)
