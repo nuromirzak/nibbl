@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { HOUR_MS, MAX_LEVEL, heartsLeft, levelFromXp, scoreEvents, stageForLevel, xpToNext } from '../src/progression'
+import { HOUR_MS, MAX_LEVEL, SYNC_GRACE_MS, heartsLeft, pruneWindows, levelFromXp, scoreEvents, stageForLevel, xpToNext } from '../src/progression'
 
 const NOW = 1_800_000_000_000
 
@@ -129,5 +129,32 @@ describe('scoreEvents', () => {
     const r = scoreEvents([{ type: 'pet', at: NOW }], {}, NOW, Infinity)
     expect(r.xpGained).toBe(0)
     expect(r.accepted).toBe(0)
+  })
+})
+
+describe('pruneWindows', () => {
+  // A batch that fills every cap in the hour of NOW and the hour before it.
+  const saturating = (['pet', 'turn', 'check_pass', 'commit'] as const).flatMap(type =>
+    [NOW, NOW - HOUR_MS].flatMap(at => Array.from({ length: 25 }, () => ({ type, at }))),
+  )
+
+  it('keeps every window a replay can still reach, so a replayed batch earns nothing', () => {
+    const first = scoreEvents(saturating, {}, NOW, null)
+    expect(first.xpGained).toBeGreaterThan(0)
+    const pruned = pruneWindows(first.windows, NOW + HOUR_MS)
+    const replay = scoreEvents(saturating, pruned, NOW + HOUR_MS, NOW)
+    expect(replay.xpGained).toBe(0)
+  })
+
+  it('drops hours older than the sync grace and copies what it keeps', () => {
+    const hour = Math.floor(NOW / HOUR_MS)
+    const windows = { [hour - 10]: { pet: 1 }, [hour - 3]: { pet: 2 }, [hour - 2]: { pet: 3 }, [hour]: { turn: 4 } }
+    const cutoff = Math.floor((NOW - SYNC_GRACE_MS) / HOUR_MS)
+    const pruned = pruneWindows(windows, NOW)
+    expect(Object.keys(pruned).map(Number).sort()).toEqual(Object.keys(windows).map(Number).filter(h => h >= cutoff).sort())
+    expect(pruned[hour]).toEqual({ turn: 4 })
+    expect(pruned[hour]).not.toBe(windows[hour])
+    expect(SYNC_GRACE_MS).toBe(3 * HOUR_MS)
+    expect(pruneWindows(windows, NaN)).toEqual(windows)
   })
 })

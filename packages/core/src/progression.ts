@@ -6,7 +6,7 @@ export type HourWindow = Partial<Record<EventType, number>>
 export type Windows = Record<number, HourWindow>
 
 export const HOUR_MS = 3_600_000
-const SYNC_GRACE_MS = 3 * HOUR_MS
+export const SYNC_GRACE_MS = 3 * HOUR_MS
 const FIRST_SYNC_LOOKBACK_MS = 24 * HOUR_MS
 export const MAX_LEVEL = 99
 
@@ -42,6 +42,19 @@ export const scoreEvents = (
     accepted++
   }
   return { xpGained, windows: next, accepted }
+}
+
+// Drops hour windows no future sync can reach. Call it with `now` equal to the lastSyncAt
+// being stored: the next sync accepts events from lastSyncAt - SYNC_GRACE_MS onward, and
+// every hour from there is kept so replayed events still hit their caps.
+export const pruneWindows = (windows: Windows, now: number): Windows => {
+  // A bad clock must never wipe windows, since that would reset every cap.
+  const oldest = Number.isFinite(now) ? Math.floor((now - SYNC_GRACE_MS) / HOUR_MS) : -Infinity
+  return Object.fromEntries(
+    Object.entries(windows)
+      .filter(([h]) => Number(h) >= oldest)
+      .map(([h, w]) => [h, { ...w }]),
+  )
 }
 
 export const heartsLeft = (windows: Windows, now: number): number =>
