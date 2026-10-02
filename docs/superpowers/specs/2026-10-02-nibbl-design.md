@@ -185,16 +185,19 @@ Interactions stay below ~20% of a heavy user's hourly XP. Over the cap the pet s
 ## 6. `apps/api` (Cloudflare Worker + D1)
 
 ### 6.1 Endpoints
+API routes live under the `/api/` prefix. Card routes (`/p/:serial`, `/p/:serial.png`, `/p/:serial/badge.svg`) are served by the same Worker without the prefix. Everything else is a static asset.
+
 | Method | Path | Body / result |
 |---|---|---|
-| POST | `/hatch` | `{machineHash}` → `{serial, token, seed, tier, shiny, genesis, hatchedAt}`. Idempotent per `machineHash`: the same machine gets the same pet. |
-| POST | `/sync` | `{serial, token, events:[{type, at}]}` → `{xp, level, heartsLeft}` |
-| POST | `/name` | `{serial, token, name?, label?}` → `{name, label}` |
-| POST | `/import` | `{serial, token, machineHash}` → pet, rebinds machine |
-| GET | `/leaderboard` | top 100 by XP, cached, rebuilt by cron every 5 min |
-| GET | `/p/:serial` | HTML card page with OG tags |
+| POST | `/api/hatch` | `{machineHash}` → `{serial, seed, tier, shiny, genesis, hatchedAt, name, label, xp, level, token}` (the owner view plus a fresh token). Idempotent per `machineHash`: the same machine gets the same pet, at most one re-hatch per 60 s. |
+| POST | `/api/sync` | `{serial, token, events:[{type, at}]}` → `{xp, level, heartsLeft}` |
+| POST | `/api/name` | `{serial, token, name?, label?}` → `{name, label}`. Rename once per 7 days, label change once per 60 s. |
+| POST | `/api/import` | `{serial, token, machineHash}` → pet, rebinds machine |
+| GET | `/api/leaderboard` | top 100 by XP, cached, rebuilt by cron every 5 min |
+| GET | `/p/:serial` | HTML card page with OG tags (not under `/api/`) |
 | GET | `/p/:serial.png` | OG image rendered by `core` |
-| GET | `/stats` | `{hatched}` for the live counter |
+| GET | `/p/:serial/badge.svg` | Embeddable badge |
+| GET | `/api/stats` | `{hatched}` for the live counter |
 
 ### 6.2 Roll
 - `core.rollFromBytes(HMAC-SHA256(ROLL_SECRET, machineHash))` reads big-endian uint32 words: offset 0 is the seed, offset 4 the tier roll, offset 8 the shiny roll (at least 12 bytes, else it throws).
@@ -202,14 +205,16 @@ Interactions stay below ~20% of a heavy user's hourly XP. Over the cap the pet s
 - The server keeps the tier and shiny of the first roll and builds candidates from the seeds of `HMAC(ROLL_SECRET, machineHash + ":" + n)` for n = 0..15, queries D1 once with `IN (...)` on both key columns, then calls `core.pickUnique(candidates, isTakenKey, isTakenVisual)`, which returns the first candidate free on both. A simulation of 100 000 sequential hatches finds a free candidate every time.
 - Serial = next value of a counter, zero-padded to 6 digits.
 - Genesis = `hatchedAt < LAUNCH_AT + 30 days`.
-- Rate limit: 1 new hatch per IP per 24 h (an existing `machineHash` always succeeds).
+- Rate limit (owner decision 2026-10-02): 100 new hatches per IP per UTC day, IPv6 counted per /64. The 101st answers 429 `hatch_rate_limited` with `retryAt` = next UTC midnight. Re-hatches of a known `machineHash` never count against it.
+- Every `/api/*` POST must be `content-type: application/json`, else 415 `unsupported_media_type`.
 
 ### 6.3 Auth
 - `token` = 32 random bytes, returned once at hatch. D1 stores only `sha256(token)`.
 - Every write endpoint checks `serial` + `token`. No private keys or certificates in v1: the server is the source of truth and `/p/:serial` is the public proof.
 
 ### 6.4 XP
-- Server buckets events by hour (`at` clamped to `[lastSyncAt − 3h, now]`), applies caps from §5.4, computes XP and level with `core`.
+- Server drops events from before `hatchedAt`, pulls events up to 5 min in the future back to `now` and drops later ones, then buckets by hour (`at` within `[lastSyncAt − 3h, now]`, or the 24 h first-sync lookback), applies caps from §5.4, computes XP and level with `core`.
+- No daily XP cap (owner decision 2026-10-02, decision 0006).
 - Events beyond the caps are dropped silently. A cheater can match the most active honest player, never exceed them.
 
 ### 6.5 Schema (D1)
@@ -232,14 +237,17 @@ CREATE TABLE pets (
   is_hidden    INTEGER NOT NULL DEFAULT 0,
   hatched_at   INTEGER NOT NULL,
   last_sync_at INTEGER,
-  name_changed_at INTEGER
+  name_changed_at INTEGER,
+  label_changed_at INTEGER,
+  rehatched_at INTEGER
 );
 CREATE TABLE xp_windows (
   serial INTEGER NOT NULL, hour INTEGER NOT NULL,
   pets INTEGER NOT NULL DEFAULT 0, turns INTEGER NOT NULL DEFAULT 0, commits INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (serial, hour)
 );
-CREATE TABLE hatch_ip (ip_hash TEXT PRIMARY KEY, last_at INTEGER NOT NULL);
+CREATE TABLE hatch_ip (ip_hash TEXT PRIMARY KEY, count INTEGER NOT NULL, last_at INTEGER NOT NULL);
+CREATE INDEX hatch_ip_last ON hatch_ip (last_at);
 CREATE TABLE leaderboard_cache (id INTEGER PRIMARY KEY CHECK (id = 1), json TEXT NOT NULL, built_at INTEGER NOT NULL);
 ```
 
@@ -247,12 +255,12 @@ CREATE TABLE leaderboard_cache (id INTEGER PRIMARY KEY CHECK (id = 1), json TEXT
 Length limits, printable characters only, no URLs, a word blocklist (EN + RU), and `is_hidden` for owner moderation.
 
 ### 6.7 Capacity (free tier)
-Workers: 100k requests/day. D1: 5M rows read and 100k rows written per day, 5 GB. With sync every 2-3 h plus session end, this holds about 10 000 daily users. Leaderboard is served from `leaderboard_cache`. Beyond that, Workers Paid is $5/month.
+Workers: 100k requests/day. D1: 5M rows read and 100k rows written per day, 5 GB, and every index entry a write touches counts as one more written row. Rows written are the binding limit: a sync that changes XP writes 3-5 rows (the `pets` row, its `pets_board` entry, 1-3 `xp_windows` rows), bots write 13 rows per completed hour (plus `pets_board` entries for bots that gained XP), a hatch about 9. At about 5 syncs a day the free tier holds about 3-5k daily users. Leaderboard is served from `leaderboard_cache`. Move to Workers Paid ($5/month) once rows written pass about 70k on a day or daily users pass about 3k. Details and the DoS posture: `docs/infra.md`.
 
 **Genome capacity (decision 2026-10-02).** Expected scale is at most 10 000 nibbls. Measured headroom: 100 000 sequential hatches with 16 candidates each all find a unique pet, and the first misses appear after about 115 000 common-tier pets. This is far above the expected scale, so no more genes or candidates are added now. The Worker still handles `pickUnique` returning `null` by retrying with a fresh candidate batch (n = 16..31) and, if that also fails, answering 503 so the mod retries the hatch later. Revisit only if real hatches pass 50 000.
 
 ### 6.8 Infra as code
-`wrangler.toml` (Worker, D1 binding, cron trigger, Pages project), SQL migrations in `apps/api/migrations`, secrets (`ROLL_SECRET`, `LAUNCH_AT`) via `wrangler secret put`. Cloudflare MCP is for logs and ad-hoc queries only, never for creating resources.
+One Worker with static assets, configured in `apps/api/wrangler.jsonc` (Worker, `account_id` pinned to the owner's account, static assets with `run_worker_first` for `/api/*` and `/p/*`, D1 binding, cron trigger). `LAUNCH_AT` is a plain var in `wrangler.jsonc`. SQL migrations live in `apps/api/migrations`; secrets (`ROLL_SECRET`, `IP_SALT`) are set by `scripts/set-secrets.sh` via `wrangler secret put`. No Pages project. Cloudflare MCP is for logs and ad-hoc queries only, never for creating resources. Inventory and runbook: `docs/infra.md`.
 
 ## 7. `apps/web` (landing + leaderboard)
 
@@ -279,21 +287,21 @@ Static export on Cloudflare Pages (Next.js `output: 'export'`, per the owner's r
 ## 9. Distribution and launch
 
 ### 9.1 Build and publish
-- CI in the private repo: `pnpm build` → esbuild bundles `apps/mod` + `core` into one readable ES module → pushes `plugin/` to the public `nibbl-dev/nibbl` repo with a version tag.
-- Public repo holds `.claude-plugin/marketplace.json`, the plugin manifest, `hooks/hooks.json`, `hooks/register.js`, README with odds and the privacy note (what leaves the machine: `machineHash`, serial, token, event counts).
+- No public repo for now. `pnpm -C apps/api pack:plugin` packs the built plugin into `/plugin/nibbl-<version>.zip` and writes `/marketplace.json` (pinned by `sha256`) into the Worker's static assets directory; the next deploy serves both from the Worker.
+- The archive holds the plugin manifest, `hooks/hooks.json`, `hooks/register.js` and a README with odds and the privacy note (what leaves the machine: `machineHash`, serial, token, event counts).
 
 ### 9.2 Install
 ```
-/plugin marketplace add nibbl-dev/nibbl
+/plugin marketplace add https://nibbl-pet.<account-subdomain>.workers.dev/marketplace.json
 /plugin install nibbl@nibbl
 ```
-Verify before launch whether function hooks still need `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1`. If they do, the README and landing must say so on the first line.
+Needs Claude Code 2.1.224 or later. Verify before launch whether function hooks still need `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1`. If they do, the README and landing must say so on the first line.
 
 ### 9.3 Channels
 Landing GIF first. Then Show HN, r/ClaudeCode, X with @ClaudeCode, a PR to `awesome-claude-code-mods`. Target launch before 2026-10-31 with a Genesis-only pumpkin hat.
 
 ### 9.4 Seeded bots
-12 seeded nibbls (`is_bot = 1`) with realistic names, varied tiers (including one shiny and two Genesis) and levels 9-31. A cron gives them plausible XP growth within the same caps as players. They are excluded from `/stats` counts. Owner decision. Known risk: the client and API behaviour are inspectable, so the community may notice. `is_bot` lets the owner label or retire them at any time, for example once 100 real nibbls exist.
+12 seeded nibbls (`is_bot = 1`) with realistic names, varied tiers (including one shiny and two Genesis) and levels 9-31. A cron gives them plausible XP growth within the same caps as players. They count in `/api/stats` (`counters.hatched` starts at 12, owner decision 2026-10-02, so there is no 0-vs-12 tell); retiring a bot does not change the counter. Owner decision. Known risk: the client and API behaviour are inspectable, so the community may notice. `is_bot` lets the owner label or retire them at any time, for example once 100 real nibbls exist.
 
 ## 10. Risks to verify first (prototype gate)
 

@@ -23,3 +23,6 @@ Caps bound cheating: a cheater can at best match the most active honest player. 
 ## Consequences
 - Constants live in `core` and are tunable.
 - Events beyond the caps are dropped silently.
+
+## Update 2026-10-02
+No daily XP cap; farming to #1 in about 3 days is accepted, the owner is the main player.

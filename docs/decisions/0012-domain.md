@@ -22,3 +22,6 @@ Zero cost and zero setup until the product shows traction.
 
 ## Consequences
 - Moving to a custom domain later means updating install docs, OG URLs and the card links.
+
+## Update 2026-10-02
+The public host is `nibbl-pet.<account-subdomain>.workers.dev`. It is one Worker with static assets, not Pages: Pages cannot run the cron trigger that rebuilds the leaderboard and grows the bots. The account subdomain is chosen once in the dashboard (Workers & Pages, Settings, Subdomain). The Pages subdomain availability list above is no longer relevant.
