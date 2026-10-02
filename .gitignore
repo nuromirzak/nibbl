@@ -4,3 +4,4 @@ dist
 *.ppm
 .superpowers/
 .worktrees/
+.types/
