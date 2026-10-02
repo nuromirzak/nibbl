@@ -36,7 +36,8 @@ CREATE TABLE xp_windows (
   PRIMARY KEY (serial, hour)
 ) WITHOUT ROWID;
 
-CREATE TABLE hatch_ip (ip_hash TEXT PRIMARY KEY, last_at INTEGER NOT NULL);
+-- One row per (salted IP or IPv6 /64, UTC day): new hatches that day. Known-machine re-hatches never count.
+CREATE TABLE hatch_ip (ip_hash TEXT PRIMARY KEY, count INTEGER NOT NULL, last_at INTEGER NOT NULL);
 -- The cron prune deletes by last_at; without this it scans every row each tick.
 CREATE INDEX hatch_ip_last ON hatch_ip (last_at);
 

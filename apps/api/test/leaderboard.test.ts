@@ -53,7 +53,7 @@ describe('leaderboard', () => {
   })
 
   it('cron deletes hatch_ip rows older than 48 h', async () => {
-    await testEnv.DB.prepare('INSERT INTO hatch_ip (ip_hash, last_at) VALUES (?, ?), (?, ?)')
+    await testEnv.DB.prepare('INSERT INTO hatch_ip (ip_hash, count, last_at) VALUES (?, 1, ?), (?, 1, ?)')
       .bind('old', T0 - 49 * 3_600_000, 'new', T0 - 3_600_000)
       .run()
     await runScheduled(T0)

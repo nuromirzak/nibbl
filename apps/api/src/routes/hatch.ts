@@ -21,19 +21,22 @@ const launchAtOf = (env: Env): number => {
   return launchAt
 }
 
-// The salt rotates at UTC midnight, so the limit checks today's and yesterday's hash to keep
-// a true 24 h window. The raw IP never reaches D1.
-export const ipHashes = async (salt: string, ip: string, now: number): Promise<{ today: string; yesterday: string }> => {
-  const day = Math.floor(now / DAY_MS)
-  return { today: await sha256Hex(`${ip}|${salt}|${day}`), yesterday: await sha256Hex(`${ip}|${salt}|${day - 1}`) }
-}
+// New hatches per IP (IPv6: per /64) per UTC day. High enough for a team behind one NAT,
+// low enough that filling the board from one address takes days.
+export const HATCHES_PER_IP_DAY = 100
 
-const assertIpAllowed = async (db: D1Database, hashes: { today: string; yesterday: string }, now: number) => {
-  const last = await db
-    .prepare('SELECT MAX(last_at) AS last FROM hatch_ip WHERE ip_hash IN (?, ?)')
-    .bind(hashes.today, hashes.yesterday)
-    .first<number | null>('last')
-  if (last !== null && now - last < DAY_MS) throw new HttpError(429, 'hatch_rate_limited', { retryAt: last + DAY_MS })
+// The hash includes the UTC day, so each day's count lives in its own row and the limit
+// resets at midnight. The raw IP never reaches D1.
+export const ipDayHash = (salt: string, bucket: string, now: number): Promise<string> =>
+  sha256Hex(`${bucket}|${salt}|${Math.floor(now / DAY_MS)}`)
+
+// Concurrent hatches can overshoot by a few: the check and the counted insert are separate
+// statements. The cap is a soft abuse brake, not an accounting system.
+const assertIpAllowed = async (db: D1Database, ipHash: string, now: number) => {
+  const count = await db.prepare('SELECT count FROM hatch_ip WHERE ip_hash = ?').bind(ipHash).first<number | null>('count')
+  if (count !== null && count >= HATCHES_PER_IP_DAY) {
+    throw new HttpError(429, 'hatch_rate_limited', { retryAt: (Math.floor(now / DAY_MS) + 1) * DAY_MS })
+  }
 }
 
 const pickGenome = async (env: Env, machineHash: string): Promise<Genome> => {
@@ -77,8 +80,8 @@ export const hatch = async (request: Request, env: Env, deps: Deps): Promise<Res
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     const existing = await petByMachine(env.DB, machineHash)
     if (existing) return json(await reissue(env.DB, existing, now))
-    const ip = await ipHashes(env.IP_SALT, ipBucket(request.headers.get('cf-connecting-ip') ?? 'unknown'), now)
-    await assertIpAllowed(env.DB, ip, now)
+    const ipHash = await ipDayHash(env.IP_SALT, ipBucket(request.headers.get('cf-connecting-ip') ?? 'unknown'), now)
+    await assertIpAllowed(env.DB, ipHash, now)
     const g = await pickGenome(env, machineHash)
     const token = randomToken()
     const genesis = now < launchAt + GENESIS_MS
@@ -91,8 +94,8 @@ export const hatch = async (request: Request, env: Env, deps: Deps): Promise<Res
            VALUES ((SELECT value FROM counters WHERE name = 'serial'), ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
         ).bind(machineHash, await sha256Hex(token), g.seed, genomeKey(g), visualKey(g), g.tier, g.shiny ? 1 : 0, genesis ? 1 : 0, now),
         env.DB.prepare(
-          'INSERT INTO hatch_ip (ip_hash, last_at) VALUES (?, ?) ON CONFLICT (ip_hash) DO UPDATE SET last_at = excluded.last_at',
-        ).bind(ip.today, now),
+          'INSERT INTO hatch_ip (ip_hash, count, last_at) VALUES (?, 1, ?) ON CONFLICT (ip_hash) DO UPDATE SET count = count + 1, last_at = excluded.last_at',
+        ).bind(ipHash, now),
       ])
       return json(hatchResult(inserted.results[0] as PetRow, token))
     } catch (err) {

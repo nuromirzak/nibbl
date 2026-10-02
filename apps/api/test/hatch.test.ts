@@ -3,10 +3,24 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { counterValue } from '../src/lib/db'
 import { sha256Hex } from '../src/lib/hmac'
 import { BATCH, candidates } from '../src/lib/roll'
-import { DAY_MS, type HatchResult } from '../src/routes/hatch'
+import { ipBucket } from '../src/lib/ip'
+import { DAY_MS, HATCHES_PER_IP_DAY, ipDayHash, type HatchResult } from '../src/routes/hatch'
 import { call, hatchPet, insertPet, machine, petRow, resetDb, T0, testEnv } from './helpers'
 
 beforeEach(resetDb)
+
+const NEXT_MIDNIGHT = Date.UTC(2026, 9, 21)
+
+const ipCount = async (ip: string, now: number) =>
+  testEnv.DB.prepare('SELECT count FROM hatch_ip WHERE ip_hash = ?')
+    .bind(await ipDayHash(testEnv.IP_SALT, ipBucket(ip), now))
+    .first<number>('count')
+
+// Puts an IP at today's limit without running 100 hatches.
+const fillIp = async (ip: string, now: number) =>
+  testEnv.DB.prepare('INSERT INTO hatch_ip (ip_hash, count, last_at) VALUES (?, ?, ?) ON CONFLICT (ip_hash) DO UPDATE SET count = excluded.count')
+    .bind(await ipDayHash(testEnv.IP_SALT, ipBucket(ip), now), HATCHES_PER_IP_DAY, now)
+    .run()
 
 const hatchRaw = (n: number, ip = '192.0.2.10', now = T0, env = {}) =>
   call('/api/hatch', { body: { machineHash: machine(n) }, ip, now, env })
@@ -70,29 +84,39 @@ describe('POST /api/hatch', () => {
     expect((await petRow(a.serial)).token_hash).toBe(await sha256Hex(late.token))
   })
 
-  it('lets a known machine re-hatch even when its IP is rate limited', async () => {
+  it('lets a known machine re-hatch even when its IP is rate limited, without counting it', async () => {
     await hatchPet(1, { ip: '192.0.2.10' })
+    await fillIp('192.0.2.10', T0)
     expect((await hatchRaw(1, '192.0.2.10', T0 + 60_000)).status).toBe(200)
+    expect(await ipCount('192.0.2.10', T0)).toBe(HATCHES_PER_IP_DAY)
   })
 
-  it('limits new hatches to one per IP per 24 h', async () => {
-    expect((await hatchRaw(1, '192.0.2.10')).status).toBe(200)
-    const blocked = await hatchRaw(2, '192.0.2.10', T0 + 60_000)
+  it('never counts a known-machine re-hatch against the IP', async () => {
+    await hatchPet(1, { ip: '192.0.2.10' })
+    await hatchRaw(1, '192.0.2.10', T0 + 60_000)
+    expect(await ipCount('192.0.2.10', T0)).toBe(1)
+  })
+
+  it('allows 100 new hatches per IP per UTC day; the 101st waits for midnight', async () => {
+    for (let n = 1; n <= HATCHES_PER_IP_DAY; n++) expect((await hatchRaw(n, '192.0.2.10', T0 + n)).status, `hatch ${n}`).toBe(200)
+    const blocked = await hatchRaw(101, '192.0.2.10', T0 + 1000)
     expect(blocked.status).toBe(429)
-    expect(await blocked.json()).toEqual({ error: 'hatch_rate_limited', retryAt: T0 + DAY_MS })
-    expect((await hatchRaw(2, '192.0.2.10', T0 + DAY_MS)).status).toBe(200)
+    expect(await blocked.json()).toEqual({ error: 'hatch_rate_limited', retryAt: NEXT_MIDNIGHT })
+    expect((await hatchRaw(102, '192.0.2.11', T0 + 1000)).status).toBe(200)
+    expect((await hatchRaw(101, '192.0.2.10', NEXT_MIDNIGHT)).status).toBe(200)
   })
 
   it('shares one IPv6 limit across a /64', async () => {
-    expect((await hatchRaw(1, '2001:db8:1:2::1')).status).toBe(200)
+    await fillIp('2001:db8:1:2::1', T0)
     expect((await hatchRaw(2, '2001:db8:1:2:aaaa:bbbb:cccc:dddd', T0 + 60_000)).status).toBe(429)
     expect((await hatchRaw(3, '2001:db8:1:3::1', T0 + 60_000)).status).toBe(200)
   })
 
-  it('keeps the 24 h window across UTC midnight', async () => {
+  it('resets the limit at UTC midnight', async () => {
     const lateEvening = Date.UTC(2026, 9, 20, 23, 30)
-    expect((await hatchRaw(1, '192.0.2.10', lateEvening)).status).toBe(200)
-    expect((await hatchRaw(2, '192.0.2.10', lateEvening + 3_600_000)).status).toBe(429)
+    await fillIp('192.0.2.10', lateEvening)
+    expect((await hatchRaw(1, '192.0.2.10', lateEvening)).status).toBe(429)
+    expect((await hatchRaw(1, '192.0.2.10', lateEvening + 3_600_000)).status).toBe(200)
   })
 
   it('never stores the raw IP', async () => {
