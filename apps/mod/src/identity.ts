@@ -70,6 +70,14 @@ const HASH = /^[0-9a-f]{64}$/
 // (a reinstall that wipes the store then means a new egg). Callers check the source before
 // sending an install hash for a pet that may be bound to the platform hash.
 export const machineIdentity = async ($: EngineInterface): Promise<MachineIdentity> => {
+  // A pet hatched under the install id stays bound to it: a probe that works later must not
+  // re-hatch it under the platform hash and wipe it as "moved".
+  const saved = await $.store.get(K.installId)
+  const pet = (await $.store.get(K.pet)) as { serial?: unknown } | undefined
+  const installSerial = await $.store.get(K.installSerial)
+  if (typeof saved === 'string' && saved.length >= 16 && installSerial !== undefined && pet?.serial === installSerial) {
+    return { hash: await machineHashOf(saved), source: 'install' }
+  }
   const cached = await $.store.get(K.machineHash)
   if (typeof cached === 'string' && HASH.test(cached)) return { hash: cached, source: 'cache' }
   const platformId = await readPlatformId($)
@@ -78,7 +86,6 @@ export const machineIdentity = async ($: EngineInterface): Promise<MachineIdenti
     await $.store.set(K.machineHash, hash)
     return { hash, source: 'platform' }
   }
-  const saved = await $.store.get(K.installId)
   if (typeof saved === 'string' && saved.length >= 16) return { hash: await machineHashOf(saved), source: 'install' }
   const fresh = crypto.randomUUID()
   await $.store.set(K.installId, fresh)

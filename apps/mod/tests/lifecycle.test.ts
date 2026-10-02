@@ -62,6 +62,22 @@ test('with no platform id, a fresh egg hatches under a stored install id, which 
   expect(await nibbl($)).toMatch(/0 events waiting/)
 })
 
+test('a pet hatched under the install id keeps it after ioreg starts working, so a 401 never wipes it as moved', { timeoutMs: 20_000 }, async ($, on) => {
+  const h = harness(on, { machine: 'none' })
+  await start($)
+  for (let i = 0; i < 10; i++) await answer($)
+  await h.clock.advance(1_500)
+  const installHash = h.hatches()[0]!.body.machineHash
+  h.host.machine = 'mac'
+  h.server.token = 'D'.repeat(43)
+  await answer($)
+  await end($)
+  expect(h.hatches()).toHaveLength(2)
+  expect(h.hatches()[1]!.body.machineHash).toBe(installHash)
+  expect(h.toasts.join('\n')).not.toMatch(/another machine/)
+  expect(await nibbl($)).toMatch(/^Nibbl #000042\n/)
+})
+
 test('the first platform hash is cached and reused when ioreg fails later', { timeoutMs: 20_000 }, async ($, on) => {
   const h = harness(on)
   await start($)
