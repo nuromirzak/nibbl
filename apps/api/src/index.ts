@@ -1,10 +1,12 @@
 import type { Deps, Env } from './env'
 import { HttpError, json } from './lib/http'
+import { hatch } from './routes/hatch'
 
 export type Route = { method: 'GET' | 'POST'; handler: (request: Request, env: Env, deps: Deps) => Promise<Response> }
 
 // Every /api route. Later tasks add one line each.
 const API: Record<string, Route> = {
+  '/api/hatch': { method: 'POST', handler: hatch },
 }
 
 export const handle = async (request: Request, env: Env, deps: Deps): Promise<Response> => {

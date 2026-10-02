@@ -2,6 +2,8 @@ import type { D1Migration } from 'cloudflare:test'
 import { env } from 'cloudflare:workers'
 import type { Env } from '../src/env'
 import { handle } from '../src/index'
+import { petBySerial, type PetRow } from '../src/lib/db'
+import type { HatchResult } from '../src/routes/hatch'
 
 export type TestEnv = Env & { TEST_MIGRATIONS: D1Migration[] }
 export const testEnv = env as unknown as TestEnv
@@ -41,3 +43,42 @@ export const resetDb = async (): Promise<void> => {
 
 // A valid machineHash (64 lowercase hex chars) per test machine number.
 export const machine = (n: number): string => n.toString(16).padStart(64, '0')
+
+export const insertPet = async (p: Partial<PetRow> & { serial: number }): Promise<void> => {
+  const row: PetRow = {
+    machine_hash: `m-${p.serial}`,
+    token_hash: 'x',
+    seed: p.serial,
+    genome_key: `g-${p.serial}`,
+    visual_key: `v-${p.serial}`,
+    tier: 'common',
+    shiny: 0,
+    genesis: 0,
+    name: null,
+    label: null,
+    xp: 0,
+    level: 1,
+    is_bot: 0,
+    is_hidden: 0,
+    hatched_at: T0,
+    last_sync_at: null,
+    name_changed_at: null,
+    ...p,
+  }
+  const cols = Object.keys(row) as (keyof PetRow)[]
+  await testEnv.DB.prepare(`INSERT INTO pets (${cols.join(', ')}) VALUES (${cols.map(() => '?').join(', ')})`)
+    .bind(...cols.map(c => row[c]))
+    .run()
+}
+
+export const hatchPet = async (n: number, opts: { ip?: string; now?: number } = {}): Promise<HatchResult> => {
+  const res = await call('/api/hatch', { body: { machineHash: machine(n) }, ip: opts.ip ?? `198.51.100.${n % 250}`, now: opts.now })
+  if (res.status !== 200) throw new Error(`hatch ${n} failed: ${res.status} ${await res.text()}`)
+  return (await res.json()) as HatchResult
+}
+
+export const petRow = async (serial: number): Promise<PetRow> => {
+  const row = await petBySerial(testEnv.DB, serial)
+  if (!row) throw new Error(`no pet ${serial}`)
+  return row
+}
