@@ -3,6 +3,7 @@ import type { Deps, Env } from '../env'
 import { isUniqueViolation, petByMachine, takenKeys, type PetRow } from '../lib/db'
 import { randomToken, sha256Hex } from '../lib/hmac'
 import { HttpError, json, machineHashOf, MAX_SMALL_BYTES, readJson } from '../lib/http'
+import { ipBucket } from '../lib/ip'
 import { BATCH, candidates } from '../lib/roll'
 
 export const DAY_MS = 86_400_000
@@ -73,7 +74,7 @@ export const hatch = async (request: Request, env: Env, deps: Deps): Promise<Res
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     const existing = await petByMachine(env.DB, machineHash)
     if (existing) return json(await reissue(env.DB, existing))
-    const ip = await ipHashes(env.IP_SALT, request.headers.get('cf-connecting-ip') ?? 'unknown', now)
+    const ip = await ipHashes(env.IP_SALT, ipBucket(request.headers.get('cf-connecting-ip') ?? 'unknown'), now)
     await assertIpAllowed(env.DB, ip, now)
     const g = await pickGenome(env, machineHash)
     const token = randomToken()

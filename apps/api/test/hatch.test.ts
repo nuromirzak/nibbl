@@ -57,6 +57,12 @@ describe('POST /api/hatch', () => {
     expect((await hatchRaw(2, '192.0.2.10', T0 + DAY_MS)).status).toBe(200)
   })
 
+  it('shares one IPv6 limit across a /64', async () => {
+    expect((await hatchRaw(1, '2001:db8:1:2::1')).status).toBe(200)
+    expect((await hatchRaw(2, '2001:db8:1:2:aaaa:bbbb:cccc:dddd', T0 + 60_000)).status).toBe(429)
+    expect((await hatchRaw(3, '2001:db8:1:3::1', T0 + 60_000)).status).toBe(200)
+  })
+
   it('keeps the 24 h window across UTC midnight', async () => {
     const lateEvening = Date.UTC(2026, 9, 20, 23, 30)
     expect((await hatchRaw(1, '192.0.2.10', lateEvening)).status).toBe(200)

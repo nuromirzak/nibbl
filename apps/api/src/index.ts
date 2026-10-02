@@ -21,6 +21,8 @@ const API: Record<string, Route> = {
   '/api/sync': { method: 'POST', handler: sync },
 }
 
+const isJson = (type: string | null): boolean => type?.split(';')[0].trim().toLowerCase() === 'application/json'
+
 export const handle = async (request: Request, env: Env, deps: Deps): Promise<Response> => {
   const url = new URL(request.url)
   try {
@@ -28,6 +30,11 @@ export const handle = async (request: Request, env: Env, deps: Deps): Promise<Re
       const route = Object.hasOwn(API, url.pathname) ? API[url.pathname] : undefined
       if (!route) return json({ error: 'not_found' }, 404)
       if (request.method !== route.method) return json({ error: 'method_not_allowed' }, 405, { allow: route.method })
+      // A JSON content-type is not CORS-safelisted, so a cross-site page cannot POST here
+      // without a preflight, and the preflight fails because the API sends no CORS headers.
+      if (request.method === 'POST' && !isJson(request.headers.get('content-type'))) {
+        return json({ error: 'unsupported_media_type' }, 415)
+      }
       return await route.handler(request, env, deps)
     }
     if (url.pathname.startsWith('/p/')) return await card(request, env)

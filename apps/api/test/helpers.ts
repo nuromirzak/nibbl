@@ -19,12 +19,18 @@ export type CallInit = {
   ip?: string
   now?: number
   env?: Partial<Env>
+  // Extra request headers; null removes a default (e.g. the JSON content-type).
+  headers?: Record<string, string | null>
 }
 
 export const call = async (path: string, init: CallInit = {}): Promise<Response> => {
   const headers: Record<string, string> = { 'cf-connecting-ip': init.ip ?? '203.0.113.1' }
   const body = init.rawBody ?? (init.body === undefined ? undefined : JSON.stringify(init.body))
   if (body !== undefined) headers['content-type'] = 'application/json'
+  for (const [k, v] of Object.entries(init.headers ?? {})) {
+    if (v === null) delete headers[k]
+    else headers[k] = v
+  }
   const request = new Request(ORIGIN + path, { method: init.method ?? (body === undefined ? 'GET' : 'POST'), headers, body })
   return handle(request, { ...testEnv, ...init.env }, { now: () => init.now ?? T0 })
 }

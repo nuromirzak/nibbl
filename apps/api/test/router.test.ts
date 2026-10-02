@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { ipBucket } from '../src/lib/ip'
 import { HttpError, machineHashOf, readJson, serialOf, tokenOf } from '../src/lib/http'
 import { call, testEnv } from './helpers'
 
@@ -22,9 +23,43 @@ describe('router', () => {
     }
   })
 
+  it('answers 415 to an /api POST that is not application/json', async () => {
+    const body = JSON.stringify({ machineHash: '0'.repeat(64) })
+    for (const type of ['text/plain', 'application/x-www-form-urlencoded', 'multipart/form-data; boundary=x', null]) {
+      const res = await call('/api/hatch', { rawBody: body, headers: { 'content-type': type } })
+      expect(res.status, String(type)).toBe(415)
+      expect(await res.json()).toEqual({ error: 'unsupported_media_type' })
+    }
+    for (const path of ['/api/sync', '/api/name', '/api/import']) {
+      expect((await call(path, { rawBody: '{}', headers: { 'content-type': 'text/plain' } })).status, path).toBe(415)
+    }
+  })
+
+  it('accepts application/json with parameters, in any case', async () => {
+    const res = await call('/api/hatch', {
+      rawBody: JSON.stringify({ machineHash: '0'.repeat(63) + '1' }),
+      headers: { 'content-type': 'Application/JSON; charset=utf-8' },
+    })
+    expect(res.status).toBe(200)
+  })
+
   it('sends no CORS headers', async () => {
     const res = await call('/api/nope')
     expect(res.headers.get('access-control-allow-origin')).toBeNull()
+  })
+})
+
+describe('ipBucket', () => {
+  it('keeps IPv4 as is', () => {
+    expect(ipBucket('203.0.113.7')).toBe('203.0.113.7')
+  })
+
+  it('buckets IPv6 by its /64 after expanding ::', () => {
+    expect(ipBucket('2001:db8::1')).toBe(ipBucket('2001:db8:0:0:ffff::2'))
+    expect(ipBucket('2001:DB8:0000:0000:1:2:3:4')).toBe(ipBucket('2001:db8::1'))
+    expect(ipBucket('2001:db8::1')).toBe('2001:0db8:0000:0000::/64')
+    expect(ipBucket('2001:db8:0:1::1')).not.toBe(ipBucket('2001:db8::1'))
+    expect(ipBucket('::1')).toBe('0000:0000:0000:0000::/64')
   })
 })
 
