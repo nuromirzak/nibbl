@@ -58,15 +58,20 @@ export const pruneHatchIp = async (db: D1Database, now: number): Promise<void> =
   await db.prepare('DELETE FROM hatch_ip WHERE last_at < ?').bind(now - 2 * DAY_MS).run()
 }
 
+// Bots hold the lowest serials, so the primary key bounds this read to them, not the whole table.
+// is_hidden stays out of the WHERE: with it SQLite prefers pets_board and walks every visible pet.
+export const BOT_MAX_SERIAL = Math.max(...BOTS.map(b => b.serial))
+export const BOT_ROWS_SQL = 'SELECT serial, xp, is_hidden FROM pets WHERE serial <= ? AND is_bot = 1 ORDER BY serial'
+
 // Applies every completed UTC hour once, tracked in counters.bot_hour.
 export const growBots = async (db: D1Database, now: number): Promise<number> => {
   const hour = Math.floor(now / HOUR_MS) - 1
   const last = (await db.prepare("SELECT value FROM counters WHERE name = 'bot_hour'").first<number>('value')) ?? 0
   if (last >= hour) return 0
   const from = Math.max(last + 1, hour - BOT_CATCH_UP_HOURS + 1)
-  const { results } = await db.prepare('SELECT serial, xp FROM pets WHERE is_bot = 1 AND is_hidden = 0').all<{ serial: number; xp: number }>()
+  const { results } = await db.prepare(BOT_ROWS_SQL).bind(BOT_MAX_SERIAL).all<{ serial: number; xp: number; is_hidden: number }>()
   const specs = new Map(BOTS.map(b => [b.serial, b]))
-  const updates = results.map(bot => {
+  const updates = results.filter(bot => bot.is_hidden === 0).map(bot => {
     const spec = specs.get(bot.serial) ?? { serial: bot.serial, tz: 0, owl: false }
     let gain = 0
     for (let h = from; h <= hour; h++) gain += xpForCounts(botHourCounts(spec, h))

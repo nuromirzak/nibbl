@@ -34,6 +34,8 @@ CREATE TABLE xp_windows (
 ) WITHOUT ROWID;
 
 CREATE TABLE hatch_ip (ip_hash TEXT PRIMARY KEY, last_at INTEGER NOT NULL);
+-- The cron prune deletes by last_at; without this it scans every row each tick.
+CREATE INDEX hatch_ip_last ON hatch_ip (last_at);
 
 CREATE TABLE leaderboard_cache (id INTEGER PRIMARY KEY CHECK (id = 1), json TEXT NOT NULL, built_at INTEGER NOT NULL);
 

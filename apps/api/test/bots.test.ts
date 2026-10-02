@@ -1,7 +1,7 @@
 import { genome, genomeKey, HOUR_MS, levelFromXp, visualKey, type Tier } from '@nibbl/core'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { BOT_CATCH_UP_HOURS, BOTS, botHourCounts, MAX_HOURLY_XP, SEED_LAUNCH_AT, seedXpBudget, xpForCounts } from '../src/bots'
-import { growBots, runCron } from '../src/cron'
+import { BOT_MAX_SERIAL, BOT_ROWS_SQL, growBots, runCron } from '../src/cron'
 import type { Env } from '../src/env'
 import { checkText, LABEL_MAX, NAME_MAX } from '../src/lib/filter'
 import type { PetRow } from '../src/lib/db'
@@ -119,6 +119,18 @@ describe('bot growth', () => {
       if (gain > 0) expect(r.last_sync_at).toBe((hour + 1) * HOUR_MS)
     }
     expect(await growBots(testEnv.DB, T0)).toBe(0)
+  })
+
+  it('reads the 12 bots through the primary key, not a table scan', async () => {
+    const { results } = await testEnv.DB.prepare(BOT_ROWS_SQL).bind(BOT_MAX_SERIAL).all<{ serial: number }>()
+    expect(results.map(r => r.serial)).toEqual(BOTS.map(b => b.serial))
+    const plan = await testEnv.DB.prepare(`EXPLAIN QUERY PLAN ${BOT_ROWS_SQL}`).bind(BOT_MAX_SERIAL).all<{ detail: string }>()
+    expect(plan.results.map(r => r.detail).join(' | ')).toMatch(/SEARCH pets USING INTEGER PRIMARY KEY/)
+  })
+
+  it('prunes hatch_ip through the last_at index', async () => {
+    const plan = await testEnv.DB.prepare('EXPLAIN QUERY PLAN DELETE FROM hatch_ip WHERE last_at < ?').bind(T0).all<{ detail: string }>()
+    expect(plan.results.map(r => r.detail).join(' | ')).toMatch(/USING (COVERING )?INDEX hatch_ip_last/)
   })
 
   it('caps catch-up after an outage and skips retired bots', async () => {
