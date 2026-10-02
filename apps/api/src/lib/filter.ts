@@ -8,6 +8,9 @@ export type TextCheck =
 // Letters, combining marks, digits, space and a little punctuation. No emoji: terminal widths vary.
 const ALLOWED = /^[\p{L}\p{M}\p{N} .,'!?&+#()_-]+$/u
 const STACKED_MARKS = /\p{M}{2,}/u
+// Variation selectors are \p{M} but invisible; a mark must also follow a base letter or digit.
+const VARIATION_SELECTORS = /[\uFE00-\uFE0F\u{E0100}-\u{E01EF}]/u
+const ORPHAN_MARK = /(^|[^\p{L}\p{N}\p{M}])\p{M}/u
 const URLISH = /\b(https?|www)\b|\.(com|net|org|io|dev|app|ru|kz|gg|xyz|me|ly|co|sh|so|tv|link|site|online|top|pet)\b/i
 
 const LEET: Record<string, string> = { '0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's', '7': 't', '!': 'i' }
@@ -20,13 +23,18 @@ const TO_CYRILLIC: Record<string, string> = {
 
 // A leading ^ means the root must start a word (бля hides inside корабля, еб inside хлеб).
 const EN = [
-  'fuck', 'shit', 'cunt', 'nigg', 'fagg', 'rapist', 'nazi', 'hitler', 'porn', 'whore', 'slut', 'bitch', 'penis',
-  'vagina', 'pussy', 'cocksuck', 'dildo', 'retard', 'wank', 'twat', 'asshole', 'jizz', 'motherf',
+  'fuck', 'shit', 'cunt', 'nigg', 'fagg', '^rapist', '^nazi', 'hitler', 'porn', 'whore', '^slut', 'bitch', '^penis',
+  'vagina', 'pussy', 'cocksuck', 'dildo', 'retard', '^wank', 'twat', 'asshole', 'jizz', 'motherf',
 ] as const
 const RU = [
   'хуй', 'хуе', 'хуя', 'пизд', '^еб', 'ебан', 'ебат', 'ебал', 'ебло', 'заеб', 'выеб', 'уеб', 'долбоеб', '^бля', 'сука', 'суки',
   'мудак', 'мудил', 'пидор', 'пидар', 'гандон', 'гондон', 'шлюх', 'залуп', 'дроч', 'жопа', 'нацист', 'гитлер',
 ] as const
+
+// Clean words that contain or start with a blocked root; checked per word before the English blocklist.
+const EN_ALLOW = new Set([
+  'scunthorpe', 'therapist', 'penistone', 'shiitake', 'shitake', 'swank', 'swanky', 'cocktail', 'assassin', 'naziv', 'slutsky',
+])
 
 const mapChars = (s: string, table: Record<string, string>) => [...s].map(ch => table[ch] ?? ch).join('')
 
@@ -53,7 +61,7 @@ const hits = (words: string[], roots: readonly string[]): boolean => {
 
 const isBlocked = (clean: string): boolean => {
   const words = mapChars(clean.toLowerCase(), LEET).split(/[^\p{L}]+/u).filter(Boolean)
-  return hits(words.map(w => mapChars(w, TO_LATIN)), EN) || hits(words.map(w => mapChars(w, TO_CYRILLIC)), RU)
+  return hits(words.map(w => mapChars(w, TO_LATIN)).filter(w => !EN_ALLOW.has(w)), EN) || hits(words.map(w => mapChars(w, TO_CYRILLIC)), RU)
 }
 
 export const checkText = (raw: unknown, max: number): TextCheck => {
@@ -61,7 +69,7 @@ export const checkText = (raw: unknown, max: number): TextCheck => {
   const clean = raw.normalize('NFKC').replace(/\s+/gu, ' ').trim()
   if (clean.length === 0) return { ok: false, reason: 'empty' }
   if ([...clean].length > max) return { ok: false, reason: 'too_long' }
-  if (!ALLOWED.test(clean) || STACKED_MARKS.test(clean)) return { ok: false, reason: 'invalid_chars' }
+  if (!ALLOWED.test(clean) || STACKED_MARKS.test(clean) || VARIATION_SELECTORS.test(clean) || ORPHAN_MARK.test(clean)) return { ok: false, reason: 'invalid_chars' }
   if (URLISH.test(clean)) return { ok: false, reason: 'url' }
   if (isBlocked(clean)) return { ok: false, reason: 'blocked' }
   return { ok: true, value: clean }

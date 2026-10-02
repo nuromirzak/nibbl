@@ -60,3 +60,15 @@ describe('POST /api/name', () => {
     expect(bad.status).toBe(401)
   })
 })
+
+describe('POST /api/name atomic limit', () => {
+  it('lets only one of two concurrent renames win', async () => {
+    const pet = await hatchPet(1)
+    await setName(pet, { name: 'Byte' })
+    const [a, b] = await Promise.all([
+      setName(pet, { name: 'Bit' }, T0 + 8 * DAY_MS),
+      setName(pet, { name: 'Bot' }, T0 + 8 * DAY_MS),
+    ])
+    expect([a.status, b.status].sort()).toEqual([200, 429])
+  })
+})

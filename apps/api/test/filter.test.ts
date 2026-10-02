@@ -15,6 +15,16 @@ describe('checkText', () => {
     for (const s of ['корабля', 'Небо', 'хлеб', 'Sushi Tako', 'Peacock', 'Grape', 'Assassin', 'awwww']) expect(reason(s)).toBe('ok')
   })
 
+  it('keeps clean words that contain blocked roots', () => {
+    for (const s of ['Scunthorpe', 'Therapist', 'Swank', 'Swanky', 'Penistone', 'Shitake', 'Naziv', 'Slutsky', 'Cocktail']) expect(reason(s)).toBe('ok')
+    for (const s of ['rapist', 'wanker', 'nazi', 'slut']) expect(reason(s)).toBe('blocked')
+  })
+
+  it('rejects variation selectors and orphan combining marks', () => {
+    for (const s of ['a\uFE0F', '\u0301a', 'a \u0301b', 'a\u{E0100}']) expect(reason(s)).toBe('invalid_chars')
+    for (const s of ['\u00E9', 'e\u0301']) expect(reason(s)).toBe('ok')
+  })
+
   it('normalizes whitespace and returns the cleaned value', () => {
     expect(checkText('  night \t coder ', LABEL_MAX)).toEqual({ ok: true, value: 'night coder' })
   })

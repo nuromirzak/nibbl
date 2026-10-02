@@ -35,8 +35,20 @@ export const name = async (request: Request, env: Env, deps: Deps): Promise<Resp
     nextLabel = r.value
   }
 
-  await env.DB.prepare('UPDATE pets SET name = ?, label = ?, name_changed_at = ? WHERE serial = ?')
-    .bind(nextName, nextLabel, nameChangedAt, pet.serial)
-    .run()
+  // A real rename is guarded in SQL so two concurrent requests cannot both pass the weekly limit.
+  const renaming = nextName !== pet.name
+  const result = renaming
+    ? await env.DB.prepare(
+        'UPDATE pets SET name = ?, label = ?, name_changed_at = ? WHERE serial = ? AND (name_changed_at IS NULL OR name_changed_at <= ?)',
+      )
+        .bind(nextName, nextLabel, nameChangedAt, pet.serial, now - RENAME_EVERY_MS)
+        .run()
+    : await env.DB.prepare('UPDATE pets SET label = ? WHERE serial = ?').bind(nextLabel, pet.serial).run()
+  if (result.meta.changes === 0) {
+    const fresh = await env.DB.prepare('SELECT name_changed_at FROM pets WHERE serial = ?')
+      .bind(pet.serial)
+      .first<{ name_changed_at: number | null }>()
+    throw new HttpError(429, 'name_rate_limited', { retryAt: (fresh?.name_changed_at ?? now) + RENAME_EVERY_MS })
+  }
   return json({ name: nextName, label: nextLabel })
 }
