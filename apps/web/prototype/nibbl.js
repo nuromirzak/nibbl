@@ -413,7 +413,7 @@ function rarestTrait(g){
 
 /* ---------- urls ---------- */
 const cardUrl=n=>'/p/'+pad6(n);
-const shareUrl=n=>'https://nibbl.nur-omirzaq.workers.dev/p/'+pad6(n);
+const shareUrl=n=>'https://getnibbl.pages.dev/p/'+pad6(n);
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
 /* ---------- example pet card (landing teaser; real cards are served by the Worker at /p/) ---------- */

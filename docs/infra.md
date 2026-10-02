@@ -8,7 +8,7 @@ Everything lives in the owner's personal account (Nur.omirzaq@gmail.com), id `42
 
 ## Public host
 
-`https://nibbl.nur-omirzaq.workers.dev`. A workers.dev URL is always `<worker>.<account-subdomain>.workers.dev`. The account subdomain is `nur-omirzaq`, fixed (only the dashboard can change it) and shared by every Worker on the account. All absolute URLs (OG image, canonical) come from the request origin, so a custom domain later needs only a route or custom domain entry in `wrangler.jsonc` plus updated install docs (decision 0012).
+`https://getnibbl.pages.dev`. A workers.dev URL is always `<worker>.<account-subdomain>.workers.dev`. The account subdomain is `nur-omirzaq`, fixed (only the dashboard can change it) and shared by every Worker on the account. All absolute URLs (OG image, canonical) come from the request origin, so a custom domain later needs only a route or custom domain entry in `wrangler.jsonc` plus updated install docs (decision 0012).
 
 | Path | Served by |
 |---|---|
@@ -45,10 +45,10 @@ No public repo. The Worker serves the plugin as static assets:
 | `/plugin/nibbl-<version>.zip` | Built plugin, pinned in the marketplace by `sha256` |
 
 Release: bump `version` in the built plugin's `plugin.json`, run
-`pnpm -C apps/api pack:plugin --plugin-dir <built plugin> --origin https://nibbl.nur-omirzaq.workers.dev`,
+`pnpm -C apps/api pack:plugin --plugin-dir <built plugin> --origin https://getnibbl.pages.dev`,
 commit the two generated files under `apps/web/prototype/`, then deploy. Users update with `/plugin marketplace update nibbl`.
 
-Install (users): `/plugin marketplace add https://nibbl.nur-omirzaq.workers.dev/marketplace.json`, then `/plugin install nibbl@nibbl`. Needs Claude Code 2.1.224 or later.
+Install (users): `/plugin marketplace add https://getnibbl.pages.dev/marketplace.json`, then `/plugin install nibbl@nibbl`. Needs Claude Code 2.1.224 or later.
 
 ## What cannot be code
 
@@ -88,7 +88,7 @@ Nothing below runs without the owner's explicit go-ahead.
 5. `pnpm -C apps/api secrets` (sets `ROLL_SECRET` and `IP_SALT` if missing). Until this step, `/api/hatch` answers `503 not_configured`.
 6. Smoke test:
    ```bash
-   HOST=https://nibbl.nur-omirzaq.workers.dev
+   HOST=https://getnibbl.pages.dev
    curl -s $HOST/api/stats                       # {"hatched":12} (the seeded bots count)
    curl -s $HOST/api/leaderboard | head -c 300   # the 12 bots
    curl -sI $HOST/p/000001.png                   # 200 image/png

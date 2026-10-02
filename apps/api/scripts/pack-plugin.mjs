@@ -31,15 +31,17 @@ const fileName = `${manifest.name}-${manifest.version}.zip`
 const zipPath = join(out, 'plugin', fileName)
 mkdirSync(dirname(zipPath), { recursive: true })
 rmSync(zipPath, { force: true })
-// -X drops extra file attributes, -r recurses, -q is quiet; the plugin root sits at the top of the zip.
-execFileSync('zip', ['-X', '-r', '-q', zipPath, '.', '-x', '*.DS_Store', 'tests/*', 'node_modules/*'], { cwd: pluginDir })
+// Allowlist, never the whole folder: the engine writes .claude-plugin/types/ into a dev plugin, and its
+// claude-code-mcp types list the author's connected MCP servers. -X drops extra attributes, -r recurses.
+const INCLUDE = ['.claude-plugin/plugin.json', 'hooks', 'types', 'assets'].filter(p => existsSync(join(pluginDir, p)))
+execFileSync('zip', ['-X', '-r', '-q', zipPath, ...INCLUDE, '-x', '*.DS_Store', '*/tests/*', '*/node_modules/*'], { cwd: pluginDir })
 
 const sha256 = createHash('sha256').update(readFileSync(zipPath)).digest('hex')
 const url = `${origin.replace(/\/$/, '')}/plugin/${fileName}`
 const marketplace = {
   name: 'nibbl',
   description: 'Nibbl, a tiny pixel pet that nibbles your bugs',
-  owner: { name: 'Nurmukhammed Omirzak' },
+  owner: { name: 'nibbl' },
   plugins: [{ name: manifest.name, description: manifest.description ?? 'Nibbl pixel pet', source: { source: 'archive', url, sha256 } }],
 }
 writeFileSync(join(out, 'marketplace.json'), `${JSON.stringify(marketplace, null, 2)}\n`)

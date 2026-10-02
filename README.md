@@ -19,7 +19,7 @@
 Inside Claude Code:
 
 ```
-/plugin marketplace add https://nibbl.nur-omirzaq.workers.dev/marketplace.json
+/plugin marketplace add https://getnibbl.pages.dev/marketplace.json
 /plugin install nibbl@nibbl
 ```
 
@@ -104,12 +104,12 @@ No. One roll per machine, forever, and nothing is for sale. That is what makes y
 
 ## Show your nibbl
 
-Every nibbl has a public card page at `https://nibbl.nur-omirzaq.workers.dev/p/<serial>`. Run `/nibbl` to get yours. Sharing is always your choice; the mod never posts anything for you.
+Every nibbl has a public card page at `https://getnibbl.pages.dev/p/<serial>`. Run `/nibbl` to get yours. Sharing is always your choice; the mod never posts anything for you.
 
 To show it on your GitHub profile README, paste this and replace `000042` with your serial (the image URL goes live with the v1 API):
 
 ```markdown
-[![My nibbl](https://nibbl.nur-omirzaq.workers.dev/p/000042.png)](https://nibbl.nur-omirzaq.workers.dev/p/000042)
+[![My nibbl](https://getnibbl.pages.dev/p/000042.png)](https://getnibbl.pages.dev/p/000042)
 ```
 
 A compact pixel badge ships with the v1 API too. It looks like this:
@@ -117,7 +117,7 @@ A compact pixel badge ships with the v1 API too. It looks like this:
 <p><img src="docs/assets/badge-example.svg" alt="Example nibbl badge: Byte #000042 · lvl 7"></p>
 
 ```markdown
-[![My nibbl](https://nibbl.nur-omirzaq.workers.dev/p/000042/badge.svg)](https://nibbl.nur-omirzaq.workers.dev/p/000042)
+[![My nibbl](https://getnibbl.pages.dev/p/000042/badge.svg)](https://getnibbl.pages.dev/p/000042)
 ```
 
 ## Star history
@@ -132,6 +132,6 @@ A compact pixel badge ships with the v1 API too. It looks like this:
 ---
 
 <p align="center">
-  <a href="https://nibbl.nur-omirzaq.workers.dev">nibbl.nur-omirzaq.workers.dev</a> · made for <a href="https://docs.claude.com/en/docs/claude-code">Claude Code</a> · not affiliated with Anthropic<br>
+  <a href="https://getnibbl.pages.dev">getnibbl.pages.dev</a> · made for <a href="https://docs.claude.com/en/docs/claude-code">Claude Code</a> · not affiliated with Anthropic<br>
   Pet palette: <a href="https://lospec.com/palette-list/sweetie-16">Sweetie 16</a> by GrafxKid · © Nibbl, all rights reserved
 </p>

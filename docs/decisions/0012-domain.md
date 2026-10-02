@@ -24,7 +24,7 @@ Zero cost and zero setup until the product shows traction.
 - Moving to a custom domain later means updating install docs, OG URLs and the card links.
 
 ## Update 2026-10-02
-The public host is `nibbl.nur-omirzaq.workers.dev`. It is one Worker with static assets, not Pages: Pages cannot run the cron trigger that rebuilds the leaderboard and grows the bots. The account subdomain is chosen once in the dashboard (Workers & Pages, Settings, Subdomain). The Pages subdomain availability list above is no longer relevant.
+The public host is `getnibbl.pages.dev`. It is one Worker with static assets, not Pages: Pages cannot run the cron trigger that rebuilds the leaderboard and grows the bots. The account subdomain is chosen once in the dashboard (Workers & Pages, Settings, Subdomain). The Pages subdomain availability list above is no longer relevant.
 
 ## Update 2026-10-02 (2)
-Update 2026-10-02 (2): the account subdomain is fixed at nur-omirzaq (Cloudflare only lets the dashboard change it), so the Worker is named nibbl and the host is https://nibbl.nur-omirzaq.workers.dev; a custom domain or a dashboard subdomain change can come later with no code change.
+Update 2026-10-02 (2): the account subdomain is fixed at nur-omirzaq (Cloudflare only lets the dashboard change it), so the Worker is named nibbl and the host is https://getnibbl.pages.dev; a custom domain or a dashboard subdomain change can come later with no code change.

@@ -1,0 +1,11 @@
+# Cloudflare Pages project for the public host https://getnibbl.pages.dev.
+# Static files come from ./prototype; /api/* and /p/* are forwarded to the
+# `nibbl` Worker over a service binding (the Worker keeps D1 and the cron,
+# which Pages cannot run). Account is pinned by CLOUDFLARE_ACCOUNT_ID in the scripts.
+name = "getnibbl"
+pages_build_output_dir = "./prototype"
+compatibility_date = "2026-08-15"
+
+[[services]]
+binding = "API"
+service = "nibbl"

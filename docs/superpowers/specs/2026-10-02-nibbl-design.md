@@ -292,7 +292,7 @@ Static export on Cloudflare Pages (Next.js `output: 'export'`, per the owner's r
 
 ### 9.2 Install
 ```
-/plugin marketplace add https://nibbl.nur-omirzaq.workers.dev/marketplace.json
+/plugin marketplace add https://getnibbl.pages.dev/marketplace.json
 /plugin install nibbl@nibbl
 ```
 Needs Claude Code 2.1.224 or later. Verify before launch whether function hooks still need `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1`. If they do, the README and landing must say so on the first line.

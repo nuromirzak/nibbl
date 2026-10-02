@@ -2,7 +2,7 @@
   "name": "nibbl",
   "description": "Nibbl, a tiny pixel pet that nibbles your bugs",
   "owner": {
-    "name": "Nurmukhammed Omirzak"
+    "name": "nibbl"
   },
   "plugins": [
     {
@@ -10,8 +10,8 @@
       "description": "Nibbl spike: a real @nibbl/core pet above the prompt, local only (no server)",
       "source": {
         "source": "archive",
-        "url": "https://nibbl.nur-omirzaq.workers.dev/plugin/nibbl-0.0.1-spike.zip",
-        "sha256": "6452cfcd6f7ef833bed63aefc6181f3f68bf06456312b9103ea30043e38aa3a7"
+        "url": "https://getnibbl.pages.dev/plugin/nibbl-0.0.1-spike.zip",
+        "sha256": "28453f6a2ead7fd810aaac94357f5190a15a44f0622fc0c938aa82e3f00722e3"
       }
     }
   ]

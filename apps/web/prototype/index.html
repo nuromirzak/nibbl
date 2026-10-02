@@ -253,7 +253,7 @@ footer h2{font-size:clamp(36px,5vw,56px)}
       <p class="sub">Nibbl is a Claude Code mod. Your nibbl hatches after real work, lives above the prompt, and eats the bugs your tests squash. It never blocks, never nags, and costs zero tokens.</p>
       <div class="install" id="install">
         <div class="cmd px">
-          <code id="cmd"><span>&gt;</span> /plugin marketplace add https://nibbl.nur-omirzaq.workers.dev/marketplace.json<br><span>&gt;</span> /plugin install nibbl@nibbl</code>
+          <code id="cmd"><span>&gt;</span> /plugin marketplace add https://getnibbl.pages.dev/marketplace.json<br><span>&gt;</span> /plugin install nibbl@nibbl</code>
           <button class="btn px" id="copy" type="button">Copy</button>
         </div>
       </div>
@@ -819,7 +819,7 @@ function copyText(btn,text,done){
   const ok=()=>{const o=btn.textContent;btn.textContent=done;setTimeout(()=>btn.textContent=o,1400);SND.play('blip');};
   if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(ok,ok); else ok();
 }
-$('copy').onclick=e=>copyText(e.currentTarget,'/plugin marketplace add https://nibbl.nur-omirzaq.workers.dev/marketplace.json\n/plugin install nibbl@nibbl','Copied');
+$('copy').onclick=e=>copyText(e.currentTarget,'/plugin marketplace add https://getnibbl.pages.dev/marketplace.json\n/plugin install nibbl@nibbl','Copied');
 $('copylink').onclick=e=>copyText(e.currentTarget,shareUrl(1),'Link copied');
 
 /* ---------- boot ---------- */

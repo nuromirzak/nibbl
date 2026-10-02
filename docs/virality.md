@@ -2,7 +2,7 @@
 
 Date: 2026-10-02. Status: draft for owner review. Companion to `docs/superpowers/specs/2026-10-02-nibbl-design.md` and `docs/product-principles.md`.
 
-Placeholders used below: GitHub `nuromirzak/nibbl`, landing `https://nibbl.nur-omirzaq.workers.dev`. Both are open decisions (spec §13).
+Placeholders used below: GitHub `nuromirzak/nibbl`, landing `https://getnibbl.pages.dev`. Both are open decisions (spec §13).
 
 ## 1. What makes it shareable
 
@@ -31,7 +31,7 @@ Anti-pattern: a launch post with a grid of legendary adults. It spoils curiosity
 - Profile READMEs are seen by every visitor of a developer's profile. A pet there is a quiet, permanent ad.
 - v1 (works with the spec as written): the card PNG linked to the card page.
   ```markdown
-  [![My nibbl](https://nibbl.nur-omirzaq.workers.dev/p/000042.png)](https://nibbl.nur-omirzaq.workers.dev/p/000042)
+  [![My nibbl](https://getnibbl.pages.dev/p/000042.png)](https://getnibbl.pages.dev/p/000042)
   ```
 - After v1: a compact SVG badge (example in `docs/assets/badge-example.svg`, pure rects, about 14 KB). Needs a new Worker route `/p/:serial/badge.svg`; the spec lists "README badge" as out of scope for v1 (§11), so this is a v1.1 item.
 - Level shown on the badge updates by itself (the Worker renders it), so a badge stays a living thing, not a screenshot.
@@ -39,7 +39,7 @@ Anti-pattern: a launch post with a grid of legendary adults. It spoils curiosity
 ### 2.3 The hatch moment screenshot
 - Hatching is the peak emotion: wobble, three cracks, flash, a new face, and "Mark *star on forehead*: 4.17% odds".
 - Make it screenshot-friendly: the hatch toast shows name, serial, tier and rarest trait in one compact block, readable in a cropped screenshot.
-- Optional, opt-in only: after the hatch toast, one line `share: nibbl.nur-omirzaq.workers.dev/p/000042`. No prompts, no "share to unlock".
+- Optional, opt-in only: after the hatch toast, one line `share: getnibbl.pages.dev/p/000042`. No prompts, no "share to unlock".
 
 ### 2.4 Genesis serials
 - Pets hatched in the first 30 days after launch get the Genesis badge (server clock, spec §2).
@@ -133,7 +133,7 @@ Rules: read the subreddit rules first (self-promotion limits, flair). Post once.
 >
 > **4/** Zero tokens. Never nags. No streaks. It cannot die. Your code never leaves your machine.
 >
-> **5/** Pets hatched in the first 30 days get a Genesis badge. Two commands to install: nibbl.nur-omirzaq.workers.dev
+> **5/** Pets hatched in the first 30 days get a Genesis badge. Two commands to install: getnibbl.pages.dev
 >
 > Show me what you hatch.
 
