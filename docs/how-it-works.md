@@ -7,7 +7,7 @@ The technical side, for the curious and for contributors. The [README](../README
 | Path | What |
 |---|---|
 | `packages/core` | Zero-dependency TypeScript: odds, genome, pixel drawing, XP. The only implementation of the art and the rules, shared by the mod, the server and the website. |
-| `apps/mod-spike` | The Claude Code mod (function hooks). It draws the pet above the prompt and reacts to tool calls and turns. |
+| `apps/mod` | The Claude Code mod (function hooks). It draws the pet above the prompt, reacts to tool calls and turns, queues events locally and syncs them with the API. |
 | `apps/api` | Cloudflare Worker + D1: hatch, sync, names, import, leaderboard, rank, card pages, PNG and SVG badges, cron. |
 | `apps/web` | Cloudflare Pages project: the landing page, the leaderboard page and the plugin files. It forwards `/api/*` and `/p/*` to the Worker. |
 | `tools/assets` | Regenerates the README GIFs and images from the real generator. |

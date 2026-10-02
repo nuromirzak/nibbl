@@ -7,11 +7,11 @@
   "plugins": [
     {
       "name": "nibbl",
-      "description": "Nibbl spike: a real @nibbl/core pet above the prompt, local only (no server)",
+      "description": "Nibbl: a tiny pixel pet above your prompt that nibbles your bugs",
       "source": {
         "source": "archive",
-        "url": "https://getnibbl.pages.dev/plugin/nibbl-0.0.1-spike.zip",
-        "sha256": "28453f6a2ead7fd810aaac94357f5190a15a44f0622fc0c938aa82e3f00722e3"
+        "url": "https://getnibbl.pages.dev/plugin/nibbl-0.1.0.zip",
+        "sha256": "cd3422a3dbaa8780b8876d573cf892e94c88a65c134006a9c20a313418366c50"
       }
     }
   ]
