@@ -1,8 +1,11 @@
+import { runCron } from './cron'
 import type { Deps, Env } from './env'
 import { HttpError, json } from './lib/http'
 import { hatch } from './routes/hatch'
 import { importPet } from './routes/import'
+import { leaderboard } from './routes/leaderboard'
 import { name } from './routes/name'
+import { stats } from './routes/stats'
 import { sync } from './routes/sync'
 
 export type Route = { method: 'GET' | 'POST'; handler: (request: Request, env: Env, deps: Deps) => Promise<Response> }
@@ -10,8 +13,10 @@ export type Route = { method: 'GET' | 'POST'; handler: (request: Request, env: E
 // Every /api route. Later tasks add one line each.
 const API: Record<string, Route> = {
   '/api/hatch': { method: 'POST', handler: hatch },
+  '/api/leaderboard': { method: 'GET', handler: leaderboard },
   '/api/import': { method: 'POST', handler: importPet },
   '/api/name': { method: 'POST', handler: name },
+  '/api/stats': { method: 'GET', handler: stats },
   '/api/sync': { method: 'POST', handler: sync },
 }
 
@@ -34,4 +39,7 @@ export const handle = async (request: Request, env: Env, deps: Deps): Promise<Re
 
 export default {
   fetch: (request, env) => handle(request, env, { now: () => Date.now() }),
+  scheduled: (controller, env, ctx) => {
+    ctx.waitUntil(runCron(env, controller.scheduledTime))
+  },
 } satisfies ExportedHandler<Env>
