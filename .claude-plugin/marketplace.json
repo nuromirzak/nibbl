@@ -1,0 +1,12 @@
+{
+  "name": "nibbl",
+  "description": "Nibbl, a tiny pixel pet that nibbles your bugs",
+  "owner": { "name": "nibbl" },
+  "plugins": [
+    {
+      "name": "nibbl",
+      "description": "Nibbl: a tiny pixel pet above your prompt that nibbles your bugs",
+      "source": "./plugin"
+    }
+  ]
+}

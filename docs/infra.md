@@ -49,7 +49,7 @@ No public repo. Pages serves the plugin as static files:
 | `/plugin/nibbl-<version>.zip` | Built plugin, pinned in the marketplace by `sha256` |
 
 Release: bump `version` in the built plugin's `plugin.json`, then
-`node apps/api/scripts/pack-plugin.mjs --plugin-dir <built plugin> --origin https://getnibbl.pages.dev`
+`node apps/api/scripts/pack-plugin.mjs --plugin-dir apps/mod/dist --origin https://getnibbl.pages.dev --mirror plugin` (also refreshes the committed `plugin/` folder, which mod directories scan for `hooks/hooks.json`)
 and `pnpm -C apps/web run deploy`. Commit the two generated files under `apps/web/prototype/`. Users update with `/plugin marketplace update nibbl`.
 
 The pack script zips an allowlist only: `.claude-plugin/plugin.json`, `hooks`, `types`, `assets`. Never pack a dev plugin directory by other means: the engine writes `.claude-plugin/types/` into a dev plugin, including claude-code-mcp types that list the author's connected MCP servers.

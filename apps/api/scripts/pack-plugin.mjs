@@ -45,4 +45,11 @@ const marketplace = {
   plugins: [{ name: manifest.name, description: manifest.description ?? 'Nibbl pixel pet', source: { source: 'archive', url, sha256 } }],
 }
 writeFileSync(join(out, 'marketplace.json'), `${JSON.stringify(marketplace, null, 2)}\n`)
+
+// --mirror <dir>: the same files, unpacked and committed, for directories that scan a repo for hooks/hooks.json.
+const mirror = arg('mirror')
+if (mirror) {
+  rmSync(resolve(mirror), { recursive: true, force: true })
+  execFileSync('unzip', ['-q', zipPath, '-d', resolve(mirror)])
+}
 console.log(JSON.stringify({ zip: zipPath, sha256, url }))
