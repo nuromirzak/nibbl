@@ -61,6 +61,7 @@ export const tick = async ($: EngineInterface): Promise<void> => {
   if (painted.deny !== undefined) {
     // Unmounted, resized or not ours any more: wait for the next render to say where it is.
     rt.band = null
+    $.ui.invalidate('ui.render')
     return
   }
   band.sceneId = frame.id
