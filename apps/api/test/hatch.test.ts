@@ -44,6 +44,17 @@ describe('POST /api/hatch', () => {
     expect(await counterValue(testEnv.DB, 'hatched')).toBe(1)
   })
 
+  it('allows one re-hatch of a known machine per 60 s', async () => {
+    const a = await hatchPet(1)
+    expect((await hatchRaw(1, '192.0.2.10', T0 + 1000)).status).toBe(200)
+    const early = await hatchRaw(1, '192.0.2.11', T0 + 1000 + 59_999)
+    expect(early.status).toBe(429)
+    expect(await early.json()).toEqual({ error: 'rehatch_rate_limited', retryAt: T0 + 1000 + 60_000 })
+    const late = (await (await hatchRaw(1, '192.0.2.11', T0 + 1000 + 60_000)).json()) as HatchResult
+    expect(late.serial).toBe(a.serial)
+    expect((await petRow(a.serial)).token_hash).toBe(await sha256Hex(late.token))
+  })
+
   it('lets a known machine re-hatch even when its IP is rate limited', async () => {
     await hatchPet(1, { ip: '192.0.2.10' })
     expect((await hatchRaw(1, '192.0.2.10', T0 + 60_000)).status).toBe(200)

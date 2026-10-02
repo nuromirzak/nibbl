@@ -4,6 +4,8 @@ import { call, hatchPet, petRow, resetDb, T0 } from './helpers'
 
 beforeEach(resetDb)
 
+const MIN = 60_000
+
 const setName = (pet: HatchResult, fields: Record<string, unknown>, now = T0) =>
   call('/api/name', { body: { serial: pet.serial, token: pet.token, ...fields }, now })
 
@@ -27,20 +29,39 @@ describe('POST /api/name', () => {
     expect((await setName(pet, { name: 'Bit' }, T0 + 7 * DAY_MS)).status).toBe(200)
   })
 
-  it('treats the same name as a no-op and never rate-limits labels', async () => {
+  it('treats the same name as a no-op and limits labels only to one change a minute', async () => {
     const pet = await hatchPet(1)
     await setName(pet, { name: 'Byte' })
     expect((await setName(pet, { name: 'Byte', label: 'a' }, T0 + DAY_MS)).status).toBe(200)
-    expect((await setName(pet, { label: 'b' }, T0 + DAY_MS + 1)).status).toBe(200)
+    expect((await setName(pet, { label: 'b' }, T0 + DAY_MS + MIN)).status).toBe(200)
     expect((await petRow(pet.serial)).name_changed_at).toBe(T0)
+  })
+
+  it('allows one label change per 60 s', async () => {
+    const pet = await hatchPet(1)
+    expect((await setName(pet, { label: 'a' })).status).toBe(200)
+    const early = await setName(pet, { label: 'b' }, T0 + MIN - 1)
+    expect(early.status).toBe(429)
+    expect(await early.json()).toEqual({ error: 'label_rate_limited', retryAt: T0 + MIN })
+    expect((await petRow(pet.serial)).label).toBe('a')
+    // Resending the current label is not a change.
+    expect((await setName(pet, { label: 'a' }, T0 + 1)).status).toBe(200)
+    expect((await setName(pet, { label: 'b' }, T0 + MIN)).status).toBe(200)
+    expect((await petRow(pet.serial)).label_changed_at).toBe(T0 + MIN)
+  })
+
+  it('lets only one of two concurrent label changes win', async () => {
+    const pet = await hatchPet(1)
+    const [a, b] = await Promise.all([setName(pet, { label: 'a' }), setName(pet, { label: 'b' })])
+    expect([a.status, b.status].sort()).toEqual([200, 429])
   })
 
   it('clears the label with an empty string or null', async () => {
     const pet = await hatchPet(1)
     await setName(pet, { label: 'x' })
-    expect(await (await setName(pet, { label: '' })).json()).toEqual({ name: null, label: null })
-    await setName(pet, { label: 'x' })
-    expect(await (await setName(pet, { label: null })).json()).toEqual({ name: null, label: null })
+    expect(await (await setName(pet, { label: '' }, T0 + MIN)).json()).toEqual({ name: null, label: null })
+    await setName(pet, { label: 'x' }, T0 + 2 * MIN)
+    expect(await (await setName(pet, { label: null }, T0 + 3 * MIN)).json()).toEqual({ name: null, label: null })
   })
 
   it('rejects filtered text and writes nothing', async () => {

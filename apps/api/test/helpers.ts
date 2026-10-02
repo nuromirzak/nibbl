@@ -69,6 +69,8 @@ export const insertPet = async (p: Partial<PetRow> & { serial: number }): Promis
     hatched_at: T0,
     last_sync_at: null,
     name_changed_at: null,
+    label_changed_at: null,
+    rehatched_at: null,
     ...p,
   }
   const cols = Object.keys(row) as (keyof PetRow)[]

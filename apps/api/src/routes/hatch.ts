@@ -51,10 +51,26 @@ const pickGenome = async (env: Env, machineHash: string): Promise<Genome> => {
   throw new HttpError(503, 'no_unique_genome')
 }
 
+// Re-hatching a known machine rotates the token, so it is capped at once a minute per pet.
+export const REHATCH_EVERY_MS = 60_000
+
+const rehatchLimited = (at: number | null, now: number): HttpError | null =>
+  at !== null && now - at < REHATCH_EVERY_MS ? new HttpError(429, 'rehatch_rate_limited', { retryAt: at + REHATCH_EVERY_MS }) : null
+
 // Only the token hash is stored, so a known machine gets its pet back with a fresh token.
-const reissue = async (db: D1Database, pet: PetRow): Promise<HatchResult> => {
+const reissue = async (db: D1Database, pet: PetRow, now: number): Promise<HatchResult> => {
+  const early = rehatchLimited(pet.rehatched_at, now)
+  if (early) throw early
   const token = randomToken()
-  await db.prepare('UPDATE pets SET token_hash = ? WHERE serial = ?').bind(await sha256Hex(token), pet.serial).run()
+  // Guarded in SQL so concurrent re-hatches cannot all rotate the token.
+  const res = await db
+    .prepare('UPDATE pets SET token_hash = ?, rehatched_at = ? WHERE serial = ? AND (rehatched_at IS NULL OR rehatched_at <= ?)')
+    .bind(await sha256Hex(token), now, pet.serial, now - REHATCH_EVERY_MS)
+    .run()
+  if (res.meta.changes === 0) {
+    const fresh = await db.prepare('SELECT rehatched_at FROM pets WHERE serial = ?').bind(pet.serial).first<number | null>('rehatched_at')
+    throw rehatchLimited(fresh ?? now, now) ?? new HttpError(503, 'busy')
+  }
   return {
     serial: pet.serial,
     token,
@@ -73,7 +89,7 @@ export const hatch = async (request: Request, env: Env, deps: Deps): Promise<Res
   const now = deps.now()
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     const existing = await petByMachine(env.DB, machineHash)
-    if (existing) return json(await reissue(env.DB, existing))
+    if (existing) return json(await reissue(env.DB, existing, now))
     const ip = await ipHashes(env.IP_SALT, ipBucket(request.headers.get('cf-connecting-ip') ?? 'unknown'), now)
     await assertIpAllowed(env.DB, ip, now)
     const g = await pickGenome(env, machineHash)

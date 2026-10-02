@@ -17,6 +17,8 @@ export type PetRow = {
   hatched_at: number
   last_sync_at: number | null
   name_changed_at: number | null
+  label_changed_at: number | null
+  rehatched_at: number | null
 }
 
 export const petBySerial = (db: D1Database, serial: number): Promise<PetRow | null> =>

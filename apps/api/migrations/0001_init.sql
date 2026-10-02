@@ -17,7 +17,10 @@ CREATE TABLE pets (
   is_hidden       INTEGER NOT NULL DEFAULT 0,
   hatched_at      INTEGER NOT NULL,
   last_sync_at    INTEGER,
-  name_changed_at INTEGER
+  name_changed_at INTEGER,
+  -- Write-path cooldowns (60 s): label changes and re-hatches of a known machine.
+  label_changed_at INTEGER,
+  rehatched_at    INTEGER
 );
 
 -- The 5-minute leaderboard rebuild walks this index instead of the whole table.
