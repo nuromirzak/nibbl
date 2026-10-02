@@ -18,7 +18,7 @@ describe('determinism pins', () => {
       [6, 'epic', false, 'teen', 'surprised', '8c3ae866'], // mochi, bow
       [1, 'legendary', false, 'adult', 'sad', 'e1e0ae9b'], // critter, crown
       [2, 'common', true, 'adult', 'sleep', 'cf649ad3'], // sprout, shiny
-      [0xffffffff, 'legendary', true, 'baby', 'sad', 'e116857f'], // mochi, shiny legendary
+      [0xffffffff, 'legendary', true, 'baby', 'sad', 'aef51613'], // mochi, shiny legendary
     ]
     for (const [seed, tier, shiny, stage, expression, hash] of pets) {
       expect(gridHash(drawPet(genome(seed, tier, shiny), stage, expression)), `${seed}/${tier}/${stage}`).toBe(hash)

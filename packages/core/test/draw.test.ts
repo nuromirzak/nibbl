@@ -156,4 +156,21 @@ describe('drawPet', () => {
     expect(bare).toEqual([])
   })
 
+  it('keeps baby and teen bodies chunky, never flat slabs', () => {
+    const bare: string[] = []
+    for (let s = 0; s < 3000; s++) {
+      const g = { ...genome(s, TIERS[s % 5], false), head: 'none' as const, hat: 'none' as const }
+      for (const stage of ['baby', 'teen'] as const) {
+        const grid = drawPet(g, stage, 'idle')
+        const rows = grid.map(row => row.some(c => c !== null && c !== C.ink))
+        const cols = grid[0].map((_, x) => grid.some(row => row[x] !== null && row[x] !== C.ink))
+        const h = rows.filter(Boolean).length
+        const w = cols.filter(Boolean).length
+        const minH = stage === 'baby' ? 8 : 9
+        if (h < minH || (stage === 'baby' && h * 10 < w * 6)) bare.push(`${s}/${stage}/${w}x${h}`)
+      }
+    }
+    expect(bare).toEqual([])
+  }, 60_000)
+
 })

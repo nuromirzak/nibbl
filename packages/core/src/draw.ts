@@ -11,7 +11,13 @@ export const PET_SIZE = 16
 
 type MaskCell = 'none' | 'body' | 'leaf' | 'horn'
 
-const SHRINK: Record<Stage, number> = { baby: 2, teen: 1, adult: 0 }
+// Per-axis shrink and height floor per stage. Height never drops below 5 half-rows (9 px) so
+// babies and teens stay round and chunky instead of flat slabs; adults are unchanged.
+const SIZING: Record<Stage, { dw: number; dh: number; min: number }> = {
+  baby: { dw: 2, dh: 2, min: 5 },
+  teen: { dw: 1, dh: 1, min: 5 },
+  adult: { dw: 0, dh: 0, min: 3 },
+}
 
 const EAR_SHAPES: Record<'round' | 'pointy' | 'bunny' | 'horns', [number, number][]> = {
   round: [[-3, -1], [-4, -1], [-3, -2], [-4, -2]],
@@ -62,8 +68,8 @@ const PLACE_ATTEMPTS = 8
 const SHINY_SPARKLE: readonly (readonly [number, number, number])[] = [[14, 1, C.white], [15, 0, C.cyan]]
 
 const halves = (g: Genome, stage: Stage) => ({
-  w: Math.max(3, g.halfW - SHRINK[stage]),
-  h: Math.max(3, g.halfH - SHRINK[stage]),
+  w: Math.max(stage === 'adult' ? 3 : 4, g.halfW - SIZING[stage].dw),
+  h: Math.max(SIZING[stage].min, g.halfH - SIZING[stage].dh),
 })
 
 // Center is (7.5, 9): doubled coordinates dx2 = 2x - 15, dy2 = 2y - 18 keep the math integer.
