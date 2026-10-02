@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { drawPet, faceRow, type Expression, type Stage } from '../src/draw'
 import { genome } from '../src/genome'
 import { gridHash } from '../src/grid'
+import { MARK_MOTIFS, MARK_SPOTS } from '../src/genes'
 import { TIERS } from '../src/odds'
 
 const STAGES: Stage[] = ['baby', 'teen', 'adult']
@@ -65,7 +66,7 @@ describe('drawPet', () => {
   it('keeps every hat visible (at least 2 cells differ from the hatless pet)', () => {
     const failures: string[] = []
     for (let s = 0; s < 3000; s++) {
-      for (const tier of ['rare', 'epic', 'legendary'] as const) {
+      for (const tier of ['epic', 'legendary'] as const) {
         const g = genome(s, tier, false)
         for (const stage of STAGES) {
           const a = drawPet(g, stage, 'idle')
@@ -77,6 +78,41 @@ describe('drawPet', () => {
       }
     }
     expect(failures).toEqual([])
+  }, 60_000)
+
+  it('never draws a mark inside the eye area of any expression', () => {
+    for (let s = 0; s < 150; s++) {
+      const g = genome(s, TIERS[s % 5], s % 7 === 0)
+      for (const stage of STAGES) {
+        const ey = faceRow(g, stage)
+        const inset = stage === 'baby' ? 1 : 0
+        for (const e of EXPRESSIONS) {
+          const base = drawPet(g, stage, e)
+          for (const motif of MARK_MOTIFS) {
+            for (const spot of MARK_SPOTS) {
+              const other = drawPet({ ...g, mark: { motif, spot } }, stage, e)
+              for (const sx of [5 + inset, 10 - inset]) {
+                for (let y = ey; y <= ey + 1; y++) {
+                  for (let x = sx - 1; x <= sx + 1; x++) expect(other[y][x]).toBe(base[y][x])
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }, 60_000)
+
+  it('shows the mark at every spot and stage (each spot changes the idle pixels)', () => {
+    const hidden: string[] = []
+    for (let s = 0; s < 1000; s++) {
+      const g = genome(s, TIERS[s % 5], false)
+      for (const stage of STAGES) {
+        const grids = MARK_SPOTS.map(spot => gridHash(drawPet({ ...g, mark: { motif: 'dot', spot } }, stage, 'idle')))
+        if (new Set(grids).size !== MARK_SPOTS.length) hidden.push(`${s}/${stage}`)
+      }
+    }
+    expect(hidden).toEqual([])
   }, 60_000)
 
   it('draws the same pixels on every runtime (fixed hashes)', () => {

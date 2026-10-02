@@ -5,14 +5,17 @@ export type Family = 'mochi' | 'critter' | 'sprout'
 export type Pattern = 'none' | 'spots' | 'freckles' | 'stripes' | 'stars' | 'constellation'
 export type Eyes = 'dot' | 'big' | 'wide' | 'heart' | 'sleepy' | 'glint'
 export type Head = 'none' | 'round' | 'pointy' | 'bunny' | 'horns' | 'leaf'
-export type Hat = 'none' | 'beanie' | 'bow' | 'crown'
+export type Hat = 'none' | 'bow' | 'crown'
+export type MarkMotif = 'dot' | 'star' | 'heart' | 'scar' | 'sparkle' | 'swirl'
+export type MarkSpot = 'left-cheek' | 'right-cheek' | 'forehead' | 'belly'
+export type Mark = { motif: MarkMotif; spot: MarkSpot }
 
 export type Option<T> = { value: T; weight: number; minTier: Tier }
 
 const opt = <T>(value: T, weight: number, minTier: Tier = 'common'): Option<T> => ({ value, weight, minTier })
 
-// Weights are relative within a pool. Low-weight common values (freckles, heart) keep a
-// sub-5% trait reachable for common pets, which the rare-trait guarantee relies on.
+// Weights are relative within a pool. The rare-trait guarantee does not depend on them:
+// every pet carries a mark, and each of the 24 marks has odds of exactly 1/24.
 export const POOLS = {
   family: [opt<Family>('mochi', 40), opt<Family>('critter', 40), opt<Family>('sprout', 20)],
   halfW: [opt(5, 1), opt(6, 2), opt(7, 1)],
@@ -34,15 +37,14 @@ export const POOLS = {
   blush: [opt(true, 50), opt(false, 50)],
   head: [
     opt<Head>('none', 30), opt<Head>('round', 30), opt<Head>('pointy', 30),
-    opt<Head>('bunny', 20, 'uncommon'), opt<Head>('horns', 10, 'epic'),
+    opt<Head>('bunny', 20, 'uncommon'), opt<Head>('horns', 10, 'rare'),
   ],
 } as const
 
 export const HAT_BY_TIER: Record<Tier, Hat> = {
-  common: 'none', uncommon: 'none', rare: 'beanie', epic: 'bow', legendary: 'crown',
+  common: 'none', uncommon: 'none', rare: 'none', epic: 'bow', legendary: 'crown',
 }
 
-export const SPICES = [
-  { gene: 'pattern', value: 'freckles' },
-  { gene: 'eyes', value: 'heart' },
-] as const
+// Both drawn uniformly, motif first, so every motif/spot pair has probability 1/24.
+export const MARK_MOTIFS: readonly MarkMotif[] = ['dot', 'star', 'heart', 'scar', 'sparkle', 'swirl']
+export const MARK_SPOTS: readonly MarkSpot[] = ['left-cheek', 'right-cheek', 'forehead', 'belly']

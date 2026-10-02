@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { firstUnique, genome, genomeKey, rarestTrait, traitOdds } from '../src/genome'
-import { TIERS } from '../src/odds'
+import { firstUnique, genome, genomeKey, markLabel, rarestTrait, traitOdds } from '../src/genome'
+import { MARK_MOTIFS, MARK_SPOTS } from '../src/genes'
+import { TIERS, type Tier } from '../src/odds'
 
 describe('genome', () => {
   it('is deterministic', () => {
@@ -19,7 +20,7 @@ describe('genome', () => {
     }
   })
 
-  it('only uses values eligible for the tier, except the guaranteed spice', () => {
+  it('only uses values eligible for the tier', () => {
     for (let s = 0; s < 2000; s++) {
       const g = genome(s, 'common', false)
       expect(['ember', 'moss', 'ocean']).toContain(g.ramp)
@@ -31,9 +32,44 @@ describe('genome', () => {
   it('maps hat to tier', () => {
     expect(genome(1, 'common', false).hat).toBe('none')
     expect(genome(1, 'uncommon', false).hat).toBe('none')
-    expect(genome(1, 'rare', false).hat).toBe('beanie')
+    expect(genome(1, 'rare', false).hat).toBe('none')
     expect(genome(1, 'epic', false).hat).toBe('bow')
     expect(genome(1, 'legendary', false).hat).toBe('crown')
+  })
+
+  it('reaches horns from rare upward, never below, and never under a hat', () => {
+    const heads = (tier: Tier) => new Set(Array.from({ length: 3000 }, (_, s) => genome(s, tier, false).head))
+    expect(heads('common').has('horns')).toBe(false)
+    expect(heads('uncommon').has('horns')).toBe(false)
+    expect(heads('rare').has('horns')).toBe(true)
+    for (const tier of ['epic', 'legendary'] as const) expect([...heads(tier)].every(h => h === 'none' || h === 'leaf')).toBe(true)
+  })
+
+  it('draws every one of the 24 marks, each with reported odds 1/24', () => {
+    const marks = new Set<string>()
+    for (let s = 0; s < 5000; s++) {
+      const g = genome(s, TIERS[s % 5], false)
+      expect(MARK_MOTIFS).toContain(g.mark.motif)
+      expect(MARK_SPOTS).toContain(g.mark.spot)
+      marks.add(`${g.mark.motif}.${g.mark.spot}`)
+      expect(traitOdds(g).find(t => t.gene === 'mark')).toEqual({ gene: 'mark', value: markLabel(g.mark), probability: 1 / 24 })
+    }
+    expect(marks.size).toBe(24)
+    expect(markLabel({ motif: 'star', spot: 'left-cheek' })).toBe('star on left cheek')
+  })
+
+  it('reports per-gene odds that sum to 1 over every reachable value', () => {
+    const totals = new Map<string, Map<string, number>>()
+    for (let s = 0; s < 20_000; s++) {
+      for (const t of traitOdds(genome(s, TIERS[s % 5], false))) {
+        if (!totals.has(t.gene)) totals.set(t.gene, new Map())
+        totals.get(t.gene)!.set(t.value, t.probability)
+      }
+    }
+    for (const [gene, values] of totals) {
+      const sum = [...values.values()].reduce((a, b) => a + b, 0)
+      expect(sum, gene).toBeCloseTo(1, 9)
+    }
   })
 
   it('guarantees a trait below 5% odds for every genome', () => {
@@ -53,6 +89,7 @@ describe('genome', () => {
   it('builds a key that changes when a visible gene changes', () => {
     const g = genome(5, 'rare', false)
     expect(genomeKey(g)).not.toBe(genomeKey({ ...g, ramp: g.ramp === 'ember' ? 'moss' : 'ember' }))
+    expect(genomeKey(g)).not.toBe(genomeKey({ ...g, mark: { ...g.mark, spot: g.mark.spot === 'belly' ? 'forehead' : 'belly' } }))
     expect(genomeKey(g)).toBe(genomeKey({ ...g, seed: 999 }))
   })
 

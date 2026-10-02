@@ -1,3 +1,4 @@
+import type { MarkMotif, MarkSpot } from './genes'
 import type { Genome } from './genome'
 import { blankGrid, inBounds, setCell, type Grid } from './grid'
 import { C, RAMPS, SHINY_OF } from './palette'
@@ -20,6 +21,40 @@ const EAR_SHAPES: Record<'round' | 'pointy' | 'bunny' | 'horns', [number, number
 }
 
 const LEAF: [number, number][] = [[7, -1], [8, -1], [8, -2], [9, -3], [10, -3], [6, -3]]
+
+// Offsets along (outward, away from the face); every motif includes its anchor pixel.
+const MARK_SHAPES: Record<MarkMotif, readonly (readonly [number, number])[]> = {
+  dot: [[0, 0]],
+  star: [[0, 0], [1, 1]],
+  heart: [[0, 0], [1, 0], [0, 1]],
+  scar: [[0, 0], [1, 0], [2, 0]],
+  sparkle: [[0, 0], [0, 1]],
+  swirl: [[0, 0], [1, 0], [1, 1]],
+}
+
+// Four distinct candidates each, so at least one is never part of the pet's 3-color ramp.
+const MARK_COLORS: Record<MarkMotif, readonly number[]> = {
+  dot: [C.plum, C.navy, C.dusk, C.teal],
+  star: [C.yellow, C.white, C.cyan, C.orange],
+  heart: [C.red, C.plum, C.orange, C.yellow],
+  scar: [C.white, C.silver, C.cyan, C.yellow],
+  sparkle: [C.cyan, C.white, C.sky, C.yellow],
+  swirl: [C.teal, C.lime, C.green, C.sky],
+}
+
+const markAnchor = (
+  spot: MarkSpot,
+  ey: number,
+  inset: number,
+  isBody: (x: number, y: number) => boolean,
+): { x: number; y: number; sx: number; sy: number } => {
+  if (spot === 'left-cheek') return { x: 4 + inset, y: ey + 2, sx: -1, sy: 1 }
+  if (spot === 'right-cheek') return { x: 11 - inset, y: ey + 2, sx: 1, sy: 1 }
+  if (spot === 'forehead') return { x: 7, y: ey - 1, sx: 1, sy: -1 }
+  // Small bodies have no room under the mouth, so the belly mark climbs to the lowest body row.
+  const y = [ey + 5, ey + 4, ey + 3].find(row => isBody(7, row)) ?? ey + 5
+  return { x: 7, y, sx: 1, sy: 1 }
+}
 
 const halves = (g: Genome, stage: Stage) => ({
   w: Math.max(3, g.halfW - SHRINK[stage]),
@@ -140,7 +175,8 @@ export const drawPet = (g: Genome, stage: Stage, expression: Expression): Grid =
   const face = (x: number, y: number, color: number) => setCell(px, x, y, color)
   // Baby bodies are 6 wide, so the face is pulled in by one column to stay inside the silhouette.
   const inset = stage === 'baby' ? 1 : 0
-  for (const sx of [5 + inset, 10 - inset]) {
+  const eyeColumns = [5 + inset, 10 - inset]
+  for (const sx of eyeColumns) {
     const out = sx < 8 ? -1 : 1
     if (expression === 'blink' || expression === 'sleep') {
       face(sx, ey + 1, C.ink)
@@ -185,6 +221,17 @@ export const drawPet = (g: Genome, stage: Stage, expression: Expression): Grid =
     face(11 - inset, ey + 2, blush)
   }
 
+  // The mark sits on top of blush and freckles but is clipped to the body and never touches
+  // the eye area of any expression; the mouth is drawn afterwards and wins.
+  const inEyeZone = (x: number, y: number) => y >= ey && y <= ey + 1 && eyeColumns.some(sx => Math.abs(x - sx) <= 1)
+  const anchor = markAnchor(g.mark.spot, ey, inset, isBody)
+  const markColor = MARK_COLORS[g.mark.motif].find(c => c !== shade && c !== base && c !== hi)!
+  for (const [dx, dy] of MARK_SHAPES[g.mark.motif]) {
+    const x = anchor.x + dx * anchor.sx
+    const y = anchor.y + dy * anchor.sy
+    if (isBody(x, y) && !inEyeZone(x, y)) px[y][x] = markColor
+  }
+
   if (expression === 'happy') {
     face(6, ey + 2, C.ink)
     face(9, ey + 2, C.ink)
@@ -205,12 +252,7 @@ export const drawPet = (g: Genome, stage: Stage, expression: Expression): Grid =
     face(8, ey + 2, C.ink)
   }
 
-  if (g.hat === 'beanie') {
-    for (let x = 5; x <= 10; x++) setCell(px, x, top - 1, C.red)
-    for (let x = 6; x <= 9; x++) setCell(px, x, top - 2, C.red)
-    setCell(px, 7, top - 3, C.white)
-    setCell(px, 8, top - 3, C.white)
-  } else if (g.hat === 'bow') {
+  if (g.hat === 'bow') {
     for (const [x, y] of [[9, top - 1], [10, top - 1], [11, top - 1], [9, top - 2], [11, top - 2]] as const) {
       setCell(px, x, y, C.red)
     }
