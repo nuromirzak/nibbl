@@ -21,7 +21,11 @@ export const queueOf = (v: unknown): Queue | null => {
     (e): e is QueuedEvent =>
       typeof e === 'object' && e !== null && TYPES.includes(e.type) && Number.isFinite(e.at) && Number.isInteger(e.n) && Number.isFinite(e.g),
   )
-  return { beat: q.beat, next: q.next, events }
+  // A hand-edited or stale record can carry a `next` at or below a stored `n`, or more events than
+  // the cap: keep sequence numbers unique (removeUpTo clears by `n`) and keep the newest QUEUE_CAP.
+  let maxN = 0
+  for (const e of events) maxN = Math.max(maxN, e.n)
+  return { beat: q.beat, next: Math.max(q.next, maxN + 1), events: events.length > QUEUE_CAP ? events.slice(events.length - QUEUE_CAP) : events }
 }
 
 export const append = (q: Queue, type: ModEventType, at: number, g: number, cap = QUEUE_CAP): Queue => {

@@ -116,4 +116,16 @@ describe('queueOf', () => {
     expect(queueOf('junk')).toBeNull()
     expect(queueOf({ beat: 'x', next: 1, events: [] })).toBeNull()
   })
+
+  it('lifts a stale next above every stored sequence number', () => {
+    expect(queueOf({ beat: 1, next: 2, events: [ev(1, 'turn', 1), ev(7, 'pet', 2)] })?.next).toBe(8)
+  })
+
+  it('keeps only the newest cap events of an oversized record', () => {
+    const events = Array.from({ length: 1003 }, (_, i) => ev(i + 1, 'turn', i))
+    const q = queueOf({ beat: 1, next: 1004, events })!
+    expect(q.events).toHaveLength(1000)
+    expect(q.events[0]!.n).toBe(4)
+    expect(q.next).toBe(1004)
+  })
 })
