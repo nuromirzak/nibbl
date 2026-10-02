@@ -6,6 +6,7 @@ import { hatch } from './routes/hatch'
 import { importPet } from './routes/import'
 import { leaderboard } from './routes/leaderboard'
 import { name } from './routes/name'
+import { rank } from './routes/rank'
 import { stats } from './routes/stats'
 import { sync } from './routes/sync'
 
@@ -21,13 +22,16 @@ const API: Record<string, Route> = {
   '/api/sync': { method: 'POST', handler: sync },
 }
 
+// Parameterised routes: matched by prefix, the handler parses the rest of the path.
+const API_PREFIX: [string, Route][] = [['/api/rank/', { method: 'GET', handler: rank }]]
+
 const isJson = (type: string | null): boolean => type?.split(';')[0].trim().toLowerCase() === 'application/json'
 
 export const handle = async (request: Request, env: Env, deps: Deps): Promise<Response> => {
   const url = new URL(request.url)
   try {
     if (url.pathname.startsWith('/api/')) {
-      const route = Object.hasOwn(API, url.pathname) ? API[url.pathname] : undefined
+      const route = Object.hasOwn(API, url.pathname) ? API[url.pathname] : API_PREFIX.find(([p]) => url.pathname.startsWith(p))?.[1]
       if (!route) return json({ error: 'not_found' }, 404)
       if (request.method !== route.method) return json({ error: 'method_not_allowed' }, 405, { allow: route.method })
       // A JSON content-type is not CORS-safelisted, so a cross-site page cannot POST here
