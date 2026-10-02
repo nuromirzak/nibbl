@@ -12,7 +12,7 @@ Nibbl is a tamagotchi-inspired pixel pet that lives in the band above the Claude
 4. **Earned.** Luck sets the starting genes. Effort sets the form.
 5. **Tiny.** 32×16 pixel scene, zero model tokens, keeps working offline.
 
-Every feature is checked against these five. A feature that nags, costs tokens without opt-in, or fakes an emotion is out.
+Feelings, success metrics and the Tamagotchi lessons live in `docs/product-principles.md`. Every feature is checked against these five. A feature that nags, costs tokens without opt-in, or fakes an emotion is out.
 
 ## 2. Decisions
 
@@ -248,6 +248,8 @@ Length limits, printable characters only, no URLs, a word blocklist (EN + RU), a
 
 ### 6.7 Capacity (free tier)
 Workers: 100k requests/day. D1: 5M rows read and 100k rows written per day, 5 GB. With sync every 2-3 h plus session end, this holds about 10 000 daily users. Leaderboard is served from `leaderboard_cache`. Beyond that, Workers Paid is $5/month.
+
+**Genome capacity (decision 2026-10-02).** Expected scale is at most 10 000 nibbls. Measured headroom: 100 000 sequential hatches with 16 candidates each all find a unique pet, and the first misses appear after about 115 000 common-tier pets. This is far above the expected scale, so no more genes or candidates are added now. The Worker still handles `pickUnique` returning `null` by retrying with a fresh candidate batch (n = 16..31) and, if that also fails, answering 503 so the mod retries the hatch later. Revisit only if real hatches pass 50 000.
 
 ### 6.8 Infra as code
 `wrangler.toml` (Worker, D1 binding, cron trigger, Pages project), SQL migrations in `apps/api/migrations`, secrets (`ROLL_SECRET`, `LAUNCH_AT`) via `wrangler secret put`. Cloudflare MCP is for logs and ad-hoc queries only, never for creating resources.
