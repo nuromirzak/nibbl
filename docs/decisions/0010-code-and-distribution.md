@@ -20,3 +20,7 @@ Precedent: Figma and Slack plugins are thin clients with closed servers; the Ver
 ## Consequences
 - The README must state what leaves the machine: machineHash, serial, token, event counts.
 - Org name is still open (`nibbl-dev` assumed).
+
+## Update 2026-10-02
+
+The source repo lives at github.com/nuromirzak/nibbl and stays **private**. The owner considered making it public and declined: the decision log, the seeded bots (0009) and the launch playbook (docs/virality.md) are internal. Revisit before launch.
