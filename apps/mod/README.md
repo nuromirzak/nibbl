@@ -29,6 +29,7 @@ Every egg is rolled on the server, once per machine, with the same odds for ever
 
 - `machineHash`: the SHA-256 of your hardware id plus "nibbl". The id itself never leaves.
 - Your pet's serial and token.
+- The name and label you set with `/nibbl name` and `/nibbl label`. They show on your pet's public card and the leaderboard.
 - Events: only the type (`turn`, `check_pass`, `commit`, `error`, `pet`, `hide`) and the time of each. Never your prompts, commands, file paths or outputs.
 
 All of it goes to https://getnibbl.pages.dev and nowhere else. The export code is a secret: anyone who has it owns your pet, so it is drawn on your screen only and never sent to the model.

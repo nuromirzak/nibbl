@@ -50,6 +50,8 @@ export const K = {
   syncWait: 'v1.syncWait',
   hatchWait: 'v1.hatchWait',
   installId: 'v1.installId',
+  machineHash: 'v1.machineHash',
+  installSerial: 'v1.installSerial',
   spikePet: 'pet',
   spikeEggTurns: 'eggTurns',
 } as const

@@ -1,10 +1,10 @@
 import { update } from 'claude-code'
 import type { EngineInterface } from 'claude-code'
 
-import { apiBase, post, type ApiOutcome } from './api'
+import { apiBase, postWithin, type ApiOutcome } from './api'
 import { K, LABEL_MAX, NAME_MAX } from './config'
 import { hatchNow } from './hatch'
-import { machineHash } from './identity'
+import { machineIdentity } from './identity'
 import { importErrorText, nameErrorText } from './messages'
 import { refreshView } from './model'
 import { displayName, fromOwnerView, padSerial, parseCode, type ServerPet } from './pet'
@@ -33,20 +33,28 @@ export const nameCommand = async ($: EngineInterface, field: 'name' | 'label', t
   if (field === 'name' && text.length === 0) return `Usage: /nibbl name <text>, 1 to ${NAME_MAX} characters.`
   if ([...text].length > max) return `A ${field} is at most ${max} characters.`
   const base = await apiBase($)
-  const call = (p: ServerPet): Promise<ApiOutcome> => post($, base, '/api/name', { serial: p.serial, token: p.token, [field]: text })
+  const call = (p: ServerPet): Promise<ApiOutcome> => postWithin($, base, '/api/name', { serial: p.serial, token: p.token, [field]: text })
+  let sent = pet
   let out = await call(pet)
   if (out.kind === 'error' && out.status === 401) {
     const result = await hatchNow($, 'reauth')
     const fresh = result === 'hatched' ? await loadPet($) : null
-    if (fresh) out = await call(fresh)
+    if (fresh) {
+      sent = fresh
+      out = await call(fresh)
+    }
   }
   if (out.kind === 'offline') return 'Nibbl is offline right now. Try again later.'
   if (out.kind === 'error' && out.status === 401) return `Could not reach your pet's account. Try /nibbl ${field} again later.`
   if (out.kind === 'error') return nameErrorText(field, out.code, out.retryAt, await $.clock.now())
   const name = textOrNull(out.body.name)
   const label = textOrNull(out.body.label)
-  await savePet($, { ...((await loadPet($)) ?? pet), name, label })
-  await refreshView($)
+  // Apply only to the pet that was renamed: an import or a move meanwhile put another one here.
+  const latest = await loadPet($)
+  if (latest && latest.serial === sent.serial) {
+    await savePet($, { ...latest, name, label })
+    await refreshView($)
+  }
   if (field === 'name') return `Renamed to ${displayName(name)}.`
   return label ? `Label set to "${label}".` : 'Label cleared.'
 }
@@ -71,7 +79,8 @@ export const importCommand = async ($: EngineInterface, rest: string): Promise<s
     return `This machine already has ${displayName(spike.name)}, still linking to the server. Importing would replace it: run /nibbl import <code> replace if you are sure.`
   }
   const now = await $.clock.now()
-  const out = await post($, await apiBase($), '/api/import', { serial: code.serial, token: code.token, machineHash: await machineHash($) })
+  const id = await machineIdentity($)
+  const out = await postWithin($, await apiBase($), '/api/import', { serial: code.serial, token: code.token, machineHash: id.hash })
   if (out.kind === 'offline') return 'Nibbl is offline right now. Try the import again later.'
   if (out.kind === 'error') {
     return importErrorText(out.status)
@@ -83,6 +92,9 @@ export const importCommand = async ($: EngineInterface, rest: string): Promise<s
   if (!isSame) await dropQueues($)
   await savePet($, isSame && old ? { ...pet, heartsHour: old.heartsHour, heartsUsed: old.heartsUsed, lastSyncAt: old.lastSyncAt } : pet)
   for (const key of [K.egg, K.hatchWait, K.syncWait]) await $.store.delete(key)
+  // The server now binds this pet to the hash just sent, so a later re-hatch may use it too.
+  if (id.source === 'install') await $.store.set(K.installSerial, pet.serial)
+  else await $.store.delete(K.installSerial)
   await forgetSpike($)
   await update($, eggAtom, () => 0)
   await refreshView($)

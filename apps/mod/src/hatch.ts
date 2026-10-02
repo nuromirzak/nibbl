@@ -4,13 +4,13 @@ import type { EngineInterface } from 'claude-code'
 import { apiBase, backoff, holdUntil, postWithin } from './api'
 import { K } from './config'
 import { rarestLine, tierText } from './hud'
-import { machineHash } from './identity'
+import { machineIdentity } from './identity'
 import { refreshView } from './model'
 import { displayName, fromOwnerView, padSerial } from './pet'
 import { rt } from './runtime'
 import { genomeOf } from './scene'
 import { eggAtom } from './state'
-import { dropQueues, forgetSpike, loadPet, loadWait, releaseLease, savePet, tryLease } from './store'
+import { dropQueues, forgetSpike, loadPet, loadSpike, loadWait, releaseLease, savePet, tryLease } from './store'
 
 export type HatchWhy = 'egg' | 'spike' | 'reauth'
 export type HatchResult = 'hatched' | 'moved' | 'waiting' | 'busy' | 'failed'
@@ -29,7 +29,22 @@ export const hatchNow = async ($: EngineInterface, why: HatchWhy, opts: { isLeas
       if (!(await tryLease($, sid, now))) return 'busy'
       owner = sid
     }
-    const out = await postWithin($, await apiBase($), '/api/hatch', { machineHash: await machineHash($) })
+    const id = await machineIdentity($)
+    // An install hash is not the platform hash a spike or server pet is bound to: sending it would
+    // hatch a stranger (or report "moved"). Only a fresh egg, or a pet that was itself hatched under
+    // the install hash, may use it; anything else backs off until the platform probe works again.
+    if (id.source === 'install') {
+      const here = await loadPet($)
+      const isFreshEgg = why === 'egg' && here === null && (await loadSpike($)) === null
+      const isInstallPet = why === 'reauth' && here !== null && (await $.store.get(K.installSerial)) === here.serial
+      if (!isFreshEgg && !isInstallPet) {
+        const next = backoff(wait, now)
+        await $.store.set(K.hatchWait, next)
+        $.ui.log(`nibbl: hatch (${why}) held: no platform id; next try after ${new Date(next.until).toISOString()}`, { to: 'debug' })
+        return 'failed'
+      }
+    }
+    const out = await postWithin($, await apiBase($), '/api/hatch', { machineHash: id.hash })
     if (out.kind !== 'ok') {
       // hatch_rate_limited and rehatch_rate_limited say when; everything else backs off.
       const next = out.kind === 'error' && out.status === 429 && out.retryAt !== null ? holdUntil(wait, out.retryAt) : backoff(wait, now)
@@ -45,7 +60,13 @@ export const hatchNow = async ($: EngineInterface, why: HatchWhy, opts: { isLeas
     }
     await $.store.delete(K.hatchWait)
     const old = await loadPet($)
-    if (why === 'reauth' && old && old.serial !== fresh.serial) {
+    const isSamePet = old !== null && old.serial === fresh.serial
+    if (why === 'reauth' && old && !isSamePet && id.source === 'install') {
+      // Only a platform-bound answer may say the pet moved away; keep everything as it is.
+      $.ui.log('nibbl: re-hatch by install id answered another pet; kept the local one', { to: 'debug' })
+      return 'failed'
+    }
+    if (why === 'reauth' && old && !isSamePet) {
       // The old pet was imported on another machine; this one starts over with an egg.
       await $.store.delete(K.pet)
       await dropQueues($)
@@ -55,9 +76,10 @@ export const hatchNow = async ($: EngineInterface, why: HatchWhy, opts: { isLeas
       $.ui.toast(`${displayName(old.name)} #${padSerial(old.serial)} now lives on another machine. A new egg appeared here.`)
       return 'moved'
     }
-    const isSame = old !== null && old.serial === fresh.serial
-    await savePet($, isSame && old ? { ...fresh, heartsHour: old.heartsHour, heartsUsed: old.heartsUsed, lastSyncAt: old.lastSyncAt } : fresh)
+    await savePet($, isSamePet && old ? { ...fresh, heartsHour: old.heartsHour, heartsUsed: old.heartsUsed, lastSyncAt: old.lastSyncAt } : fresh)
     await $.store.delete(K.egg)
+    if (id.source === 'install') await $.store.set(K.installSerial, fresh.serial)
+    else await $.store.delete(K.installSerial)
     await forgetSpike($)
     await update($, eggAtom, () => 0)
     await refreshView($)

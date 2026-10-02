@@ -13,6 +13,11 @@ describe('HUD lines', () => {
     expect(titleOf(VIEW)).toBe('Byte #000042 · night coder')
     expect(titleOf({ ...VIEW, label: null })).toBe('Byte #000042')
     expect(titleOf({ ...VIEW, serial: null })).toBe('Byte · syncing')
+    // A view left in session state by an older build may have no serial field at all.
+    const old = { ...VIEW, serial: undefined } as unknown as NibblPetView
+    expect(titleOf(old)).toBe('Byte · syncing')
+    expect(hudLines(old, 0, CALM, NOW, 0).compact).not.toMatch(/undefined/)
+    expect(statsText(old, genome(123456, 'rare', true), NOW, { base: 'x', pending: 0, lastSyncAt: null })).not.toMatch(/undefined/)
     expect(tierText(VIEW)).toBe('rare · shiny · Genesis')
   })
 

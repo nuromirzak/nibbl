@@ -58,14 +58,31 @@ export const readPlatformId = async ($: EngineInterface): Promise<string | null>
   return null
 }
 
+// platform: probed just now; cache: a platform hash probed earlier; install: the random fallback.
+export type HashSource = 'platform' | 'cache' | 'install'
+export type MachineIdentity = { hash: string; source: HashSource }
+
+const HASH = /^[0-9a-f]{64}$/
+
+// The first platform hash is kept in the store and reused, so a probe that fails later (ioreg
+// timing out, a sandbox without /etc/machine-id) never swaps this machine's identity.
 // Spec section 10 fallback: with no platform id, a random install id kept in the store
-// (a reinstall that wipes the store then means a new egg).
-export const machineHash = async ($: EngineInterface): Promise<string> => {
+// (a reinstall that wipes the store then means a new egg). Callers check the source before
+// sending an install hash for a pet that may be bound to the platform hash.
+export const machineIdentity = async ($: EngineInterface): Promise<MachineIdentity> => {
+  const cached = await $.store.get(K.machineHash)
+  if (typeof cached === 'string' && HASH.test(cached)) return { hash: cached, source: 'cache' }
   const platformId = await readPlatformId($)
-  if (platformId) return machineHashOf(platformId)
+  if (platformId) {
+    const hash = await machineHashOf(platformId)
+    await $.store.set(K.machineHash, hash)
+    return { hash, source: 'platform' }
+  }
   const saved = await $.store.get(K.installId)
-  if (typeof saved === 'string' && saved.length >= 16) return machineHashOf(saved)
+  if (typeof saved === 'string' && saved.length >= 16) return { hash: await machineHashOf(saved), source: 'install' }
   const fresh = crypto.randomUUID()
   await $.store.set(K.installId, fresh)
-  return machineHashOf(fresh)
+  return { hash: await machineHashOf(fresh), source: 'install' }
 }
+
+export const machineHash = async ($: EngineInterface): Promise<string> => (await machineIdentity($)).hash

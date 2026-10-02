@@ -61,7 +61,8 @@ export const harness = (on: On, opts: HarnessOptions = {}) => {
   mock.store(on, opts.store ?? {})
   mock.env(on, opts.env ?? {})
   const sessionId = opts.sessionId ?? 'sess-a'
-  const machine = opts.machine ?? 'mac'
+  // host.machine may change mid-test: ioreg can fail later on a machine where it worked before.
+  const host = { machine: opts.machine ?? 'mac' }
   const pet = owner(opts.pet)
   const server = {
     pet,
@@ -77,6 +78,8 @@ export const harness = (on: On, opts: HarnessOptions = {}) => {
   const calls: Call[] = []
   const blits: { requestId: string; key: string; cells?: string }[] = []
   const once: { path: string; reply: Reply }[] = []
+  // A held path answers only when its release() runs, so a test can change things mid-request.
+  const held = new Map<string, Promise<void>>()
 
   // The fake nibbl server: hatch rotates the token, sync/name check it, import knows one code.
   const answerFor = (call: Call): Reply => {
@@ -120,21 +123,30 @@ export const harness = (on: On, opts: HarnessOptions = {}) => {
     }
     calls.push(call)
     if (net.hang) return new Promise<never>(() => undefined)
+    const gate = held.get(call.path)
+    if (gate) {
+      held.delete(call.path)
+      return gate.then(() => respond(call))
+    }
+    return respond(call)
+  })
+
+  const respond = (call: Call) => {
     const reply = answerFor(call)
     if (reply === 'offline') return { deny: 'getaddrinfo ENOTFOUND getnibbl.pages.dev' }
     const text = 'text' in reply ? reply.text : JSON.stringify(reply.body)
     return { value: { status: reply.status, ok: reply.status >= 200 && reply.status < 300, headers: { 'content-type': 'application/json' }, text } }
-  })
+  }
 
   const ran = (stdout: string) => ({ value: { exitCode: 0, stdout, stderr: '', isStdoutTruncated: false, isStderrTruncated: false } })
   on('process.run', ($, e) => {
     const cmd = e.argv[0]
     if (cmd === 'date') return ran(`${opts.utcOffset ?? '+0500'}\n`)
-    if (cmd === 'ioreg' && machine === 'mac') return ran(`+-o J314sAP  <class IOPlatformExpertDevice>\n    {\n      "IOPlatformUUID" = "${UUID}"\n    }\n`)
-    if (cmd === 'reg' && machine === 'windows') return ran(`\r\nHKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Cryptography\r\n    MachineGuid    REG_SZ    ${WINDOWS_GUID}\r\n\r\n`)
+    if (cmd === 'ioreg' && host.machine === 'mac') return ran(`+-o J314sAP  <class IOPlatformExpertDevice>\n    {\n      "IOPlatformUUID" = "${UUID}"\n    }\n`)
+    if (cmd === 'reg' && host.machine === 'windows') return ran(`\r\nHKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Cryptography\r\n    MachineGuid    REG_SZ    ${WINDOWS_GUID}\r\n\r\n`)
     return { deny: `${cmd}: command not found` }
   })
-  on('fs.read', ($, e) => (machine === 'linux' && e.path === '/etc/machine-id' ? { value: `${LINUX_ID}\n` } : { deny: `ENOENT: ${e.path}` }))
+  on('fs.read', ($, e) => (host.machine === 'linux' && e.path === '/etc/machine-id' ? { value: `${LINUX_ID}\n` } : { deny: `ENOENT: ${e.path}` }))
   on('session.id', () => ({ value: sessionId }))
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('session.end', ($, e) => ({ sessionId: e.sessionId }))
@@ -163,6 +175,12 @@ export const harness = (on: On, opts: HarnessOptions = {}) => {
     blits,
     server,
     net,
+    host,
+    hold: (path: string): (() => void) => {
+      let release = () => undefined as void
+      held.set(path, new Promise<void>(resolve => (release = resolve)))
+      return () => release()
+    },
     respondOnce: (path: string, reply: Reply) => {
       once.push({ path, reply })
     },

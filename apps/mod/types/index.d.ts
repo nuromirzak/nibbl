@@ -33,12 +33,12 @@ export type NibblReaction = {
 declare module 'claude-code' {
   interface PluginState {
     nibbl: {
-      loaded: boolean
-      pet: NibblPetView | null
-      eggTurns: number
-      hidden: boolean
-      react: NibblReaction
-      tzOffsetMin: number
+      'v1.loaded': boolean
+      'v1.pet': NibblPetView | null
+      'v1.eggTurns': number
+      'v1.hidden': boolean
+      'v1.react': NibblReaction
+      'v1.tzOffsetMin': number
     }
   }
 }

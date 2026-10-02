@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 const CALM_R = vi.hoisted(() => ({ bugs: 0, mood: 'idle', moodUntil: 0, heartUntil: 0, lootUntil: 0, boxUntil: 0, awaySince: 0, lastActiveAt: 0 }))
 
-vi.mock('claude-code', () => ({ read: vi.fn(async (_s: unknown, a: { k: { key: string }; v: unknown }) => (a.k.key === 'react' ? CALM_R : a.v)), update: vi.fn(), atom: (k: unknown, v: unknown) => ({ k, v }) }))
+vi.mock('claude-code', () => ({ read: vi.fn(async (_s: unknown, a: { k: { key: string }; v: unknown }) => (a.k.key === 'v1.react' ? CALM_R : a.v)), update: vi.fn(), atom: (k: unknown, v: unknown) => ({ k, v }) }))
 
 import { rt } from '../src/runtime'
 import { tick } from '../src/ticker'

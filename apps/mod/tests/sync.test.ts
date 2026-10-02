@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { answer, bash, end, harness, hatchedStore, nibbl, START, start, TOKEN_A } from './harness.ts'
+import { answer, bash, end, harness, hatchedStore, IMPORT_TOKEN, nibbl, START, start, TOKEN_A } from './harness.ts'
 
 test('turns queue with optimistic xp, a session end sends them, and only a 200 clears them', async ($, on) => {
   const h = harness(on, { store: hatchedStore() })
@@ -175,4 +175,20 @@ test('/nibbl odds and unknown verbs', async ($, on) => {
   expect(odds).toContain('common 40% · uncommon 30% · rare 18% · epic 9% · legendary 3%')
   expect(odds).toMatch(/rarest: .+% odds/)
   expect(await nibbl($, 'dance')).toMatch(/\/nibbl hide/)
+})
+
+test('a sync answer for a pet that was replaced meanwhile leaves the new pet alone', async ($, on) => {
+  const h = harness(on, { store: hatchedStore({ lastSyncAt: START - 150 * 60_000 }) })
+  await start($)
+  const release = h.hold('/api/sync')
+  await answer($)
+  await h.clock.settle()
+  expect(h.syncs()).toHaveLength(1)
+  expect(await nibbl($, `import nibbl1:99:${IMPORT_TOKEN} replace`)).toBe('Pixel #000099 now lives on this machine.')
+  release()
+  await h.clock.settle()
+  const stats = await nibbl($)
+  expect(stats).toMatch(/^Pixel #000099\n/)
+  expect(stats).toMatch(/500 xp/)
+  expect(stats).toMatch(/never synced/)
 })

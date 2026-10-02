@@ -26,8 +26,13 @@ export const rarestLine = (g: Genome): string => {
 export const tierText = (p: { tier: string; shiny: boolean; genesis: boolean }): string =>
   `${p.tier}${p.shiny ? ' · shiny' : ''}${p.genesis ? ' · Genesis' : ''}`
 
-export const titleOf = (p: NibblPetView): string =>
-  p.serial === null ? `${p.name} · syncing` : `${p.name} #${padSerial(p.serial)}${p.label ? ` · ${p.label}` : ''}`
+// A view from an older build can lack the serial field entirely; it draws as syncing, never "#undefined".
+const serialOf = (p: NibblPetView): number | null => (typeof p.serial === 'number' && Number.isInteger(p.serial) ? p.serial : null)
+
+export const titleOf = (p: NibblPetView): string => {
+  const serial = serialOf(p)
+  return serial === null ? `${p.name} · syncing` : `${p.name} #${padSerial(serial)}${p.label ? ` · ${p.label}` : ''}`
+}
 
 export const xpLineOf = (xp: number): string => {
   const lv = levelFromXp(xp)
@@ -47,7 +52,8 @@ export const hudLines = (view: NibblPetView | null, turns: number, r: NibblReact
   }
   const hearts = heartsBar(heartsLeftOf(view, now))
   const status = statusText(lookOf(r, now, tz), now, r.awaySince)
-  const short = view.serial === null ? view.name : `${view.name} #${padSerial(view.serial)}`
+  const serial = serialOf(view)
+  const short = serial === null ? view.name : `${view.name} #${padSerial(serial)}`
   return { title: titleOf(view), xp: xpLineOf(view.xp), hearts, status, compact: `${short} · lvl ${levelFromXp(view.xp).level} ${hearts} · ${status}` }
 }
 
@@ -70,8 +76,9 @@ export const statsText = (view: NibblPetView, g: Genome, now: number, sync: Sync
     `hearts this hour: ${heartsBar(heartsLeftOf(view, now))}`,
     `rarest trait: ${rarestLine(g)}`,
   ]
-  if (view.serial === null) lines.push('not on the server yet: it links on the next hatch call')
-  else lines.push(`card: ${cardUrl(sync.base, view.serial)}`, `leaderboard: ${boardUrl(sync.base, view.serial)}`)
+  const serial = serialOf(view)
+  if (serial === null) lines.push('not on the server yet: it links on the next hatch call')
+  else lines.push(`card: ${cardUrl(sync.base, serial)}`, `leaderboard: ${boardUrl(sync.base, serial)}`)
   const waiting = `${sync.pending} event${sync.pending === 1 ? '' : 's'} waiting`
   lines.push(`sync: ${waiting}, ${sync.lastSyncAt === null ? 'never synced' : `last sync ${utcText(sync.lastSyncAt)}`}`)
   return lines.join('\n')

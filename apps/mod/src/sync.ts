@@ -38,7 +38,14 @@ const send = async ($: EngineInterface, sid: string, pet: ServerPet, now: number
   if (out.kind === 'ok') {
     const { xp, level, heartsLeft } = out.body
     if (!isCount(xp) || !isCount(level) || !isCount(heartsLeft)) return fail($, reason, 'bad_shape', backoff(wait, now))
-    const latest = (await loadPet($)) ?? pet
+    const latest = await loadPet($)
+    if (!latest || latest.serial !== pet.serial) {
+      // An import or a move swapped the pet while this was in flight; they dropped the old pet's
+      // queues, so neither these numbers nor a clear may touch the new one.
+      $.ui.log(`nibbl: sync (${reason}) answer for #${pet.serial} ignored: the pet here changed`, { to: 'debug' })
+      await $.store.delete(K.syncWait)
+      return 'synced'
+    }
     await savePet($, {
       ...latest,
       xp,

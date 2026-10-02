@@ -46,19 +46,63 @@ for (const [machine, hash] of [['linux', LINUX_HASH], ['windows', WINDOWS_HASH]]
   })
 }
 
-test('with no platform id, a random install id is stored and reused', async ($, on) => {
-  const h = harness(on, { machine: 'none', store: hatchedStore({ token: 'Z'.repeat(43) }) })
+test('with no platform id, a fresh egg hatches under a stored install id, which also re-authenticates that pet', { timeoutMs: 20_000 }, async ($, on) => {
+  const h = harness(on, { machine: 'none' })
   await start($)
-  await answer($)
-  await end($)
+  for (let i = 0; i < 10; i++) await answer($)
+  await h.clock.advance(1_500)
+  expect(await nibbl($)).toMatch(/^Nibbl #000042\n/)
   h.server.token = 'D'.repeat(43)
-  await h.clock.advance(61_000)
   await answer($)
   await end($)
   const [first, second] = h.hatches()
   expect(first!.body.machineHash).toMatch(/^[0-9a-f]{64}$/)
   expect(first!.body.machineHash).not.toBe(MACHINE_HASH)
   expect(second!.body.machineHash).toBe(first!.body.machineHash)
+  expect(await nibbl($)).toMatch(/0 events waiting/)
+})
+
+test('the first platform hash is cached and reused when ioreg fails later', { timeoutMs: 20_000 }, async ($, on) => {
+  const h = harness(on)
+  await start($)
+  for (let i = 0; i < 10; i++) await answer($)
+  await h.clock.advance(1_500)
+  expect(h.hatches()).toHaveLength(1)
+  h.host.machine = 'none'
+  h.server.token = 'D'.repeat(43)
+  await answer($)
+  await end($)
+  expect(h.hatches()).toHaveLength(2)
+  expect(h.hatches()[1]!.body).toEqual({ machineHash: MACHINE_HASH })
+  expect(await nibbl($)).toMatch(/0 events waiting/)
+})
+
+test('with no platform id, the spike pet is never adopted under a random install id', { timeoutMs: 20_000 }, async ($, on) => {
+  const h = harness(on, { machine: 'none', store: SPIKE_STORE, pet: BYTE })
+  await start($)
+  await h.clock.settle()
+  await answer($)
+  await h.clock.settle()
+  await h.clock.advance(61_000)
+  await answer($)
+  await h.clock.settle()
+  expect(h.hatches()).toHaveLength(0)
+  expect(h.toasts).toEqual([])
+  const stats = await nibbl($)
+  expect(stats).toMatch(/^Byte · syncing\n/)
+  expect(stats).toMatch(/296 xp/)
+})
+
+test('with no platform id, a 401 never re-hatches a platform-bound pet under an install id', async ($, on) => {
+  const h = harness(on, { machine: 'none', store: hatchedStore({ token: 'Z'.repeat(43) }), pet: { serial: 77 } })
+  await start($)
+  await answer($)
+  await end($)
+  expect(h.calls.map(c => c.path)).toEqual(['/api/sync'])
+  expect(h.toasts.some(t => /another machine/.test(t))).toBe(false)
+  const stats = await nibbl($)
+  expect(stats).toMatch(/^Nibbl #000042\n/)
+  expect(stats).toMatch(/1 event waiting/)
 })
 
 test("the spike's pet keeps living offline and is adopted from the server once it answers", { timeoutMs: 20_000 }, async ($, on) => {

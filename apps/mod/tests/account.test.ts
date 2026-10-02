@@ -160,3 +160,32 @@ test('the export row shows the code of the pet that was exported, not whatever i
   expect(await row.find({ type: 'Text', text: 'engine draws' })).toBeDefined()
   await row.unmount()
 })
+
+test('name, label and import give up on a fetch that never answers instead of hanging', { timeoutMs: 20_000 }, async ($, on) => {
+  const h = harness(on, { store: hatchedStore() })
+  await start($)
+  h.net.hang = true
+  const naming = nibbl($, 'name Pixel')
+  await h.clock.advance(21_000)
+  expect(await naming).toBe('Nibbl is offline right now. Try again later.')
+  const labelling = nibbl($, 'label owl')
+  await h.clock.advance(21_000)
+  expect(await labelling).toBe('Nibbl is offline right now. Try again later.')
+  const importing = nibbl($, `import nibbl1:99:${IMPORT_TOKEN} replace`)
+  await h.clock.advance(21_000)
+  expect(await importing).toBe('Nibbl is offline right now. Try the import again later.')
+  expect(await nibbl($)).toMatch(/^Nibbl #000042\n/)
+})
+
+test('a rename answer for a pet that was replaced meanwhile leaves the new pet alone', async ($, on) => {
+  const h = harness(on, { store: hatchedStore() })
+  await start($)
+  const release = h.hold('/api/name')
+  const naming = nibbl($, 'name Renamed')
+  await h.clock.settle()
+  expect(h.calls.filter(c => c.path === '/api/name')).toHaveLength(1)
+  expect(await nibbl($, `import nibbl1:99:${IMPORT_TOKEN} replace`)).toBe('Pixel #000099 now lives on this machine.')
+  release()
+  await naming
+  expect(await nibbl($)).toMatch(/^Pixel #000099\n/)
+})
