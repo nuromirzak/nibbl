@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { harness, hatchedStore, IMPORT_TOKEN, MACHINE_HASH, nibbl, START, start, TOKEN_A } from './harness.ts'
+import { answer, end, harness, hatchedStore, IMPORT_TOKEN, MACHINE_HASH, nibbl, START, start, TOKEN_A } from './harness.ts'
 
 test('/nibbl name renames on the server and the stats follow', async ($, on) => {
   const h = harness(on, { store: hatchedStore() })
@@ -83,4 +83,80 @@ test('name and export need a hatched pet', async ($, on) => {
   await start($)
   expect(await nibbl($, 'name Pixel')).toBe('Hatch the egg first, then name it.')
   expect(await nibbl($, 'export')).toBe('Nothing to export yet: hatch the egg first.')
+})
+
+test('importing another pet drops the queued events of the old one', async ($, on) => {
+  const h = harness(on, { store: hatchedStore() })
+  await start($)
+  await answer($)
+  expect(await nibbl($, `import nibbl1:99:${IMPORT_TOKEN} replace`)).toBe('Pixel #000099 now lives on this machine.')
+  await end($)
+  expect(h.syncs()).toHaveLength(0)
+})
+
+test('importing the same serial keeps the queue and needs no replace', async ($, on) => {
+  const h = harness(on, { store: hatchedStore({ serial: 99, token: 'Z'.repeat(43) }) })
+  await start($)
+  await answer($)
+  expect(await nibbl($, `import nibbl1:99:${IMPORT_TOKEN}`)).toBe('Pixel #000099 now lives on this machine.')
+  expect(h.calls.filter(c => c.path === '/api/import')).toHaveLength(1)
+  await end($)
+  expect(h.syncs().length).toBeGreaterThan(0)
+})
+
+test('import offline and import errors speak plainly, never raw codes', async ($, on) => {
+  const h = harness(on)
+  await start($)
+  h.net.offline = true
+  expect(await nibbl($, `import nibbl1:99:${IMPORT_TOKEN}`)).toBe('Nibbl is offline right now. Try the import again later.')
+  h.net.offline = false
+  h.respondOnce('/api/import', { status: 400, body: { error: 'bad_request' } })
+  const bad = await nibbl($, `import nibbl1:99:${IMPORT_TOKEN}`)
+  expect(bad).toBe('The server could not use that code. Check that you copied all of it, or export a fresh one.')
+  expect(bad).not.toMatch(/bad_request/)
+  h.respondOnce('/api/import', { status: 429, body: { error: 'rate_limited' } })
+  expect(await nibbl($, `import nibbl1:99:${IMPORT_TOKEN}`)).toBe('The server asked for a pause. Try the import again in a while.')
+  h.respondOnce('/api/import', { status: 500, body: { error: 'boom_internal' } })
+  expect(await nibbl($, `import nibbl1:99:${IMPORT_TOKEN}`)).not.toMatch(/boom_internal/)
+})
+
+test('a pending spike pet is protected from import until replace', async ($, on) => {
+  const h = harness(on, { store: { pet: { seed: 4125214855, tier: 'common', shiny: false, hatchedAt: START - 86_400_000, xp: 290, name: 'Byte' } } })
+  h.net.offline = true
+  await start($)
+  const text = await nibbl($, `import nibbl1:99:${IMPORT_TOKEN}`)
+  expect(text).toMatch(/already has Byte/)
+  expect(text).toMatch(/replace/)
+  h.net.offline = false
+  expect(h.calls.filter(c => c.path === '/api/import')).toHaveLength(0)
+  expect(await nibbl($, `import nibbl1:99:${IMPORT_TOKEN} replace`)).toBe('Pixel #000099 now lives on this machine.')
+})
+
+test('/nibbl name re-authenticates after a 401 and retries once', async ($, on) => {
+  const h = harness(on, { store: hatchedStore({ token: 'Z'.repeat(43) }) })
+  await start($)
+  expect(await nibbl($, 'name Pixel')).toBe('Renamed to Pixel.')
+  expect(h.hatches()).toHaveLength(1)
+  expect(h.calls.filter(c => c.path === '/api/name')).toHaveLength(2)
+})
+
+test('a persistent 401 on name says what happened and does not promise a retry that cannot help', async ($, on) => {
+  const h = harness(on, { store: hatchedStore() })
+  await start($)
+  h.respondOnce('/api/name', { status: 401, body: { error: 'unauthorized' } })
+  h.respondOnce('/api/name', { status: 401, body: { error: 'unauthorized' } })
+  const text = await nibbl($, 'name Pixel')
+  expect(text).toBe("Could not reach your pet's account. Try /nibbl name again later.")
+  expect(text).not.toMatch(/unauthorized/)
+})
+
+test('the export row shows the code of the pet that was exported, not whatever is current', async ($, on) => {
+  harness(on, { store: hatchedStore() })
+  await start($)
+  const text = await nibbl($, 'export')
+  await nibbl($, `import nibbl1:99:${IMPORT_TOKEN} replace`)
+  const row = await $.ui.mount({ plugin: 'nibbl', surface: 'terminal', component: 'CommandOutput', props: { command: 'nibbl', args: 'export', text, isErrored: false } })
+  expect(await row.find({ type: 'Text', text: `nibbl1:99:${IMPORT_TOKEN}` })).toBeUndefined()
+  expect(await row.find({ type: 'Text', text: 'engine draws' })).toBeDefined()
+  await row.unmount()
 })

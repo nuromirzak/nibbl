@@ -5,7 +5,7 @@ import { apiBase, post, type ApiOutcome } from './api'
 import { K, LABEL_MAX, NAME_MAX } from './config'
 import { hatchNow } from './hatch'
 import { machineHash } from './identity'
-import { nameErrorText } from './messages'
+import { importErrorText, nameErrorText } from './messages'
 import { refreshView } from './model'
 import { displayName, fromOwnerView, padSerial, parseCode, type ServerPet } from './pet'
 import { eggAtom } from './state'
@@ -13,6 +13,13 @@ import { dropQueues, forgetSpike, loadPet, loadSpike, savePet } from './store'
 
 // The text of an export row starts with this; the CommandOutput hook draws the code under it.
 export const EXPORT_MARK = 'Export code for '
+
+// The row's text names the exported pet as "#000042"; the render hook reads the serial back from it,
+// so the code drawn is the one exported even if the current pet changed since.
+export const exportSerialOf = (text: string): number | null => {
+  const m = /^Export code for [^#]* #(\d{6}) /.exec(text)
+  return m ? Number(m[1]) : null
+}
 
 const textOrNull = (v: unknown): string | null => (typeof v === 'string' && v.length > 0 ? v : null)
 
@@ -34,6 +41,7 @@ export const nameCommand = async ($: EngineInterface, field: 'name' | 'label', t
     if (fresh) out = await call(fresh)
   }
   if (out.kind === 'offline') return 'Nibbl is offline right now. Try again later.'
+  if (out.kind === 'error' && out.status === 401) return `Could not reach your pet's account. Try /nibbl ${field} again later.`
   if (out.kind === 'error') return nameErrorText(field, out.code, out.retryAt, await $.clock.now())
   const name = textOrNull(out.body.name)
   const label = textOrNull(out.body.label)
@@ -58,11 +66,15 @@ export const importCommand = async ($: EngineInterface, rest: string): Promise<s
   if (old && old.serial !== code.serial && flag !== 'replace') {
     return `This machine already has ${displayName(old.name)} #${padSerial(old.serial)}. Run /nibbl export first and keep its code, then /nibbl import <code> replace.`
   }
+  const spike = old ? null : await loadSpike($)
+  if (spike && flag !== 'replace') {
+    return `This machine already has ${displayName(spike.name)}, still linking to the server. Importing would replace it: run /nibbl import <code> replace if you are sure.`
+  }
   const now = await $.clock.now()
   const out = await post($, await apiBase($), '/api/import', { serial: code.serial, token: code.token, machineHash: await machineHash($) })
   if (out.kind === 'offline') return 'Nibbl is offline right now. Try the import again later.'
   if (out.kind === 'error') {
-    return out.status === 401 ? 'The server did not accept that code. Check it, or export a fresh one on the other machine.' : `Import failed: ${out.code}.`
+    return importErrorText(out.status)
   }
   const pet = fromOwnerView(out.body, code.token, now)
   if (!pet) return 'Import failed: the server answered something unexpected.'

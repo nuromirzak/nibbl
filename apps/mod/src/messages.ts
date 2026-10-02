@@ -21,3 +21,11 @@ export const nameErrorText = (field: 'name' | 'label', code: string, retryAt: nu
   }
   return `The server answered ${code}. Try again later.`
 }
+
+// Import answers 401 for a wrong serial/token; raw server codes are never shown.
+export const importErrorText = (status: number): string => {
+  if (status === 401) return 'The server did not accept that code. Check it, or export a fresh one on the other machine.'
+  if (status === 400) return 'The server could not use that code. Check that you copied all of it, or export a fresh one.'
+  if (status === 429) return 'The server asked for a pause. Try the import again in a while.'
+  return 'The server could not finish the import. Try again later.'
+}

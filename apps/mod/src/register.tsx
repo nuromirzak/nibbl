@@ -1,7 +1,7 @@
 import { read } from 'claude-code'
 import type { Register } from 'claude-code'
 
-import { EXPORT_MARK } from './account'
+import { EXPORT_MARK, exportSerialOf } from './account'
 import { runCommand } from './commands'
 import { MIN_FULL_COLUMNS, MIN_FULL_ROWS, SESSION_END_WAIT_MS } from './config'
 import { petPressed, react, toolFinished } from './events'
@@ -135,7 +135,7 @@ export const register: Register = (on, options) => {
   on('ui.render', { component: 'CommandOutput', props: { command: 'nibbl' } }, async ($, e, next) => {
     if (!e.props.text.startsWith(EXPORT_MARK)) return next(e)
     const pet = await loadPet($)
-    if (!pet) return next(e)
+    if (!pet || pet.serial !== exportSerialOf(e.props.text)) return next(e)
     const { Box, Text } = $.ui.resolve(e)
     return (
       <Box flexDirection="column">
@@ -145,5 +145,5 @@ export const register: Register = (on, options) => {
         </Text>
       </Box>
     )
-  })
+  }).catch(($, e, next) => next(e))
 }
