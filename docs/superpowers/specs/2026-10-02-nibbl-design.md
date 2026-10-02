@@ -71,14 +71,16 @@ web → GET /leaderboard (cached), GET /p/:serial (card page + OG image)
 |---|---|---|
 | Common | 40% | base palettes, no hat |
 | Uncommon | 30% | + uncommon patterns |
-| Rare | 18% | + rare palettes, eyes |
-| Epic | 9% | + epic accessories |
-| Legendary | 3% | + legendary palettes, animated aura |
-| Shiny | 4%, independent | alternate palette ramp per family |
+| Rare | 18% | + rare palettes, eyes, horns |
+| Epic | 9% | + epic patterns, bow hat |
+| Legendary | 3% | + legendary palettes, crown hat, animated aura |
+| Shiny | 4%, independent | dedicated shiny ramp per palette, corner sparkle, scene twinkle |
 
 Legendary shiny is about 1 in 830. Odds are public in the README, on the landing and via `/nibbl odds`.
 
-**Rare-trait guarantee:** every genome has at least one trait whose theoretical probability is below 5%. At hatch the mod shows it: "Pattern *constellation*: 0.7% odds" (base odds, not a population count). The percentage is computed from the generator's own distributions, so it needs no population data.
+**Rare-trait guarantee:** every genome has at least one trait whose theoretical probability is below 5%. Every pet rolls a **mark**: a 1-3 pixel motif (dot, star, heart, scar, sparkle, swirl) at one spot (left cheek, right cheek, forehead, belly), both drawn uniformly, so each of the 24 marks has odds of exactly 1/24 (4.17%). No gene is ever rewritten after the roll. At hatch the mod shows the rarest trait: "Pattern *constellation*: 0.7% odds" or "Mark *star on forehead*: 4.17% odds".
+
+**Honest odds:** `traitOdds` reports the exact probability of each final gene value, compatibility rules included (sprout always has a leaf, a hat clears ears and horns). Genes are independent given the tier, so each value's odds are the sum over tiers of P(tier) × P(value | tier), computed analytically from the generator's own pools. A 200 000-roll property test checks every reported value against its observed frequency.
 
 ### 4.3 Sprite anatomy (pet ≤16×16, bottom to top)
 1. Shadow (1 px ellipse)
@@ -89,11 +91,12 @@ Legendary shiny is about 1 in 830. Odds are public in the README, on the landing
 6. Eyes: shape gene × expression
 7. Mouth: expression
 8. Blush: on or off
-9. Head: ears, horns, antenna, leaf
-10. Hat: rarity tier only
-11. Aura or shiny sparkle: drawn in code
+9. Mark: 1-3 pixels in a color outside the pet's ramp, clipped to the body, never on eye pixels
+10. Head: ears, horns (rare and up), leaf
+11. Hat: epic gets a bow, legendary a crown; common, uncommon and rare have none
+12. Aura or shiny sparkle: drawn in code (shiny: a 2-pixel sparkle in the top-right corner of the 16×16, clear of the outline, plus a frame-based twinkle in the scene)
 
-**Compatibility rules** live in `core` (e.g. sprout has no ears; belly never overlaps eyes). The spike showed that unconstrained genes produce ugly pets.
+**Compatibility rules** live in `core` (e.g. sprout has no ears; belly never overlaps eyes; a non-sprout pet with a hat has no head part; the leaf is skipped under a hat). Pattern placement is seeded by the keyed `patternVariant` gene (0..15) and retries until spots and stars land on the body, off the face and the mark. The spike showed that unconstrained genes produce ugly pets.
 
 MVP content: 3 families (mochi, critter, sprout), 6+ palettes plus shiny ramps, 4+ patterns, 4+ eye shapes, 4+ head parts.
 
@@ -194,8 +197,9 @@ Interactions stay below ~20% of a heavy user's hourly XP. Over the cap the pet s
 | GET | `/stats` | `{hatched}` for the live counter |
 
 ### 6.2 Roll
-- `seed = HMAC-SHA256(ROLL_SECRET, machineHash)` truncated to 32 bits; tier and shiny come from separate HMAC outputs.
-- Genome key = `core.genomeKey(genome)`. On collision, re-derive with `HMAC(ROLL_SECRET, machineHash + ":" + n)` until unique.
+- `core.rollFromBytes(HMAC-SHA256(ROLL_SECRET, machineHash))` reads big-endian uint32 words: offset 0 is the seed, offset 4 the tier roll, offset 8 the shiny roll (at least 12 bytes, else it throws).
+- Uniqueness is checked on two keys: `core.genomeKey(genome)` (every keyed gene, including mark and, when there is a pattern, `patternVariant`) and `core.visualKey(genome)` (hash of the adult idle frame), so no two pets look the same even if their genes differ.
+- The server keeps the tier and shiny of the first roll and builds candidates from the seeds of `HMAC(ROLL_SECRET, machineHash + ":" + n)` for n = 0..15, queries D1 once with `IN (...)` on both key columns, then calls `core.pickUnique(candidates, isTakenKey, isTakenVisual)`, which returns the first candidate free on both. A simulation of 100 000 sequential hatches finds a free candidate every time.
 - Serial = next value of a counter, zero-padded to 6 digits.
 - Genesis = `hatchedAt < LAUNCH_AT + 30 days`.
 - Rate limit: 1 new hatch per IP per 24 h (an existing `machineHash` always succeeds).
@@ -216,6 +220,7 @@ CREATE TABLE pets (
   token_hash   TEXT NOT NULL,
   seed         INTEGER NOT NULL,
   genome_key   TEXT UNIQUE NOT NULL,
+  visual_key   TEXT UNIQUE NOT NULL,
   tier         TEXT NOT NULL,
   shiny        INTEGER NOT NULL,
   genesis      INTEGER NOT NULL,
