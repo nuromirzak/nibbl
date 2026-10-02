@@ -23,3 +23,6 @@ A pet needs a stable identity, but login adds friction before the first egg.
 ## Consequences
 - Anyone holding the export code owns the pet; treat it as a secret.
 - If `ioreg` or SHA-256 is unavailable in the runtime, fall back per spec section 10.
+
+## Update 2026-10-02
+New hatches are limited to 100 per IP per UTC day (IPv6 per /64), replacing 1 per IP per 24 h, so a team behind one NAT can all hatch. The limit resets at UTC midnight; re-hatching a known `machineHash` never counts and is capped at once per 60 s per pet. Owner decision.
