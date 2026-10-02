@@ -4,4 +4,4 @@ exports[`drawPet > draws the same pixels on every runtime (fixed hashes) 1`] = `
 
 exports[`drawPet > draws the same pixels on every runtime (fixed hashes) 2`] = `"9be8c715"`;
 
-exports[`drawPet > draws the same pixels on every runtime (fixed hashes) 3`] = `"c0222e7a"`;
+exports[`drawPet > draws the same pixels on every runtime (fixed hashes) 3`] = `"2d4fa6eb"`;

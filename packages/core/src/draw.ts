@@ -138,8 +138,10 @@ export const drawPet = (g: Genome, stage: Stage, expression: Expression): Grid =
   }
 
   const face = (x: number, y: number, color: number) => setCell(px, x, y, color)
-  for (const sx of [5, 10]) {
-    const out = sx === 5 ? -1 : 1
+  // Baby bodies are 6 wide, so the face is pulled in by one column to stay inside the silhouette.
+  const inset = stage === 'baby' ? 1 : 0
+  for (const sx of [5 + inset, 10 - inset]) {
+    const out = sx < 8 ? -1 : 1
     if (expression === 'blink' || expression === 'sleep') {
       face(sx, ey + 1, C.ink)
       face(sx + out, ey + 1, C.ink)
@@ -174,13 +176,13 @@ export const drawPet = (g: Genome, stage: Stage, expression: Expression): Grid =
   }
 
   if (g.pattern === 'freckles') {
-    face(4, ey + 1, shade)
-    face(11, ey + 1, shade)
+    face(4 + inset, ey + 1, shade)
+    face(11 - inset, ey + 1, shade)
   }
   if (g.blush) {
     const blush = g.ramp === 'jam' ? C.plum : C.red
-    face(4, ey + 2, blush)
-    face(11, ey + 2, blush)
+    face(4 + inset, ey + 2, blush)
+    face(11 - inset, ey + 2, blush)
   }
 
   if (expression === 'happy') {
