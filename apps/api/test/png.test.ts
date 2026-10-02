@@ -54,6 +54,7 @@ describe('GET /p/:serial.png', () => {
     expect(res.status).toBe(200)
     expect(res.headers.get('content-type')).toBe('image/png')
     expect(res.headers.get('cache-control')).toBe('public, max-age=300')
+    expect(res.headers.get('x-content-type-options')).toBe('nosniff')
     const png = new Uint8Array(await res.arrayBuffer())
     expect([...png.subarray(0, 8)]).toEqual(SIGNATURE)
     const cs = chunks(png)

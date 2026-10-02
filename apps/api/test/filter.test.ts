@@ -8,7 +8,7 @@ const reason = (s: unknown, max = NAME_MAX) => {
 
 describe('checkText', () => {
   it('accepts normal names in English and Russian', () => {
-    for (const s of ['Byte', 'Mochi', 'Пиксель', 'night coder', 'R2-D2', "Rune's pet", 'Kernel #2', 'Mr.Bean']) expect(reason(s, LABEL_MAX)).toBe('ok')
+    for (const s of ['Byte', 'Mochi', 'Пиксель', 'night coder', 'R2-D2', "Rune's pet", 'Kernel #two', 'Mr.Bean']) expect(reason(s, LABEL_MAX)).toBe('ok')
   })
 
   it('keeps clean words that contain short roots', () => {
@@ -43,6 +43,33 @@ describe('checkText', () => {
     for (const s of ['a\u0007b', 'a​b', '‮Byte', 'á́́', 'Byte<script>', 'emoji 🐛', 'a/b', 'a:b']) {
       expect(reason(s)).toBe('invalid_chars')
     }
+  })
+
+  it('rejects # followed by a digit, so nobody can pose as another serial', () => {
+    for (const s of ['Byte #000001', 'Kernel #2', '#1', 'a #９']) expect(reason(s, LABEL_MAX)).toBe('invalid_chars')
+    for (const s of ['#one', 'C# dev', 'Byte 2']) expect(reason(s, LABEL_MAX)).toBe('ok')
+  })
+
+  it('collapses runs of 3+ identical letters before the blocklist', () => {
+    for (const s of ['fuuuck', 'shiiiit', 'cuuuunt', 'Сууука', 'fuuuuuuck you']) expect(reason(s, LABEL_MAX)).toBe('blocked')
+    for (const s of ['awwww', 'Sooo cool', 'zzz']) expect(reason(s, LABEL_MAX)).toBe('ok')
+  })
+
+  it('blocks the slurs and roots added after review', () => {
+    for (const s of ['kike', 'chink', 'fag', 'dick', 'cock', 'rape', 'rapes', 'пидрила', 'phuck', 'big dick', 'xуевый']) {
+      expect(reason(s, LABEL_MAX), s).toBe('blocked')
+    }
+  })
+
+  it('anchors the short new roots so clean words pass', () => {
+    for (const s of ['Grape', 'Drapes', 'Peacock', 'Haddock', 'Benedick', 'Cockpit', 'Dickens', 'Rapeseed', 'Strafag']) {
+      expect(reason(s, LABEL_MAX), s).toBe('ok')
+    }
+  })
+
+  it('keeps Russian words that only contain a root', () => {
+    for (const s of ['Страхуем', 'Психуешь', 'Сукачев', 'Сукачёв', 'Matsushita']) expect(reason(s, LABEL_MAX), s).toBe('ok')
+    for (const s of ['хуево', 'Хуею']) expect(reason(s, LABEL_MAX), s).toBe('blocked')
   })
 
   it('rejects URLs', () => {

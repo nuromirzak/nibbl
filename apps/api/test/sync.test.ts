@@ -69,7 +69,9 @@ describe('POST /api/sync', () => {
     expect(body.xp).toBe(0)
   })
 
-  it('replays after prune: resent events never add XP twice', async () => {
+  // Only at-cap replays are safe: a below-cap resend can count twice, because windows hold counts,
+  // not event ids. The mod must clear sent events only after a 200.
+  it('resent events add nothing once their hour is at the cap, before and after prune', async () => {
     const pet = await hatchPet(1)
     const pets = ev('pet', T0 + 30 * MIN, 5)
     expect(((await (await sync(pet, pets, T0 + 40 * MIN)).json()) as { xp: number }).xp).toBe(10)

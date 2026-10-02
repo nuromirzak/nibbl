@@ -135,6 +135,34 @@ describe('POST /api/hatch', () => {
     expect(outside.genesis).toBe(false)
   })
 
+  it('returns the pet a concurrent same-IP hatch just created instead of a 429', async () => {
+    await fillIp('192.0.2.10', T0)
+    // Simulates the other request: the pet appears while this one checks the IP count.
+    const racing = new Proxy(testEnv.DB, {
+      get(target, prop) {
+        if (prop === 'prepare') {
+          return (sql: string) => {
+            const stmt = target.prepare(sql)
+            if (!sql.startsWith('SELECT count FROM hatch_ip')) return stmt
+            return {
+              bind: (...args: unknown[]) => ({
+                first: async (col: string) => {
+                  await insertPet({ serial: 900, machine_hash: machine(5) })
+                  return stmt.bind(...args).first(col)
+                },
+              }),
+            }
+          }
+        }
+        const value = Reflect.get(target, prop, target)
+        return typeof value === 'function' ? value.bind(target) : value
+      },
+    }) as D1Database
+    const res = await hatchRaw(5, '192.0.2.10', T0 + 1000, { DB: racing })
+    expect(res.status).toBe(200)
+    expect(((await res.json()) as HatchResult).serial).toBe(900)
+  })
+
   it('handles concurrent hatches of one machine', async () => {
     const [a, b] = await Promise.all([hatchRaw(1, '192.0.2.1'), hatchRaw(1, '192.0.2.2')])
     expect(a.status).toBe(200)

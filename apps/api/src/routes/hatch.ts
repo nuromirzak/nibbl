@@ -81,7 +81,14 @@ export const hatch = async (request: Request, env: Env, deps: Deps): Promise<Res
     const existing = await petByMachine(env.DB, machineHash)
     if (existing) return json(await reissue(env.DB, existing, now))
     const ipHash = await ipDayHash(env.IP_SALT, ipBucket(request.headers.get('cf-connecting-ip') ?? 'unknown'), now)
-    await assertIpAllowed(env.DB, ipHash, now)
+    try {
+      await assertIpAllowed(env.DB, ipHash, now)
+    } catch (err) {
+      // A concurrent hatch of this same machine from this IP may have just used the last slot.
+      const raced = err instanceof HttpError && err.status === 429 ? await petByMachine(env.DB, machineHash) : null
+      if (raced) return json(await reissue(env.DB, raced, now))
+      throw err
+    }
     const g = await pickGenome(env, machineHash)
     const token = randomToken()
     const genesis = now < launchAt + GENESIS_MS

@@ -2,6 +2,9 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   // One Worker serves the landing (static assets), /api/* and /p/* on one host.
   "name": "nibbl-pet",
+  // The owner's personal Cloudflare account (Nur.omirzaq@gmail.com). The owner's wrangler login
+  // also sees another account; pinning the id means no command can silently target it.
+  "account_id": "42544c84ffaa32a531766a26562c080d",
   "main": "src/index.ts",
   // Pinned to the workerd bundled with @cloudflare/vitest-pool-workers 0.22; bump both together.
   "compatibility_date": "2026-08-15",

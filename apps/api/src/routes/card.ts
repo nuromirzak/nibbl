@@ -155,7 +155,7 @@ export const card = async (request: Request, env: Env): Promise<Response> => {
   if (match[2] === '.png') {
     const scene = drawScene(view.genome, { stage: view.stage, petX: CENTER_X })
     return new Response(await renderGridPng(scene, OG_SCALE, OG_W, OG_H, NIGHT), {
-      headers: { 'content-type': 'image/png', 'cache-control': 'public, max-age=300' },
+      headers: { 'content-type': 'image/png', 'cache-control': 'public, max-age=300', 'x-content-type-options': 'nosniff' },
     })
   }
   return new Response(cardHtml(view, url.origin), { headers: HTML_HEADERS })
