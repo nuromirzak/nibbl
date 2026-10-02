@@ -1,6 +1,7 @@
 import { read } from 'claude-code'
 import type { Register } from 'claude-code'
 
+import { EXPORT_MARK } from './account'
 import { runCommand } from './commands'
 import { MIN_FULL_COLUMNS, MIN_FULL_ROWS, SESSION_END_WAIT_MS } from './config'
 import { petPressed, react, toolFinished } from './events'
@@ -9,8 +10,10 @@ import { onAnsweredTurn, start } from './lifecycle'
 import { ensureLoaded } from './model'
 import { onActive, onTurnEnd, onTurnStart } from './reactions'
 import { rt, withTimeout } from './runtime'
+import { exportCode } from './pet'
 import { frameOf } from './scene'
 import { eggAtom, hiddenAtom, petAtom, reactAtom, tzAtom } from './state'
+import { loadPet } from './store'
 import { syncNow } from './sync'
 
 export const register: Register = (on, options) => {
@@ -127,4 +130,20 @@ export const register: Register = (on, options) => {
       </Box>
     )
   }).catch(($, e, next) => next(e))
+
+  // The export row: the model reads the text without the token; the person sees the code under it.
+  on('ui.render', { component: 'CommandOutput', props: { command: 'nibbl' } }, async ($, e, next) => {
+    if (!e.props.text.startsWith(EXPORT_MARK)) return next(e)
+    const pet = await loadPet($)
+    if (!pet) return next(e)
+    const { Box, Text } = $.ui.resolve(e)
+    return (
+      <Box flexDirection="column">
+        <Text>{e.props.text}</Text>
+        <Text color="#ffcd75" bold>
+          {exportCode(pet)}
+        </Text>
+      </Box>
+    )
+  })
 }

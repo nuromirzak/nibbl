@@ -1,6 +1,7 @@
 import { read, update } from 'claude-code'
 import type { EngineInterface } from 'claude-code'
 
+import { exportCommand, importCommand, nameCommand } from './account'
 import { apiBase } from './api'
 import { K } from './config'
 import { recordEvent } from './events'
@@ -40,9 +41,13 @@ const hideCommand = async ($: EngineInterface): Promise<string> => {
 
 export const runCommand = async ($: EngineInterface, args: string): Promise<string> => {
   await ensureLoaded($)
-  const { verb } = splitArgs(args)
+  const { verb, rest } = splitArgs(args)
   if (verb === '') return statsCommand($)
   if (verb === 'odds') return oddsCommand($)
   if (verb === 'hide') return hideCommand($)
+  if (verb === 'name') return nameCommand($, 'name', rest)
+  if (verb === 'label') return nameCommand($, 'label', rest)
+  if (verb === 'export') return exportCommand($)
+  if (verb === 'import') return importCommand($, rest)
   return HELP
 }
