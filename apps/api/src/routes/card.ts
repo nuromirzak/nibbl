@@ -101,8 +101,8 @@ export const cardHtml = (v: CardView, origin: string): string => {
 :root{--night:#0f111a;--ink:#1a1c2c;--shell:#f4ead5;--accent:#ef7d57;--slate:#566c86;--white:#f4f4f4;--tier:${RARITY[v.genome.tier]}}
 *{box-sizing:border-box;margin:0}
 body{background:var(--night);color:var(--white);font:400 15px/1.6 'JetBrains Mono',monospace;min-height:100vh;display:grid;place-items:center;padding:24px 16px}
-.card{width:100%;max-width:520px;background:var(--shell);color:var(--ink);border:4px solid var(--ink);box-shadow:4px 4px 0 var(--accent);padding:24px}
-.screen{background:var(--ink);padding:12px;margin-bottom:20px}
+.card{width:100%;max-width:520px;background:var(--shell);color:var(--ink);border:4px solid var(--ink);box-shadow:4px 4px 0 var(--accent);padding:24px;clip-path:polygon(0 8px,4px 8px,4px 4px,8px 4px,8px 0,calc(100% - 8px) 0,calc(100% - 8px) 4px,calc(100% - 4px) 4px,calc(100% - 4px) 8px,100% 8px,100% calc(100% - 8px),calc(100% - 4px) calc(100% - 8px),calc(100% - 4px) calc(100% - 4px),calc(100% - 8px) calc(100% - 4px),calc(100% - 8px) 100%,8px 100%,8px calc(100% - 4px),4px calc(100% - 4px),4px calc(100% - 8px),0 calc(100% - 8px))}
+.screen{background:#c5d1a5;padding:12px;margin-bottom:20px}
 .screen svg{display:block;width:100%;height:auto;image-rendering:pixelated}
 h1{font:700 40px/1.1 'Pixelify Sans',monospace;overflow-wrap:anywhere}
 .serial{color:var(--slate)}
@@ -148,7 +148,7 @@ export const card = async (request: Request, env: Env): Promise<Response> => {
   if (match[2] === '/badge.svg') {
     const text = `${view.title} · lvl ${view.level}`
     return new Response(badgeSvg(drawPet(view.genome, view.stage, 'idle'), text), {
-      headers: { 'content-type': 'image/svg+xml; charset=utf-8', 'cache-control': 'public, max-age=300', 'x-content-type-options': 'nosniff' },
+      headers: { 'content-type': 'image/svg+xml; charset=utf-8', 'cache-control': 'public, max-age=300', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'" },
     })
   }
   // The .png branch arrives in Task 10; until then it must not answer with the HTML card.

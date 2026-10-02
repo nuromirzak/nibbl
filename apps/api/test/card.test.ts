@@ -1,4 +1,4 @@
-import { drawPet, genome, levelFromXp } from '@nibbl/core'
+import { drawPet, SWEETIE, genome, levelFromXp } from '@nibbl/core'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { badgeSvg, gridRects } from '../src/lib/svg'
 import { call, insertPet, ORIGIN, resetDb } from './helpers'
@@ -67,6 +67,19 @@ describe('GET /p/:serial/badge.svg', () => {
     const svg = await res.text()
     expect(svg).toContain(`Byte #000042 · lvl ${byte.level}`)
     expect(svg).toContain('shape-rendering="crispEdges"')
+    expect(res.headers.get('content-security-policy')).toBe("default-src 'none'; style-src 'unsafe-inline'")
+  })
+
+  it('uses a background that differs from the pet outline color', async () => {
+    await insertPet(byte)
+    const svg = await (await call('/p/42/badge.svg')).text()
+    const bg = /<rect width="\d+" height="\d+" fill="(#[0-9a-f]{6})"/.exec(svg)?.[1]
+    expect(bg).toBe('#c5d1a5')
+    expect(bg).not.toBe(SWEETIE[0])
+    const html = await (await call('/p/42')).text()
+    expect(html).toContain('.screen{background:#c5d1a5;')
+    expect(html).toContain('clip-path:polygon(')
+    expect(html).not.toContain('border-radius')
   })
 
   it('stays under 20 KB for the busiest sprites and longest text', () => {

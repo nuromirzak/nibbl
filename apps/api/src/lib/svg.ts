@@ -30,6 +30,8 @@ export const gridSvg = (grid: Grid, scale: number, title: string): string => {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" shape-rendering="crispEdges" role="img" aria-label="${escapeXml(title)}">${gridRects(grid, scale)}</svg>`
 }
 
+// Brand LCD green. Must differ from palette index 0 (#1a1c2c), the pet outline color.
+export const LCD = '#c5d1a5'
 export const BADGE_H = 36
 const BADGE_TEXT_X = 40
 const CHAR_W = 7.3
@@ -37,5 +39,5 @@ const CHAR_W = 7.3
 export const badgeSvg = (pet: Grid, text: string): string => {
   const width = BADGE_TEXT_X + Math.ceil([...text].length * CHAR_W) + 10
   const safe = escapeXml(text)
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${BADGE_H}" viewBox="0 0 ${width} ${BADGE_H}" shape-rendering="crispEdges" role="img" aria-label="${safe}"><rect width="${width}" height="${BADGE_H}" fill="#1a1c2c"/>${gridRects(pet, 2, 2, 2)}<text x="${BADGE_TEXT_X}" y="23" fill="#f4f4f4" font-family="'JetBrains Mono',Menlo,Consolas,monospace" font-size="12">${safe}</text></svg>`
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${BADGE_H}" viewBox="0 0 ${width} ${BADGE_H}" shape-rendering="crispEdges" role="img" aria-label="${safe}"><rect width="${width}" height="${BADGE_H}" fill="${LCD}"/>${gridRects(pet, 2, 2, 2)}<text x="${BADGE_TEXT_X}" y="23" fill="#1a1c2c" font-family="'JetBrains Mono',Menlo,Consolas,monospace" font-size="12">${safe}</text></svg>`
 }
