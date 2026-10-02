@@ -1,0 +1,7 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`drawPet > draws the same pixels on every runtime (fixed hashes) 1`] = `"2f9fc7ef"`;
+
+exports[`drawPet > draws the same pixels on every runtime (fixed hashes) 2`] = `"014484d7"`;
+
+exports[`drawPet > draws the same pixels on every runtime (fixed hashes) 3`] = `"482b2115"`;
