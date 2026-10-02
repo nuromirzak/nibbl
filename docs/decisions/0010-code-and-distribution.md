@@ -24,3 +24,7 @@ Precedent: Figma and Slack plugins are thin clients with closed servers; the Ver
 ## Update 2026-10-02
 
 The source repo lives at github.com/nuromirzak/nibbl and stays **private**. The owner considered making it public and declined: the decision log, the seeded bots (0009) and the launch playbook (docs/virality.md) are internal. Revisit before launch.
+
+## Update 2026-10-02 (2)
+
+The owner made the repo **public and open source under MIT** (github.com/nuromirzak/nibbl). Seeded bots stay unlabeled (decision 0009); the owner accepts that the code reveals them. The plugin is still distributed from getnibbl.pages.dev (marketplace.json + archive), not from the repo.

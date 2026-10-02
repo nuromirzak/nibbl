@@ -9,7 +9,7 @@
 <p align="center">
   <a href="https://github.com/nuromirzak/nibbl/stargazers"><img src="https://img.shields.io/github/stars/nuromirzak/nibbl?style=flat-square&color=ef7d57&labelColor=1a1c2c" alt="GitHub stars"></a>
   <a href="https://github.com/nuromirzak/nibbl/releases"><img src="https://img.shields.io/github/v/release/nuromirzak/nibbl?style=flat-square&color=a7f070&labelColor=1a1c2c&label=version" alt="Latest version"></a>
-  <img src="https://img.shields.io/badge/license-All%20rights%20reserved-566c86?style=flat-square&labelColor=1a1c2c" alt="License: All rights reserved">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-566c86?style=flat-square&labelColor=1a1c2c" alt="License: MIT"></a>
   <a href="https://docs.claude.com/en/docs/claude-code"><img src="https://img.shields.io/badge/made%20for-Claude%20Code-ef7d57?style=flat-square&labelColor=1a1c2c" alt="Made for Claude Code"></a>
   <img src="https://hits.sh/github.com/nuromirzak/nibbl.svg?style=flat-square&label=views&color=41a6f6&labelColor=1a1c2c" alt="Repo views">
 </p>
@@ -23,14 +23,16 @@ Inside Claude Code:
 /plugin install nibbl@nibbl
 ```
 
-Requires Claude Code 2.1.224 or later. That is it. No account, no login, no API key. An egg appears above your prompt and hatches after 10 turns of real work.
+Requires Claude Code 2.1.224 or later. That is it. No account, no login, no API key. An egg appears above your prompt and hatches after a few turns of real work.
+
+> **Early preview.** `0.0.1` is local only: your pet lives on your machine and does not sync yet. Sync, the leaderboard, `/nibbl export` and `/nibbl odds` arrive in `0.1`. Pets hatched now carry over.
 
 <!-- TODO before launch (spec §9.2): if function hooks still need CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1, put that on the first line of this section. -->
 
 ## What it does
 
-- **Hatches from your work.** An egg sits above the prompt and cracks open after 10 turns. Every nibbl gets a unique genome and a serial number like `#000042`.
-- **Reacts to what really happens.** A failed tool call drops a bug on the scene. Passing tests? It eats the bug. A commit? It carries a box. 2am? Nightcap and yawns.
+- **Hatches from your work.** An egg sits above the prompt and cracks open after a few turns of real work. Every nibbl gets a unique genome and a serial number like `#000042`.
+- **Reacts to what really happens.** A failed tool call drops a bug on the scene. Passing tests? It eats the bug. The rest you discover yourself.
 - **Grows over months.** XP comes from turns, green checks and commits. Each stage looks different, and you only find out what comes next by getting there.
 - **Costs nothing.** Zero model tokens, never blocks you, works offline. A nibbl never dies.
 
@@ -79,7 +81,7 @@ What leaves your machine, and nothing else:
 
 - **No code, prompts, file names, commands or outputs** are ever sent. The mod sees a test passed, not what the test was.
 - **Zero model tokens.** Reactions are plain code, not model calls.
-- Your IP address is visible to Cloudflare like any web request; the API keeps only a hash of it, for a 1-hatch-per-day rate limit.
+- Your IP address is visible to Cloudflare like any web request; the API keeps only a hash of it, for a per-day hatch limit.
 - Sync runs every 2-3 hours and at session end. Offline, the pet keeps living and events wait in a local queue.
 
 ## FAQ
@@ -96,29 +98,35 @@ Never. The worst it gets is bored or asleep, and a bit of work fixes that. Time 
 **Can I move it to another laptop?**
 Yes. Run `/nibbl export` on the old machine to get a code like `nibbl1:<serial>:<token>`, then `/nibbl import <code>` on the new one. Keep the code private, it is your pet's key.
 
-**Why is the code a bundle?**
-Nibbl is built in a private monorepo. This repo ships one readable (not minified, not obfuscated) ES module, so you can read exactly what runs on your machine before you install it. The license is "All rights reserved": read it, run it, do not repackage it.
+**Is it open source?**
+Yes, MIT. The pixel generator (`packages/core`), the Claude Code mod and the Cloudflare backend (`apps/api`) are all in this repo, so you can read exactly what runs on your machine and what the server does with it.
 
 **Can I reroll?**
 No. One roll per machine, forever, and nothing is for sale. That is what makes your nibbl yours.
 
 ## Show your nibbl
 
-Every nibbl has a public card page at `https://getnibbl.pages.dev/p/<serial>`. Run `/nibbl` to get yours. Sharing is always your choice; the mod never posts anything for you.
+Every nibbl has a public card page at `https://getnibbl.pages.dev/p/<serial>`, and a rank on the [leaderboard](https://getnibbl.pages.dev/leaderboard). Run `/nibbl` to get yours. Sharing is always your choice; the mod never posts anything for you.
 
-To show it on your GitHub profile README, paste this and replace `000042` with your serial (the image URL goes live with the v1 API):
-
-```markdown
-[![My nibbl](https://getnibbl.pages.dev/p/000042.png)](https://getnibbl.pages.dev/p/000042)
-```
-
-A compact pixel badge ships with the v1 API too. It looks like this:
-
-<p><img src="docs/assets/badge-example.svg" alt="Example nibbl badge: Byte #000042 · lvl 7"></p>
+To show it on your GitHub profile README, paste this and replace `000013` with your serial:
 
 ```markdown
-[![My nibbl](https://getnibbl.pages.dev/p/000042/badge.svg)](https://getnibbl.pages.dev/p/000042)
+[![My nibbl](https://getnibbl.pages.dev/p/000013.png)](https://getnibbl.pages.dev/p/000013)
 ```
+
+Or the compact pixel badge, live:
+
+<p><a href="https://getnibbl.pages.dev/p/000013"><img src="https://getnibbl.pages.dev/p/000013/badge.svg" alt="A live nibbl badge"></a></p>
+
+```markdown
+[![My nibbl](https://getnibbl.pages.dev/p/000013/badge.svg)](https://getnibbl.pages.dev/p/000013)
+```
+
+## Contributing
+
+Ideas for new species, reactions or a better art pass are welcome: open an issue first so we can keep the art consistent. `pnpm test` runs every suite; `pnpm assets` regenerates the GIFs from the real generator.
+
+If nibbl made you smile, a star helps other Claude Code users find it.
 
 ## Star history
 
@@ -133,5 +141,5 @@ A compact pixel badge ships with the v1 API too. It looks like this:
 
 <p align="center">
   <a href="https://getnibbl.pages.dev">getnibbl.pages.dev</a> · made for <a href="https://docs.claude.com/en/docs/claude-code">Claude Code</a> · not affiliated with Anthropic<br>
-  Pet palette: <a href="https://lospec.com/palette-list/sweetie-16">Sweetie 16</a> by GrafxKid · © Nibbl, all rights reserved
+  Pet palette: <a href="https://lospec.com/palette-list/sweetie-16">Sweetie 16</a> by GrafxKid · MIT licensed
 </p>

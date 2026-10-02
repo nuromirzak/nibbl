@@ -30,7 +30,7 @@ Feelings, success metrics and the Tamagotchi lessons live in `docs/product-princ
 | XP | Server is authoritative. Click/pet: ≤5 XP-granting interactions per UTC clock-hour bucket, shown as `♥♥♥♡♡`. Turns: ≤20 per hour. |
 | Art | Procedural, layered, from a shared TS generator. Scene 32×16, pet up to 16×16. Palette Sweetie 16. |
 | Rendering | One source (pixel grid), renders chosen by terminal. `Raster` half-blocks are the MVP renderer. |
-| Code | Private monorepo. A readable (not obfuscated) bundle is published to a public marketplace repo, license "All rights reserved". |
+| Code | Open source under MIT (github.com/nuromirzak/nibbl). The plugin is distributed from getnibbl.pages.dev as a sha256-pinned archive. |
 | Backend | Cloudflare Worker + D1 behind a Pages front (`getnibbl.pages.dev`), free tier. Infra as code with wrangler. |
 | Seeded bots | 12 seeded nibbls on the leaderboard at launch so early users are not alone (owner decision, see §9.4). |
 
