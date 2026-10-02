@@ -146,6 +146,7 @@ a.lrow:focus-visible{outline-offset:-4px}
 .lrow .br{font-size:13px;color:#c9d3df}
 .lrow .lv{font-family:var(--f-label);font-size:14px;white-space:nowrap}
 .lrow .tg{display:flex;flex-wrap:wrap;gap:4px}
+.lb-more{margin-top:32px}
 
 /* pet card section */
 .card-sec{display:grid;grid-template-columns:1fr 440px;gap:64px;align-items:center}
@@ -372,6 +373,7 @@ footer h2{font-size:clamp(36px,5vw,56px)}
     <div class="lb px" id="lb">
       <div class="lrow h lbl"><span>#</span><span></span><span>nibbl</span><span>form</span><span>lvl</span><span>tier</span></div>
     </div>
+    <div class="lb-more"><a class="btn px ghost" href="/leaderboard">See the full leaderboard</a></div>
   </div>
 </section>
 
@@ -736,7 +738,7 @@ function renderLb(rows){
     mountSprite(a.querySelector('canvas'),d.g,{poke:'stop',phase:i*170,life:500+i});
   });
   const gh=document.createElement('div');gh.className='lrow ghost';
-  gh.innerHTML='<span class="rk">'+(rows.length+1)+'</span><canvas role="img" aria-label="An egg"></canvas><span class="nm"><b>your nibbl could be here</b></span>';
+  gh.innerHTML='<span class="rk">\u2026</span><canvas role="img" aria-label="An egg"></canvas><span class="nm"><b>your nibbl could be here</b></span>';
   host.appendChild(gh);
   mount(gh.querySelector('canvas'),{w:16,h:16,poke:true,cssHop:true,scale:()=>small()?2:3,draw:t=>{const f=REDUCED?0:Math.floor(t/400)%8;const w=f<4?0:[-1,1,-1,1][f-4];const G=grid(16,16);blit(G,EGG,4+w,5);return G;}});
 }
