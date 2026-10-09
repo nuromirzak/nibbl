@@ -11,7 +11,7 @@
     "@nibbl/core": "workspace:*"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0",
+    "@types/node": "^26.6.4",
     "@types/pngjs": "^6.0.5",
     "gifenc": "^1.0.3",
     "pngjs": "^7.0.0",
