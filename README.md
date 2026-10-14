@@ -70,6 +70,14 @@ Run `/nibbl` to see your serial, then paste this into your profile README with y
 
 </details>
 
+## What's new in 0.3
+
+- **A daily greeting.** Your nibbl says hello on the first turn of each day, and its mood follows the time of day.
+- **Evolution and `/nibbl share`.** When it grows into a new stage you get a ready post text and the link to its card.
+- **Achievements.** 15 of them, awarded by the server from real work and shown on the card. `/nibbl achievements` lists yours.
+- **`/nibbl invite`.** Bring a friend: they enter your serial before their egg hatches and you become Friends. No XP, no better odds.
+- **Nibbl of the week.** The pet that gained the most XP Monday to Sunday (UTC) gets the crown: [getnibbl.pages.dev/week](https://getnibbl.pages.dev/week/).
+
 ## FAQ
 
 **Does it slow Claude down or cost tokens?** No. It is drawn by plain code and never calls the model.
@@ -86,5 +94,5 @@ Run `/nibbl` to see your serial, then paste this into your profile README with y
 
 <p align="center">
   If nibbl made you smile, a star helps other Claude Code users find it.<br><br>
-  <a href="https://getnibbl.pages.dev">getnibbl.pages.dev</a> · made for <a href="https://code.claude.com/docs">Claude Code</a> · not affiliated with Anthropic
+  <a href="https://getnibbl.pages.dev">getnibbl.pages.dev</a> · <a href="https://getnibbl.pages.dev/llms.txt">llms.txt</a> · made for <a href="https://code.claude.com/docs">Claude Code</a> · not affiliated with Anthropic
 </p>

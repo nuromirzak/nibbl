@@ -40,6 +40,7 @@ a.lrow:focus-visible{outline-offset:-4px}
 .lrow .rk.top{color:var(--yellow)}
 .lrow .nm{min-width:0}
 .lrow .nm b{font:500 24px/1.1 var(--f-head);overflow-wrap:anywhere}
+.lrow .nm .crown{color:var(--yellow);margin-left:6px;cursor:help}
 .lrow .nm .lbl{color:var(--slate);margin-left:6px}
 .lrow .br{font-size:13px;color:#c9d3df;overflow-wrap:anywhere}
 .lrow .lv{font-family:var(--f-label);font-size:14px;white-space:nowrap}
@@ -81,6 +82,7 @@ footer{padding:48px 0;border-top:4px solid #1a1c2c}
     <a class="logo" href="/" aria-label="Nibbl home"><canvas id="logo" role="img" aria-label="Nibbl logo pet"></canvas><b>nibbl</b></a>
     <div class="links">
       <a href="/">Home</a>
+      <a href="/week/">Week</a>
       <a href="/#install">Install</a>
     </div>
   </div>
@@ -130,7 +132,7 @@ function resolveMe(){
 const apiGet=path=>fetch(path,{headers:{accept:'application/json'},signal:AbortSignal.timeout(4000)}).then(r=>{if(!r.ok) throw 0;return r.json();});
 const fmtRank=n=>String(n).replace(/\B(?=(\d{3})+(?!\d))/g,'\u00a0');
 const host=$('lb');
-let mi=0;
+let mi=0,weekWinner=0;
 
 function rowOf(e,opts){
   opts=opts||{};
@@ -138,7 +140,7 @@ function rowOf(e,opts){
   const a=document.createElement('a');a.className='lrow'+(opts.me?' me':'');a.href=cardUrl(e.serial);
   a.setAttribute('aria-label',name+' #'+id+', rank '+e.rank+', level '+e.level+', open card'+(opts.me?' (you)':''));
   const tags='<span class="badge t-'+esc(e.tier)+'">'+esc(e.tier)+'</span>'+(e.shiny?'<span class="badge t-shiny">shiny</span>':'')+(e.genesis?'<span class="badge t-genesis">genesis</span>':'')+(opts.me?'<span class="badge t-preview">you</span>':'');
-  a.innerHTML='<span class="rk'+(e.rank<=3?' top':'')+'">'+fmtRank(e.rank)+'</span><canvas role="img" aria-label="'+esc(name)+'. Click to pet."></canvas><span class="nm"><b>'+esc(name)+'</b><span class="lbl">#'+id+'</span></span><span class="br">'+esc(label)+'</span><span class="lv">lvl '+Number(e.level)+'</span><span class="tg">'+tags+'</span>';
+  a.innerHTML='<span class="rk'+(e.rank<=3?' top':'')+'">'+fmtRank(e.rank)+'</span><canvas role="img" aria-label="'+esc(name)+'. Click to pet."></canvas><span class="nm"><b>'+esc(name)+'</b><span class="lbl">#'+id+'</span>'+(e.serial===weekWinner?'<span class="crown" title="Nibbl of the week" aria-label="Nibbl of the week"> \u265b</span>':'')+'</span><span class="br">'+esc(label)+'</span><span class="lv">lvl '+Number(e.level)+'</span><span class="tg">'+tags+'</span>';
   host.appendChild(a);
   mountSprite(a.querySelector('canvas'),genome(e.seed,e.shiny?{shiny:true}:undefined),{poke:'stop',phase:(mi++)*170,life:500+e.serial});
   return a;
@@ -172,7 +174,9 @@ function footer(me,state){
 async function main(){
   const me=resolveMe();
   let board;
+  const wk=apiGet('/api/week').catch(()=>null);
   try{board=await apiGet('/api/leaderboard');}catch(e){board=null;}
+  try{const w=await wk;const l=w&&Array.isArray(w.winners)?w.winners[0]:null;if(l&&Number.isFinite(l.serial)) weekWinner=l.serial;}catch(e){}
   const entries=board&&Array.isArray(board.entries)?board.entries.slice(0,100):[];
   if(!entries.length){emptyState();return;}
   let inTop=false;
