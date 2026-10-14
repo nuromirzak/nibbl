@@ -19,7 +19,7 @@ describe('POST /api/sync', () => {
     const res = await sync(pet, [...ev('turn', T0 - 10 * MIN, 3), ...ev('commit', T0 - 5 * MIN)], T0 + MIN)
     expect(res.status).toBe(200)
     const xp = 3 * 3 + 2
-    expect(await res.json()).toEqual({ xp, level: levelFromXp(xp).level, heartsLeft: 5 })
+    expect(await res.json()).toMatchObject({ xp, level: levelFromXp(xp).level, heartsLeft: 5 })
     const row = await petRow(pet.serial)
     expect(row.xp).toBe(xp)
     expect(row.level).toBe(levelFromXp(xp).level)

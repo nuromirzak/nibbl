@@ -55,6 +55,7 @@ What leaves your machine, and nothing else:
 | `machineHash` (SHA-256 of your hardware UUID plus a salt) | So the same machine always gets the same pet. The raw UUID never leaves. |
 | `serial` and `token` | Your pet's id and its secret. The server stores only a hash of the token. |
 | Event counts (type and time: turn, check passed, commit, error, pet, hide) | To compute XP on the server with hourly caps. |
+| Serials you wave at | To deliver a wave to that pet. No text. |
 
 - No code, prompts, file names, commands or outputs are ever sent. The mod sees that a test passed, not what the test was.
 - Zero model tokens: reactions are plain code, not model calls.

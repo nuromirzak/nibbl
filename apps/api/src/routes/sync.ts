@@ -74,6 +74,17 @@ export const sync = async (request: Request, env: Env, deps: Deps): Promise<Resp
       ).bind(pet.serial, Number(hour), w.pet ?? 0, w.turn ?? 0, w.check_pass ?? 0, w.commit ?? 0, pet.serial, now),
     )
 
+  const { results: inbox } = await env.DB.prepare(
+    `SELECT w.id, w.from_serial AS "from", p.name FROM waves w JOIN pets p ON p.serial = w.from_serial
+     WHERE w.to_serial = ? AND w.delivered = 0 AND p.is_hidden = 0 ORDER BY w.id LIMIT 5`,
+  )
+    .bind(pet.serial)
+    .all<{ id: number; from: number; name: string | null }>()
+  // Marked delivered in the same batch, behind the same last_sync_at guard, so a lost race delivers nothing twice.
+  const markDelivered = inbox.map(w =>
+    env.DB.prepare(`UPDATE waves SET delivered = 1 WHERE id = ? AND delivered = 0 AND ${guard}`).bind(w.id, pet.serial, now),
+  )
+
   const [update] = await env.DB.batch([
     env.DB.prepare('UPDATE pets SET xp = ?, level = ?, last_sync_at = ? WHERE serial = ? AND last_sync_at IS ?').bind(
       xp,
@@ -84,7 +95,28 @@ export const sync = async (request: Request, env: Env, deps: Deps): Promise<Resp
     ),
     env.DB.prepare(`DELETE FROM xp_windows WHERE serial = ? AND hour < ? AND ${guard}`).bind(pet.serial, oldestHour, pet.serial, now),
     ...windowWrites,
+    ...markDelivered,
   ])
   if (update.meta.changes === 0) throw new HttpError(409, 'sync_conflict')
-  return json({ xp, level, heartsLeft: heartsLeft(windows, now) })
+
+  // Same ordering as routes/rank.ts: xp DESC, serial ASC, hidden pets excluded.
+  const [aheadRes, totalRes, aboveRes] = await env.DB.batch([
+    env.DB.prepare('SELECT COUNT(*) AS n FROM pets WHERE is_hidden = 0 AND (xp > ? OR (xp = ? AND serial < ?))').bind(xp, xp, pet.serial),
+    env.DB.prepare('SELECT COUNT(*) AS n FROM pets WHERE is_hidden = 0'),
+    env.DB.prepare(
+      `SELECT serial, name, tier, xp FROM pets WHERE is_hidden = 0 AND (xp > ? OR (xp = ? AND serial < ?))
+       ORDER BY xp ASC, serial DESC LIMIT 1`,
+    ).bind(xp, xp, pet.serial),
+  ])
+  const ahead = (aheadRes.results[0] as { n: number }).n
+  const total = (totalRes.results[0] as { n: number }).n
+  const above = (aboveRes.results[0] as { serial: number; name: string | null; tier: string; xp: number } | undefined) ?? null
+  return json({
+    xp,
+    level,
+    heartsLeft: heartsLeft(windows, now),
+    waves: inbox.map(w => ({ from: w.from, name: w.name })),
+    rank: { pos: ahead + 1, total: Math.max(total, ahead + 1), above },
+    latest: env.LATEST_VERSION,
+  })
 }

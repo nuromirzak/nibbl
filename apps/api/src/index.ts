@@ -9,6 +9,7 @@ import { name } from './routes/name'
 import { rank } from './routes/rank'
 import { stats } from './routes/stats'
 import { sync } from './routes/sync'
+import { wave } from './routes/wave'
 
 export type Route = { method: 'GET' | 'POST'; handler: (request: Request, env: Env, deps: Deps) => Promise<Response> }
 
@@ -20,6 +21,7 @@ const API: Record<string, Route> = {
   '/api/name': { method: 'POST', handler: name },
   '/api/stats': { method: 'GET', handler: stats },
   '/api/sync': { method: 'POST', handler: sync },
+  '/api/wave': { method: 'POST', handler: wave },
 }
 
 // Parameterised routes: matched by prefix, the handler parses the rest of the path.
