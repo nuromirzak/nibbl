@@ -128,7 +128,7 @@ test('/nibbl achievements offline, unknown to the server, and on an egg', async 
   h.net.offline = true
   expect(await nibbl($, 'achievements')).toBe('Could not reach the nibbl server. Try again later.')
   h.net.offline = false
-  expect(await nibbl($, 'achievements')).toMatch(/does not know your nibbl yet/)
+  expect(await nibbl($, 'achievements')).toBe('Your nibbl is hidden from the board, so its card is private.')
 })
 
 test('/nibbl achievements on an egg', async ($, on) => {
@@ -151,7 +151,7 @@ test('an invite entered on an egg rides on the hatch once and is forgotten', asy
   const h = harness(on)
   await start($)
   expect(await nibbl($, 'invite nope')).toMatch(/^Usage: \/nibbl invite <serial>/)
-  expect(await nibbl($, 'invite #19')).toBe('Saved. When your egg hatches, it will be friends with #000019.')
+  expect(await nibbl($, 'invite #19')).toBe('Saved. If #000019 exists, your nibbls become Friends when your egg hatches.')
   for (let i = 0; i < 10; i++) await answer($)
   await h.clock.advance(5_000)
   await h.clock.settle()
@@ -209,6 +209,7 @@ test('week, achievement, invite and wave news show one per answered turn, most i
   expect(await nibbl($)).not.toContain('news waiting')
 })
 
+// teen and adult are announced by the evolution toast, so they are left out of the achievement toast.
 test('several unlocks and several invites are aggregated', async ($, on) => {
   const h = harness(on, { store: named(), pet: { name: 'Pixel' } })
   h.server.syncExtra = { unlocked: ['bug-hunter', 'first-bite', 'teen'], invites: [{ serial: 5, name: 'A' }, { serial: 6, name: null }] }
@@ -217,7 +218,7 @@ test('several unlocks and several invites are aggregated', async ($, on) => {
   await end($)
   await answer($)
   await answer($)
-  expect(h.toasts).toEqual(['Pixel unlocked 3 achievements', '2 friends hatched their nibbls. You are Friends now ♥'])
+  expect(h.toasts).toEqual(['Pixel unlocked 2 achievements', '2 friends hatched their nibbls. You are Friends now ♥'])
 })
 
 test('malformed unlocked, invites and weekWin are ignored', async ($, on) => {

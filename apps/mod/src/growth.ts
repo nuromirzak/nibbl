@@ -10,6 +10,7 @@ import { refreshView } from './model'
 import { parseWaveTarget } from './social'
 import { loadPet, loadSpike } from './store'
 
+const ACHIEVEMENTS_TIMEOUT_MS = 5_000
 const LINKING = 'Your nibbl is still linking to the server. Try again in a minute.'
 
 const article = (word: string): string => (/^[aeiou]/i.test(word) ? 'an' : 'a')
@@ -81,9 +82,9 @@ export const achievementsText = (body: Record<string, unknown>): string => {
 export const achievementsCommand = async ($: EngineInterface): Promise<string> => {
   const pet = await loadPet($)
   if (!pet) return (await loadSpike($)) ? LINKING : 'Hatch the egg first.'
-  const out = await getWithin($, await apiBase($), `/api/pet/${pet.serial}`)
+  const out = await getWithin($, await apiBase($), `/api/pet/${pet.serial}`, ACHIEVEMENTS_TIMEOUT_MS)
   if (out.kind === 'offline') return 'Could not reach the nibbl server. Try again later.'
-  if (out.kind === 'error') return out.status === 404 ? 'The server does not know your nibbl yet. Try again after the next sync.' : `The server answered ${out.code}. Try again later.`
+  if (out.kind === 'error') return out.status === 404 ? 'Your nibbl is hidden from the board, so its card is private.' : `The server answered ${out.code}. Try again later.`
   return achievementsText(out.body)
 }
 
@@ -104,5 +105,5 @@ export const inviteCommand = async ($: EngineInterface, rest: string): Promise<s
   const code = parseWaveTarget(rest)
   if (code === null) return INVITE_USAGE
   await $.store.set(K.inviteCode, code)
-  return `Saved. When your egg hatches, it will be friends with #${padSerial(code)}.`
+  return `Saved. If #${padSerial(code)} exists, your nibbls become Friends when your egg hatches.`
 }

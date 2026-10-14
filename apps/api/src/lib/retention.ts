@@ -8,7 +8,7 @@ export const ERRORS_PER_HOUR = 20
 
 // A deploy-order mistake (Worker live before migration 0004) must never break sync, hatch or waves.
 export const isMissingSchema = (err: unknown): boolean =>
-  err instanceof Error && /no such (table|column)/i.test(err.message)
+  err instanceof Error && /no such (table|column)|has no column named/i.test(err.message)
 
 export type EventDelta = { turns: number; checks: number; commits: number; errors: number; pets: number; lastDay: number }
 
@@ -16,7 +16,8 @@ const sumKind = (before: Windows, after: Windows, kind: 'pet' | 'turn' | 'check_
   Object.entries(after).reduce((n, [h, w]) => n + Math.max(0, (w[kind] ?? 0) - (before[Number(h)]?.[kind] ?? 0)), 0)
 
 // What this sync adds to the lifetime totals. Scored kinds are the scorer's own accepted events
-// (the per-hour window diff), so replays and over-cap events never count. `events` are already clamped.
+// (the per-hour window diff), so over-cap events never count. A replay can still re-count up to the hourly
+// caps; errors are capped per hour within one request only. `events` are already clamped.
 export const eventDelta = (events: unknown[], before: Windows, after: Windows, now: number, last: number | null): EventDelta => {
   const oldest = last === null ? now - FIRST_SYNC_LOOKBACK_MS : last - SYNC_GRACE_MS
   const errorsByHour = new Map<number, number>()
@@ -56,3 +57,18 @@ export const isoWeek = (ms: number): { key: number; label: string; endsAt: numbe
 }
 
 export const weekLabel = (key: number): string => `${Math.floor(key / 100)}-W${String(key % 100).padStart(2, '0')}`
+
+// Releases before 0.3.0 drop the retention fields, so those are only delivered to 0.3.0+ clients.
+// An unparseable version is treated as new; an absent one is old.
+export const MIN_RETENTION_VERSION: readonly [number, number, number] = [0, 3, 0]
+
+export const readsRetention = (v: unknown): boolean => {
+  if (typeof v !== 'string') return false
+  const m = /^v?(\d+)\.(\d+)\.(\d+)/.exec(v.trim())
+  if (!m) return true
+  const parts = [Number(m[1]), Number(m[2]), Number(m[3])]
+  for (let i = 0; i < 3; i++) {
+    if (parts[i]! !== MIN_RETENTION_VERSION[i]!) return parts[i]! > MIN_RETENTION_VERSION[i]!
+  }
+  return true
+}

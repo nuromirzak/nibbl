@@ -41,4 +41,8 @@ A greeting and a time-of-day line make the pet feel present at no cost. Evolutio
 ## Consequences
 - The privacy page and [how it works](../how-it-works.md) gain the items above.
 - A pet that is hidden or deleted is excluded from the week and from the crown.
-- The sync answer gains optional `unlocked`, `invites` and `week`, read leniently by the mod, so 0.3.0 works against an older server and older mods ignore them.
+- The sync answer gains optional `unlocked`, `invites` and `weekWin`, read leniently by the mod, so 0.3.0 works against an older server.
+- Delivery is version-gated. Released 0.2.0 clients send `v: "0.2.0"` and drop the new fields, so the server reports `unlocked`, `invites` and `weekWin` (and marks them delivered) only to clients at 0.3.0 or newer (an unparseable `v` counts as new, an absent one as old). Awards are not gated: every pet earns achievements and week wins now, so cards fill immediately, and a pet that upgrades later hears about everything still unreported, once.
+- The card lists achievement names, not only a count.
+- Lifetime totals start at 0 for existing pets. There is no backfill, so achievements built on totals unlock from the first 0.3.0-era sync onward.
+- Invite counts are cosmetic: an invitee counts toward the inviter's friend number only after it has synced at least once, and hidden invitees and hidden inviters are not shown.

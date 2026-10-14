@@ -396,7 +396,7 @@ footer h2{font-size:clamp(36px,5vw,56px)}
       <div class="lrow h lbl"><span>#</span><span></span><span>nibbl</span><span>form</span><span>lvl</span><span>tier</span></div>
     </div>
     <div class="lb-more"><a class="btn px ghost" href="/leaderboard">See the full leaderboard</a></div>
-    <a class="wk px" id="wk" href="/week/" hidden><span class="lbl">&#9819; NIBBL OF THE WEEK</span><b id="wkn"></b><span id="wkt" class="lbl"></span><span class="go">See the week &rarr;</span></a>
+    <a class="wk px" id="wk" href="/week/" hidden><span class="lbl" id="wkl">&#9819; Nibbl of the week</span><b id="wkn"></b><span id="wkt" class="lbl"></span><span class="go">See the week &rarr;</span></a>
   </div>
 </section>
 
@@ -781,8 +781,9 @@ function renderRecent(top){
 apiGet('/api/week').then(j=>{
   const lead=Array.isArray(j.leaders)&&j.leaders[0], win=Array.isArray(j.winners)&&j.winners[0];
   const e=lead||win;if(!e) throw 0;
+  $('wkl').textContent='\u265b '+(lead?'Leading this week':'Nibbl of the week');
   $('wkn').textContent=e.name||('#'+pad6(e.serial));
-  $('wkt').textContent=lead?'leading this week, +'+fmtN(e.gain)+' xp':'last winner, +'+fmtN(e.gain)+' xp';
+  $('wkt').textContent=lead?'+'+fmtN(e.gain)+' xp so far':'crowned last week, +'+fmtN(e.gain)+' xp';
   $('wk').hidden=false;
 }).catch(()=>{});
 Promise.all([

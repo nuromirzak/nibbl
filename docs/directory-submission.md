@@ -69,7 +69,9 @@ The [privacy page](https://getnibbl.pages.dev/privacy/) asks the owner to set th
 
 ```sh
 pnpm -C apps/api exec wrangler d1 execute nibbl --remote --command "UPDATE pets SET is_hidden = 1 WHERE serial = <serial> AND label = 'delete me'"
-pnpm -C apps/api exec wrangler d1 execute nibbl --remote --command "DELETE FROM waves WHERE from_serial = <serial> OR to_serial = <serial>; DELETE FROM xp_windows WHERE serial = <serial>; DELETE FROM pets WHERE serial = <serial> AND label = 'delete me'"
+pnpm -C apps/api exec wrangler d1 execute nibbl --remote --command "DELETE FROM waves WHERE from_serial = <serial> OR to_serial = <serial>; DELETE FROM xp_windows WHERE serial = <serial>; DELETE FROM pet_totals WHERE serial = <serial>; DELETE FROM pet_achievements WHERE serial = <serial>; DELETE FROM invite_notices WHERE from_serial = <serial> OR to_serial = <serial>; DELETE FROM week_snap WHERE serial = <serial>; DELETE FROM week_winners WHERE serial = <serial>; UPDATE pets SET invited_by = NULL WHERE invited_by = <serial>; DELETE FROM pets WHERE serial = <serial> AND label = 'delete me'"
 ```
+
+The statements cover every table keyed by the serial: waves and invite notices in both directions, hourly counts, lifetime totals, achievements, the week snapshot and week wins. Other pets that were invited by this one keep existing, so their `invited_by` is cleared before the pet row goes. Run all of them in one command, the pet row last.
 
 3. Close the issue with a one-line confirmation. The serial is never reused.

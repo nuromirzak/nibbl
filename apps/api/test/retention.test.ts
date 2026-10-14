@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { weekRollover } from '../src/cron'
-import { isoWeek } from '../src/lib/retention'
+import { isMissingSchema, isoWeek, readsRetention } from '../src/lib/retention'
 import { DAY_MS, type HatchResult } from '../src/routes/hatch'
 import { call, hatchPet, insertPet, machine, resetDb, T0, testEnv } from './helpers'
 
@@ -68,6 +68,60 @@ describe('sync totals', () => {
   })
 })
 
+describe('readsRetention', () => {
+  it('gates on 0.3.0, absent is old and unparseable is new', () => {
+    for (const v of ['0.3.0', '0.3.1', '0.10.0', '1.0.0', '0.3.0-beta', 'weird']) expect(readsRetention(v), v).toBe(true)
+    for (const v of ['0.2.0', '0.2.9', '0.0.1', undefined, 7, null]) expect(readsRetention(v), String(v)).toBe(false)
+  })
+})
+
+describe('isMissingSchema', () => {
+  it('matches missing tables and columns, not other errors', () => {
+    expect(isMissingSchema(new Error('D1_ERROR: no such table: pet_totals'))).toBe(true)
+    expect(isMissingSchema(new Error('D1_ERROR: no such column: invited_by'))).toBe(true)
+    expect(isMissingSchema(new Error('D1_ERROR: table pets has no column named invited_by'))).toBe(true)
+    expect(isMissingSchema(new Error('UNIQUE constraint failed'))).toBe(false)
+    expect(isMissingSchema('no such table')).toBe(false)
+  })
+})
+
+describe('version-gated delivery', () => {
+  it('awards for a 0.2.0 client but reports nothing; the next 0.3.0 sync gets it once', async () => {
+    const a = await hatchPet(1, { now: T0 - HOUR })
+    const b = await hatchPet(2, { now: T0 - HOUR })
+    await weekRollover(testEnv.DB, T0)
+    await setXp(a.serial, 55)
+    await weekRollover(testEnv.DB, T0 + 7 * DAY_MS)
+    await invitedHatch(3, a.serial)
+    const at = T0 + 7 * DAY_MS + HOUR
+    const old = (await (await sync(a, ev('check_pass', at - MIN), at, { v: '0.2.0' })).json()) as Record<string, unknown>
+    expect(old).not.toHaveProperty('unlocked')
+    expect(old).not.toHaveProperty('invites')
+    expect(old).not.toHaveProperty('weekWin')
+    expect(await achievements(a.serial)).toEqual(['first-bite', 'friends', 'week'])
+    const pending = async () => ({
+      ach: (await testEnv.DB.prepare('SELECT COUNT(*) AS n FROM pet_achievements WHERE serial = ? AND reported = 0').bind(a.serial).first<number>('n')),
+      notices: (await testEnv.DB.prepare('SELECT COUNT(*) AS n FROM invite_notices WHERE delivered = 0').first<number>('n')),
+      wins: (await testEnv.DB.prepare('SELECT COUNT(*) AS n FROM week_winners WHERE delivered = 0').first<number>('n')),
+    })
+    expect(await pending()).toEqual({ ach: 3, notices: 1, wins: 1 })
+    const next = (await (await sync(a, [], at + MIN, { v: '0.3.0' })).json()) as { unlocked: string[]; invites: unknown[]; weekWin: unknown }
+    expect([...next.unlocked].sort()).toEqual(['first-bite', 'friends', 'week'])
+    expect(next.invites).toHaveLength(1)
+    expect(next.weekWin).toEqual({ week: '2026-W43', gain: 55 })
+    expect(await pending()).toEqual({ ach: 0, notices: 0, wins: 0 })
+    const again = (await (await sync(a, [], at + 2 * MIN, { v: '0.3.0' })).json()) as { unlocked: string[]; invites: unknown[]; weekWin: unknown }
+    expect(again).toMatchObject({ unlocked: [], invites: [], weekWin: null })
+    void b
+  })
+
+  it('a client without v earns achievements too and keeps the old shape', async () => {
+    const pet = await hatchPet(1, { now: T0 - HOUR })
+    await sync(pet, ev('check_pass', T0 - 20 * MIN), T0 - 10 * MIN, {})
+    expect(await achievements(pet.serial)).toEqual(['first-bite'])
+  })
+})
+
 describe('sync response shape', () => {
   it('keeps the old shape for clients without v', async () => {
     const pet = await hatchPet(1, { now: T0 - HOUR })
@@ -85,7 +139,7 @@ describe('sync response shape', () => {
     const pet = await hatchPet(1, { now: T0 - HOUR })
     // An old client earns first-bite silently; the v client is told on its next sync.
     await sync(pet, ev('check_pass', T0 - 20 * MIN), T0 - 10 * MIN, {})
-    expect(await achievements(pet.serial)).toEqual([])
+    expect(await achievements(pet.serial)).toEqual(['first-bite'])
     const first = (await (await sync(pet, [], T0)).json()) as { unlocked: string[] }
     expect(first.unlocked).toEqual(['first-bite'])
     const second = (await (await sync(pet, [], T0 + MIN)).json()) as { unlocked: string[] }
@@ -93,9 +147,9 @@ describe('sync response shape', () => {
     expect(await achievements(pet.serial)).toEqual(['first-bite'])
   })
 
-  it('does not re-report an id that already has a row', async () => {
+  it('does not re-report an id that was already reported', async () => {
     const pet = await hatchPet(1, { now: T0 - HOUR })
-    await testEnv.DB.prepare("INSERT INTO pet_achievements (serial, id, at) VALUES (?, 'first-bite', 1)").bind(pet.serial).run()
+    await testEnv.DB.prepare("INSERT INTO pet_achievements (serial, id, at, reported) VALUES (?, 'first-bite', 1, 1)").bind(pet.serial).run()
     const body = (await (await sync(pet, ev('check_pass', T0 - MIN), T0)).json()) as { unlocked: string[] }
     expect(body.unlocked).toEqual([])
   })
@@ -123,7 +177,7 @@ describe('invites at hatch', () => {
     await sync(a, [], T0, {})
     const first = (await (await sync(a, [], T0 + MIN)).json()) as { invites: unknown[]; unlocked: string[] }
     expect(first.invites).toEqual([{ serial: b.serial, name: null }])
-    expect(first.unlocked).toEqual([])
+    expect(first.unlocked).toEqual(['friends'])
     const second = (await (await sync(a, [], T0 + 2 * MIN)).json()) as { invites: unknown[] }
     expect(second.invites).toEqual([])
   })
@@ -195,6 +249,45 @@ describe('missing migration 0004', () => {
   })
 })
 
+describe('missing invited_by column', () => {
+  it('hatch with an invite, sync and the card still work', async () => {
+    const a = await hatchPet(1, { now: T0 - HOUR })
+    await testEnv.DB.prepare('DROP INDEX pets_invited_by').run()
+    await testEnv.DB.prepare('ALTER TABLE pets DROP COLUMN invited_by').run()
+    try {
+      expect((await invitedHatch(2, a.serial)).status).toBe(200)
+      expect((await sync(a, ev('check_pass', T0 - MIN), T0)).status).toBe(200)
+      expect((await call(`/p/${a.serial}`)).status).toBe(200)
+    } finally {
+      await testEnv.DB.prepare('ALTER TABLE pets ADD COLUMN invited_by INTEGER').run()
+      await testEnv.DB.prepare('CREATE INDEX pets_invited_by ON pets (invited_by)').run()
+    }
+  })
+})
+
+describe('invite visibility', () => {
+  it('hidden invitees get no notice, hidden inviters and unsynced invitees stay off public views', async () => {
+    const a = await hatchPet(1, { now: T0 - HOUR })
+    const b = (await (await invitedHatch(2, a.serial)).json()) as HatchResult
+    await testEnv.DB.prepare('UPDATE pets SET is_hidden = 1 WHERE serial = ?').bind(b.serial).run()
+    const res = (await (await sync(a, [], T0)).json()) as { invites: unknown[] }
+    expect(res.invites).toEqual([])
+    await testEnv.DB.prepare('UPDATE pets SET is_hidden = 0 WHERE serial = ?').bind(b.serial).run()
+    // Unsynced invitee: not counted. After one sync it is.
+    expect(await (await call(`/api/pet/${a.serial}`)).json()).toMatchObject({ friends: 0 })
+    await testEnv.DB.prepare('UPDATE pets SET last_sync_at = ? WHERE serial = ?').bind(T0, b.serial).run()
+    expect(await (await call(`/api/pet/${a.serial}`)).json()).toMatchObject({ friends: 1 })
+  })
+
+  it('hides invitedBy while the inviter is hidden', async () => {
+    await insertPet({ serial: 1, is_hidden: 1 })
+    await insertPet({ serial: 2 })
+    await testEnv.DB.prepare('UPDATE pets SET invited_by = 1 WHERE serial = 2').run()
+    expect(await (await call('/api/pet/2')).json()).toMatchObject({ invitedBy: null })
+    expect(await (await call('/p/2')).text()).not.toContain('invited by')
+  })
+})
+
 describe('week rollover', () => {
   const winners = async () => (await testEnv.DB.prepare('SELECT * FROM week_winners').all<Record<string, unknown>>()).results
   const weekCounter = () => testEnv.DB.prepare("SELECT value FROM counters WHERE name = 'week'").first<number>('value')
@@ -255,7 +348,7 @@ describe('week rollover', () => {
     await call('/api/sync', { body: { serial: a.serial, token: a.token, events: [] }, now: at })
     const first = (await (await sync(a, [], at + MIN)).json()) as { weekWin: unknown; unlocked: string[] }
     expect(first.weekWin).toEqual({ week: '2026-W43', gain: 55 })
-    expect(first.unlocked).toEqual([])
+    expect(first.unlocked).toEqual(['week'])
     const second = (await (await sync(a, [], at + 2 * MIN)).json()) as { weekWin: unknown }
     expect(second.weekWin).toBeNull()
   })
@@ -322,6 +415,26 @@ describe('GET /api/week', () => {
   })
 })
 
+describe('edge cache', () => {
+  it('serves /api/week and /api/pet from the cache until it expires, and only caches 200s', async () => {
+    await insertPet({ serial: 1, name: 'First' })
+    const keep = { keepEdgeCache: true }
+    expect(await (await call('/api/pet/1')).json()).toMatchObject({ name: 'First' })
+    await testEnv.DB.prepare("UPDATE pets SET name = 'Renamed' WHERE serial = 1").run()
+    expect(await (await call('/api/pet/1', keep)).json()).toMatchObject({ name: 'First' })
+    expect(await (await call('/api/pet/1')).json()).toMatchObject({ name: 'Renamed' })
+    expect((await call('/api/pet/999', keep)).status).toBe(404)
+    await insertPet({ serial: 999 })
+    expect((await call('/api/pet/999', keep)).status).toBe(200)
+    await weekRollover(testEnv.DB, T0)
+    const first = (await (await call('/api/week')).json()) as { leaders: unknown[] }
+    await setXp(1, 50)
+    const second = (await (await call('/api/week', keep)).json()) as { leaders: unknown[] }
+    expect(second).toEqual(first)
+    expect(((await (await call('/api/week')).json()) as { leaders: unknown[] }).leaders).toHaveLength(1)
+  })
+})
+
 describe('card extras', () => {
   const html = async (path: string) => (await call(path)).text()
 
@@ -330,7 +443,7 @@ describe('card extras', () => {
     await insertPet({ serial: 42, name: 'Byte', level: 12 })
     await insertPet({ serial: 43 })
     await testEnv.DB.prepare('UPDATE pets SET invited_by = 13 WHERE serial IN (42)').run()
-    await testEnv.DB.prepare('UPDATE pets SET invited_by = 42 WHERE serial = 43').run()
+    await testEnv.DB.prepare('UPDATE pets SET invited_by = 42, last_sync_at = 1 WHERE serial = 43').run()
     await testEnv.DB.prepare("INSERT INTO pet_achievements (serial, id, at) VALUES (42, 'friends', 1), (42, 'bug-hunter', 2), (42, 'nonsense', 3)").run()
     const res = await call('/p/000042')
     expect(res.headers.get('content-security-policy')).toContain("default-src 'none'")
@@ -341,7 +454,7 @@ describe('card extras', () => {
     expect(page).not.toContain('nonsense')
     expect(page).toContain('invited by <a href="/p/000013">#000013</a>')
     expect(page).toContain('friends invited: 1')
-    const text = encodeURIComponent('Meet Byte, my nibbl. It eats my bugs in Claude Code.')
+    const text = encodeURIComponent('Meet Byte, a nibbl that eats bugs in Claude Code.')
     const url = encodeURIComponent('https://nibbl.test/p/000042')
     expect(page).toContain(`href="https://x.com/intent/post?text=${text}&amp;url=${url}"`)
     expect(page).toContain('Share on X')
@@ -352,12 +465,12 @@ describe('card extras', () => {
     await insertPet({ serial: 6, name: '<b>"x&', level: 1 })
     await insertPet({ serial: 7, is_hidden: 1 })
     await testEnv.DB.prepare("INSERT INTO pet_achievements (serial, id, at) VALUES (7, 'friends', 1)").run()
-    expect(await html('/p/5')).toContain(encodeURIComponent('Meet #000005, my nibbl.'))
+    expect(await html('/p/5')).toContain(encodeURIComponent('Meet #000005, a nibbl that eats bugs in Claude Code.'))
     const escaped = await html('/p/6')
     expect(escaped).not.toContain('<b>"x&')
     expect(escaped).toContain(encodeURIComponent('<b>"x&'))
     const hidden = await html('/p/7')
     expect(hidden).not.toContain('tag ach')
-    expect(hidden).toContain(encodeURIComponent('Meet #000007, my nibbl.'))
+    expect(hidden).toContain(encodeURIComponent('Meet #000007, a nibbl that eats bugs in Claude Code.'))
   })
 })

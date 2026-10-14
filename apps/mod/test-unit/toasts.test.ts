@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { TOAST_PRIORITY, nextIndex, parseToastQueue, withToast, type QueuedToast } from '../src/toasts'
+import { achievementToastText } from '../src/social'
+import { TOAST_PRIORITY, nextIndex, parseToastQueue, withAchievements, withToast, type QueuedToast } from '../src/toasts'
 
 const q = (...kinds: QueuedToast['kind'][]): QueuedToast[] => kinds.map((kind, i) => ({ kind, text: `${kind}${i}` }))
 
@@ -21,6 +22,23 @@ describe('toast queue', () => {
     for (let i = 0; i < 30; i++) items = withToast(items, 'note', `n${i}`)
     expect(items).toHaveLength(12)
     expect(items.at(-1)!.text).toBe('n29')
+  })
+  it('evicts the lowest-priority oldest item past the cap, not just the oldest', () => {
+    let items: QueuedToast[] = [{ kind: 'week', text: 'crown' }]
+    for (let i = 0; i < 11; i++) items = withToast(items, 'note', `n${i}`)
+    items = withToast(items, 'wave', 'w')
+    expect(items).toHaveLength(12)
+    expect(items.map(t => t.text)).toContain('crown')
+    expect(items.map(t => t.text)).not.toContain('n0')
+    expect(items.map(t => t.text)).toContain('n1')
+    expect(items.map(t => t.text)).toContain('w')
+  })
+  it('merges unlock items into one aggregated item', () => {
+    let items = withAchievements([], ['first-bite'], 'Pixel', achievementToastText)
+    expect(items).toEqual([{ kind: 'achievement', text: '🏆 Pixel unlocked First Bite', ids: ['first-bite'], me: 'Pixel' }])
+    items = withAchievements(withToast(items, 'wave', 'hi'), ['bug-hunter', 'first-bite'], 'Pixel', achievementToastText)
+    expect(items.filter(t => t.kind === 'achievement')).toEqual([{ kind: 'achievement', text: 'Pixel unlocked 2 achievements', ids: ['first-bite', 'bug-hunter'], me: 'Pixel' }])
+    expect(items).toHaveLength(2)
   })
   it('reads a stored queue leniently', () => {
     expect(parseToastQueue([{ kind: 'wave', text: 'a' }, { kind: 'bogus', text: 'b' }, { kind: 'note', text: '' }, 3, null, { kind: 'note' }])).toEqual([{ kind: 'wave', text: 'a' }])

@@ -20,6 +20,8 @@ CREATE TABLE pet_achievements (
   serial INTEGER NOT NULL,
   id     TEXT NOT NULL,
   at     INTEGER NOT NULL,
+  -- 1 once a 0.3.0+ client was told about it (older clients drop the field, so it stays pending for them).
+  reported INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (serial, id)
 ) WITHOUT ROWID;
 

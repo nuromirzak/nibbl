@@ -174,11 +174,13 @@ describe('POST /api/sync social fields', () => {
   it('computes rank only when the client asks for it', async () => {
     const a = await hatchPet(1)
     const none = (await (await sync(a, T0 + 60_000)).json()) as Record<string, unknown>
-    expect(Object.keys(none).sort()).toEqual(['heartsLeft', 'invites', 'latest', 'level', 'unlocked', 'waves', 'weekWin', 'xp'])
+    expect(Object.keys(none).sort()).toEqual(['heartsLeft', 'latest', 'level', 'waves', 'xp'])
     const falsy = (await (await sync(a, T0 + 120_000, { v: '0.2.0', rank: 'yes' })).json()) as Record<string, unknown>
     expect('rank' in falsy).toBe(false)
     const asked = (await (await syncRank(a, T0 + 180_000)).json()) as Record<string, unknown>
-    expect(Object.keys(asked).sort()).toEqual(['heartsLeft', 'invites', 'latest', 'level', 'rank', 'unlocked', 'waves', 'weekWin', 'xp'])
+    expect(Object.keys(asked).sort()).toEqual(['heartsLeft', 'latest', 'level', 'rank', 'waves', 'xp'])
+    const v3 = (await (await sync(a, T0 + 240_000, { v: '0.3.0' })).json()) as Record<string, unknown>
+    expect(Object.keys(v3).sort()).toEqual(['heartsLeft', 'invites', 'latest', 'level', 'unlocked', 'waves', 'weekWin', 'xp'])
   })
 
   it('answers rank: null for a hidden pet', async () => {

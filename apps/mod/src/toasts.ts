@@ -5,7 +5,8 @@ import type { EngineInterface } from 'claude-code'
 import { K, TOAST_QUEUE_MAX } from './config'
 
 export type ToastKind = 'hatch' | 'evolution' | 'week' | 'achievement' | 'invite' | 'wave' | 'greeting' | 'note' | 'update'
-export type QueuedToast = { kind: ToastKind; text: string }
+// Achievement items keep their ids (and the pet's name), so later unlocks merge into the same item.
+export type QueuedToast = { kind: ToastKind; text: string; ids?: string[]; me?: string }
 
 // Highest priority first.
 export const TOAST_PRIORITY: readonly ToastKind[] = ['hatch', 'evolution', 'week', 'achievement', 'invite', 'wave', 'greeting', 'note', 'update']
@@ -17,8 +18,10 @@ export const parseToastQueue = (v: unknown): QueuedToast[] => {
   const out: QueuedToast[] = []
   for (const item of v) {
     if (typeof item !== 'object' || item === null) continue
-    const { kind, text } = item as { kind?: unknown; text?: unknown }
-    if (isKind(kind) && typeof text === 'string' && text.length > 0) out.push({ kind, text })
+    const { kind, text, ids, me } = item as { kind?: unknown; text?: unknown; ids?: unknown; me?: unknown }
+    if (!isKind(kind) || typeof text !== 'string' || text.length === 0) continue
+    const cleanIds = Array.isArray(ids) ? ids.filter((i): i is string => typeof i === 'string') : []
+    out.push(kind === 'achievement' && cleanIds.length > 0 && typeof me === 'string' ? { kind, text, ids: cleanIds, me } : { kind, text })
   }
   return out
 }
@@ -32,9 +35,31 @@ export const nextIndex = (items: readonly QueuedToast[]): number => {
   return best
 }
 
-// The same text is never queued twice; past the cap the oldest item is dropped.
+// Past the cap the lowest-priority item goes, the oldest among equals: a flood of notes never pushes out news.
+const capped = (items: QueuedToast[]): QueuedToast[] => {
+  const out = [...items]
+  while (out.length > TOAST_QUEUE_MAX) {
+    let worst = 0
+    for (let i = 1; i < out.length; i++) if (TOAST_PRIORITY.indexOf(out[i]!.kind) > TOAST_PRIORITY.indexOf(out[worst]!.kind)) worst = i
+    out.splice(worst, 1)
+  }
+  return out
+}
+
+// The same text is never queued twice.
 export const withToast = (items: readonly QueuedToast[], kind: ToastKind, text: string): QueuedToast[] =>
-  items.some(t => t.text === text) ? [...items] : [...items, { kind, text }].slice(-TOAST_QUEUE_MAX)
+  items.some(t => t.text === text) ? [...items] : capped([...items, { kind, text }])
+
+// Unlocks collapse into one queued item: ids join, and the text is rebuilt from the full list.
+export const withAchievements = (items: readonly QueuedToast[], ids: readonly string[], me: string, textOf: (ids: readonly string[], me: string) => string | null): QueuedToast[] => {
+  const at = items.findIndex(t => t.kind === 'achievement' && t.ids !== undefined)
+  const merged = [...new Set([...(at >= 0 ? items[at]!.ids! : []), ...ids])]
+  const text = textOf(merged, me)
+  if (text === null) return [...items]
+  const next: QueuedToast = { kind: 'achievement', text, ids: merged, me }
+  if (at < 0) return capped([...items, next])
+  return items.map((t, i) => (i === at ? next : t))
+}
 
 export const loadToasts = async ($: EngineInterface): Promise<QueuedToast[]> => parseToastQueue(await $.store.get(K.toastQueue))
 
@@ -43,6 +68,10 @@ export const enqueue = async ($: EngineInterface, kind: ToastKind, text: string)
 }
 
 // Called on every answered turn of the main loop: shows at most one queued toast.
+export const enqueueAchievements = async ($: EngineInterface, ids: readonly string[], me: string, textOf: (ids: readonly string[], me: string) => string | null): Promise<void> => {
+  await $.store.set(K.toastQueue, withAchievements(await loadToasts($), ids, me, textOf))
+}
+
 export const flushOne = async ($: EngineInterface): Promise<void> => {
   const items = await loadToasts($)
   const i = nextIndex(items)

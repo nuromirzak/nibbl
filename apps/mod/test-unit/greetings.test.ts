@@ -9,6 +9,11 @@ describe('greetings', () => {
     for (const lines of Object.values(GREETINGS)) expect(lines).toHaveLength(8)
     expect(Object.keys(GREETINGS)).toEqual(['morning', 'afternoon', 'evening', 'night'])
   })
+  it('keeps the reworded lines', () => {
+    expect(GREETINGS.morning).toContain('Morning! {name} perked up when you came back.')
+    expect(GREETINGS.afternoon).toContain("Hi again! {name} is glad you're back.")
+    expect(Object.values(GREETINGS).flat().join('\n')).not.toMatch(/waiting by the prompt|counted the minutes/)
+  })
   it('buckets the local hour', () => {
     const want = (h: number) => bucketOfHour(h)
     expect([4, 5, 11, 12, 17, 18, 22, 23, 0].map(want)).toEqual(['night', 'morning', 'morning', 'afternoon', 'afternoon', 'evening', 'evening', 'night', 'night'])

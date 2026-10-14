@@ -1,4 +1,5 @@
 import type { Deps, Env } from '../env'
+import { edgeCached } from '../lib/edge'
 import { json } from '../lib/http'
 import { isoWeek } from '../lib/retention'
 
@@ -8,7 +9,9 @@ type Winner = Row & { week: string }
 const view = ({ shiny, ...r }: { shiny: number } & Omit<Row, 'shiny'>) => ({ ...r, shiny: shiny === 1 })
 
 // Nibbl of the week: the current week so far, and the last finished winners. Real, visible pets only.
-export const week = async (_request: Request, env: Env, deps: Deps): Promise<Response> => {
+export const week = (request: Request, env: Env, deps: Deps): Promise<Response> => edgeCached(request, 300, () => weekBoard(env, deps))
+
+const weekBoard = async (env: Env, deps: Deps): Promise<Response> => {
   const now = deps.now()
   const cur = isoWeek(now)
   // Without a snapshot "gain" would be lifetime xp, so the week board stays empty until the first rollover run.

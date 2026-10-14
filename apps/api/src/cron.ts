@@ -124,7 +124,8 @@ export const weekRollover = async (db: D1Database, now: number): Promise<void> =
   const award = winner
     ? [
         db.prepare('INSERT OR IGNORE INTO week_winners (week, serial, gain, at) VALUES (?, ?, ?, ?)').bind(weekLabel(stored), winner.serial, winner.gain, now),
-        db.prepare("INSERT OR IGNORE INTO pet_achievements (serial, id, at) VALUES (?, 'week', ?)").bind(winner.serial, now),
+        // Tied to the stored row, so a lost week_winners insert (already won) can never award a second time.
+        db.prepare("INSERT OR IGNORE INTO pet_achievements (serial, id, at, reported) SELECT serial, 'week', ?, 0 FROM week_winners WHERE week = ?").bind(now, weekLabel(stored)),
       ]
     : []
   await db.batch([...award, ...resnap])

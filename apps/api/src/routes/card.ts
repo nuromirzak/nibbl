@@ -93,7 +93,7 @@ export const cardHtml = (v: CardView, origin: string): string => {
     v.invited > 0 ? `<p class="bond">friends invited: ${v.invited}</p>` : '',
   ].join('')
   const who = v.displayName === 'nibbl' ? `#${v.padded}` : v.displayName
-  const shareText = `Meet ${who}, my nibbl. It eats my bugs in Claude Code.`
+  const shareText = `Meet ${who}, a nibbl that eats bugs in Claude Code.`
   const share = `https://x.com/intent/post?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(url)}`
   return `<!doctype html>
 <html lang="en">
@@ -162,8 +162,9 @@ const cardExtras = async (db: D1Database, serial: number): Promise<CardExtras> =
   try {
     const [ach, by, invited] = await db.batch([
       db.prepare('SELECT id FROM pet_achievements WHERE serial = ? ORDER BY at, id').bind(serial),
-      db.prepare('SELECT invited_by AS n FROM pets WHERE serial = ?').bind(serial),
-      db.prepare('SELECT COUNT(*) AS n FROM pets WHERE invited_by = ?').bind(serial),
+      // The inviter shows only while it is visible; an invitee counts once it has synced at least once.
+      db.prepare('SELECT p.invited_by AS n FROM pets p JOIN pets q ON q.serial = p.invited_by WHERE p.serial = ? AND q.is_hidden = 0').bind(serial),
+      db.prepare('SELECT COUNT(*) AS n FROM pets WHERE invited_by = ? AND last_sync_at IS NOT NULL').bind(serial),
     ])
     return {
       achievements: (ach!.results as { id: string }[]).map(r => r.id),
@@ -185,7 +186,8 @@ export const card = async (request: Request, env: Env): Promise<Response> => {
   const serial = match ? Number(match[1]) : 0
   const pet = serial >= 1 ? await petBySerial(env.DB, serial) : null
   if (!match || !pet) return notFound()
-  const view = cardView(pet, await cardExtras(env.DB, pet.serial))
+  const html = match[2] === undefined
+  const view = cardView(pet, html ? await cardExtras(env.DB, pet.serial) : NO_EXTRAS)
   if (match[2] === '/badge.svg') {
     const text = `${view.title} · lvl ${view.level}`
     return new Response(badgeSvg(drawPet(view.genome, view.stage, 'idle'), text), {

@@ -11,7 +11,7 @@ import { displayName, type ServerPet } from './pet'
 import { rt } from './runtime'
 import { tzAtom } from './state'
 import { loadPet } from './store'
-import { enqueue, loadToasts } from './toasts'
+import { enqueue, enqueueAchievements, loadToasts } from './toasts'
 import {
   achievementToastText,
   inviteToastText,
@@ -81,8 +81,9 @@ export const applySocial = async ($: EngineInterface, pet: ServerPet, body: Reco
 
   const won = social.weekWin
   if (won) await enqueue($, 'week', weekToastText(me, await apiBase($)))
-  const unlocked = achievementToastText(social.unlocked, me)
-  if (unlocked !== null) await enqueue($, 'achievement', unlocked)
+  // Growing Up and All Grown Up are announced by the evolution toast, so they never get one of their own.
+  const earned = social.unlocked.filter(id => id !== 'teen' && id !== 'adult')
+  if (earned.length > 0) await enqueueAchievements($, earned, me, achievementToastText)
   const invited = inviteToastText(social.invites)
   if (invited !== null) await enqueue($, 'invite', invited)
 
