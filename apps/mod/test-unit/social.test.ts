@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { NOTES, fillNote, noteAt, noteOrder } from '../src/notes'
+import { NOTES, fillNote, isSkipped, nextNote, noteAt, noteOrder, shownNotes, totalNotes } from '../src/notes'
 import { parseSocial, parseWaveTarget, rankLine, rankMilestone, waveToastText } from '../src/social'
 import { isNewer } from '../src/version'
 
@@ -10,6 +10,37 @@ describe('notes', () => {
     expect([...order].sort((a, b) => a - b)).toEqual(Array.from({ length: 20 }, (_, i) => i))
     expect(noteOrder(123456)).toEqual(order)
     expect(noteOrder(654321)).not.toEqual(order)
+  })
+  it('keeps note 1 first and the last note last, for any seed', () => {
+    for (const seed of [0, 1, 7, 123456, 2 ** 31, 0xffffffff]) {
+      const order = noteOrder(seed)
+      expect(order[0]).toBe(0)
+      expect(order[19]).toBe(19)
+      expect([...order].sort((a, b) => a - b)).toEqual(Array.from({ length: 20 }, (_, i) => i))
+    }
+    const middles = new Set(Array.from({ length: 30 }, (_, s) => noteOrder(s).slice(1, 19).join()))
+    expect(middles.size).toBeGreaterThan(20)
+  })
+  it('skips the naming tip for a named pet and the level 10 tease from level 10', () => {
+    expect(isSkipped(2, { name: 'Pixel', level: 1 })).toBe(true)
+    expect(isSkipped(2, { name: null, level: 1 })).toBe(false)
+    expect(isSkipped(9, { name: null, level: 9 })).toBe(false)
+    expect(isSkipped(9, { name: null, level: 10 })).toBe(true)
+    expect(totalNotes({ name: null, level: 1 })).toBe(20)
+    expect(totalNotes({ name: 'P', level: 1 })).toBe(19)
+    expect(totalNotes({ name: 'P', level: 12 })).toBe(18)
+    for (const seed of [1, 2, 3, 99]) {
+      const pet = { seed, name: 'P', level: 12 }
+      const order = noteOrder(seed)
+      const delivered: number[] = []
+      for (let idx = nextNote(pet, 0); idx < 20; idx = nextNote(pet, idx + 1)) delivered.push(order[idx]!)
+      expect(delivered).toHaveLength(18)
+      expect(delivered).not.toContain(2)
+      expect(delivered).not.toContain(9)
+      expect(delivered[0]).toBe(0)
+      expect(delivered.at(-1)).toBe(19)
+      expect(shownNotes(pet, 20)).toHaveLength(18)
+    }
   })
   it('fills placeholders, with the plain serial in the card URL', () => {
     expect(fillNote('{name} #{serial}', 'Pixel', 42)).toBe('Pixel #000042')

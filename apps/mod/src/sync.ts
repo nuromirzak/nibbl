@@ -2,13 +2,14 @@ import { HOUR_MS } from '@nibbl/core'
 import type { EngineInterface } from 'claude-code'
 
 import { apiBase, backoff, holdUntil, postWithin, type Wait } from './api'
-import { CONFLICT_RETRY_MS, K, TRIM_AFTER_413 } from './config'
+import { CONFLICT_RETRY_MS, K, RANK_EVERY_MS, TRIM_AFTER_413 } from './config'
 import { applySocial } from './engage'
 import { hatchNow } from './hatch'
 import { refreshView } from './model'
 import type { ServerPet } from './pet'
 import { countEvents, isOrphan, isSyncDue, keepNewest, removeUpTo, sendable, takeBatch, toWire } from './queue'
 import { rt } from './runtime'
+import { VERSION } from './version'
 import { editQueue, loadPet, loadQueues, loadWait, queueKey, releaseLease, savePet, tryLease } from './store'
 
 export type SyncReason = 'schedule' | 'hatch' | 'session-end'
@@ -34,7 +35,16 @@ const send = async ($: EngineInterface, sid: string, pet: ServerPet, now: number
   const batch = takeBatch(sendable(all, own, now))
   if (batch.events.length === 0) return 'empty'
   const wait = await loadWait($, K.syncWait)
-  const out = await postWithin($, await apiBase($), '/api/sync', { serial: pet.serial, token: pet.token, events: toWire(batch.events) })
+  // `v` tells the server this client reads waves and rank; `rank` asks for the rank, at most once a day.
+  const rankAt = await $.store.get(K.rankAt)
+  const wantsRank = typeof rankAt !== 'number' || !Number.isFinite(rankAt) || now - rankAt >= RANK_EVERY_MS
+  const out = await postWithin($, await apiBase($), '/api/sync', {
+    serial: pet.serial,
+    token: pet.token,
+    events: toWire(batch.events),
+    v: VERSION,
+    ...(wantsRank ? { rank: true } : {}),
+  })
   if (out.kind === 'offline') return fail($, reason, `offline (${out.reason})`, backoff(wait, now))
   if (out.kind === 'ok') {
     const { xp, level, heartsLeft } = out.body

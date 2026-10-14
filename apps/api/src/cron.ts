@@ -58,6 +58,18 @@ export const pruneHatchIp = async (db: D1Database, now: number): Promise<void> =
   await db.prepare('DELETE FROM hatch_ip WHERE last_at < ?').bind(now - 2 * DAY_MS).run()
 }
 
+export const WAVE_KEEP_MS = 30 * DAY_MS
+
+// Delivered waves go once the UTC day they were sent ends (until then they still count toward the
+// daily wave limits); undelivered ones expire after 30 days, e.g. waves at bots or at pets that never sync.
+export const pruneWaves = async (db: D1Database, now: number): Promise<void> => {
+  const dayStart = Math.floor(now / DAY_MS) * DAY_MS
+  await db
+    .prepare('DELETE FROM waves WHERE (delivered = 1 AND created_at < ?) OR created_at < ?')
+    .bind(dayStart, now - WAVE_KEEP_MS)
+    .run()
+}
+
 // Bots hold the lowest serials, so the primary key bounds this read to them, not the whole table.
 // is_hidden stays out of the WHERE: with it SQLite prefers pets_board and walks every visible pet.
 export const BOT_MAX_SERIAL = Math.max(...BOTS.map(b => b.serial))
@@ -93,6 +105,7 @@ export const runCron = async (env: Env, now: number): Promise<void> => {
     ['growBots', () => growBots(env.DB, now)],
     ['rebuildLeaderboard', () => rebuildLeaderboard(env.DB, now)],
     ['pruneHatchIp', () => pruneHatchIp(env.DB, now)],
+    ['pruneWaves', () => pruneWaves(env.DB, now)],
   ]
   const failed: string[] = []
   for (const [name, run] of steps) {

@@ -18,7 +18,7 @@ test('turns queue with optimistic xp, a session end sends them, and only a 200 c
   const sent = h.syncs()[0]!
   expect(sent.url).toBe('https://getnibbl.pages.dev/api/sync')
   expect(sent.headers['content-type']).toBe('application/json')
-  expect(sent.body).toEqual({ serial: 42, token: TOKEN_A, events: [{ type: 'turn', at: START }, { type: 'turn', at: START }] })
+  expect(sent.body).toEqual({ serial: 42, token: TOKEN_A, events: [{ type: 'turn', at: START }, { type: 'turn', at: START }], v: expect.any(String), rank: true })
   stats = await nibbl($)
   expect(stats).toMatch(/lvl 1, 6 xp/)
   expect(stats).toMatch(/sync: 0 events waiting/)
@@ -112,7 +112,10 @@ test('payloads carry only types and times, never commands, paths, prompts or out
   const events = sent.body.events as Record<string, unknown>[]
   for (const e of events) expect(Object.keys(e).sort()).toEqual(['at', 'type'])
   expect(events.map(e => e.type)).toEqual(['check_pass', 'commit', 'error', 'turn'])
-  expect(Object.keys(sent.body).sort()).toEqual(['events', 'serial', 'token'])
+  // v (the plugin version) and rank (ask for the rank, first sync) are the only additions; both are plain flags.
+  expect(Object.keys(sent.body).sort()).toEqual(['events', 'rank', 'serial', 'token', 'v'])
+  expect(typeof sent.body.v).toBe('string')
+  expect(sent.body.rank).toBe(true)
 })
 
 test('two sessions on one machine: a live lease blocks, each sends only its own queue, orphans ride along', { timeoutMs: 30_000 }, async ($, on) => {

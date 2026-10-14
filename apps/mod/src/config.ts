@@ -35,6 +35,8 @@ export const NOTE_GAP_MS = 48 * 60 * 60_000
 export const NOTE_MIN_TURNS = 3
 export const WAVES_KEPT = 10
 export const TOP_RANK = 10
+// The rank costs the server O(position) rows, so the mod asks for it at most once a day.
+export const RANK_EVERY_MS = 24 * 60 * 60_000
 
 export const NAME_MAX = 16
 export const LABEL_MAX = 24
@@ -62,6 +64,7 @@ export const K = {
   noteAt: 'v1.noteAt',
   waves: 'v1.waves',
   rank: 'v1.rank',
+  rankAt: 'v1.rankAt',
   bestRank: 'v1.bestRank',
   latest: 'v1.latest',
   updateSeen: 'v1.updateSeen',

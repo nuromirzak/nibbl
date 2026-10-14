@@ -9,7 +9,7 @@ import { importErrorText, nameErrorText } from './messages'
 import { refreshView } from './model'
 import { displayName, fromOwnerView, padSerial, parseCode, type ServerPet } from './pet'
 import { eggAtom } from './state'
-import { dropQueues, forgetSpike, loadPet, loadSpike, savePet } from './store'
+import { clearSocial, dropQueues, forgetSpike, loadPet, loadSpike, savePet } from './store'
 
 // The text of an export row starts with this; the CommandOutput hook draws the code under it.
 export const EXPORT_MARK = 'Export code for '
@@ -89,7 +89,10 @@ export const importCommand = async ($: EngineInterface, rest: string): Promise<s
   if (!pet) return 'Import failed: the server answered something unexpected.'
   const isSame = old !== null && old.serial === pet.serial
   // Queued events belong to the pet that was here before.
-  if (!isSame) await dropQueues($)
+  if (!isSame) {
+    await dropQueues($)
+    await clearSocial($)
+  }
   await savePet($, isSame && old ? { ...pet, heartsHour: old.heartsHour, heartsUsed: old.heartsUsed, lastSyncAt: old.lastSyncAt } : pet)
   for (const key of [K.egg, K.hatchWait, K.syncWait]) await $.store.delete(key)
   // The server now binds this pet to the hash just sent, so a later re-hatch may use it too.

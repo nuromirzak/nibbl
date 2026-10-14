@@ -41,7 +41,7 @@ test('a note comes when the last one is over 48 h old, and the index advances', 
   await start($)
   await turns($, 3)
   expect(noteToasts(h.toasts)).toHaveLength(1)
-  expect(await nibbl($, 'notes')).toMatch(/^Notes from the maker \(2 of 20\):\n1\. .+\n2\. /)
+  expect(await nibbl($, 'notes')).toMatch(/^Notes from the maker \(2 of 19\):\n1\. .+\n2\. /)
 })
 
 test('after the 20th note nothing more arrives', async ($, on) => {
@@ -51,12 +51,34 @@ test('after the 20th note nothing more arrives', async ($, on) => {
   expect(noteToasts(h.toasts)).toHaveLength(0)
 })
 
-test('the 20th note is the last one delivered', async ($, on) => {
-  const h = harness(on, { store: { ...named(), 'v1.noteIdx': 19, 'v1.noteAt': START - 400 * HOURS } })
+test('the last note is the 20th and is delivered last', async ($, on) => {
+  const h = harness(on, { store: { ...hatchedStore({ name: null }), 'v1.noteIdx': 19, 'v1.noteAt': START - 400 * HOURS } })
   await start($)
   await turns($, 5)
   expect(noteToasts(h.toasts)).toHaveLength(1)
+  expect(noteToasts(h.toasts)[0]).toMatch(/Still here\?/)
   expect(await nibbl($, 'notes')).toMatch(/\(20 of 20\)/)
+})
+
+test('the first note is always note 1', async ($, on) => {
+  const h = harness(on, { store: hatchedStore({ name: null }), pet: { name: null } })
+  await start($)
+  await turns($, 3)
+  expect(noteToasts(h.toasts)[0]).toMatch(/^✉ from the maker: Hi, I made nibbl\./)
+})
+
+test('no note on the hatch turn: 3 answered turns after the hatch, egg turns not counted', async ($, on) => {
+  const h = harness(on, { store: { 'v1.noteAt': START - 400 * HOURS } })
+  await start($)
+  for (let i = 0; i < 10; i++) await answer($)
+  await h.clock.advance(5_000)
+  await h.clock.settle()
+  expect(h.toasts.some(t => /hatched!/.test(t))).toBe(true)
+  expect(noteToasts(h.toasts)).toHaveLength(0)
+  await turns($, 2)
+  expect(noteToasts(h.toasts)).toHaveLength(0)
+  await turns($, 1)
+  expect(noteToasts(h.toasts)).toHaveLength(1)
 })
 
 test('an egg gets no note, and a pet in a fresh session counts its own turns', async ($, on) => {
@@ -68,7 +90,7 @@ test('an egg gets no note, and a pet in a fresh session counts its own turns', a
 })
 
 test('all 20 notes are distinct, with placeholders filled', async ($, on) => {
-  harness(on, { store: { ...named(), 'v1.noteIdx': 20, 'v1.noteAt': START }, pet: { name: 'Pixel' } })
+  harness(on, { store: { ...hatchedStore({ name: null }), 'v1.noteIdx': 20, 'v1.noteAt': START }, pet: { name: null } })
   await start($)
   const list = await nibbl($, 'notes')
   const lines = list.split('\n')
@@ -78,7 +100,8 @@ test('all 20 notes are distinct, with placeholders filled', async ($, on) => {
   expect(new Set(notes).size).toBe(20)
   const all = notes.join('\n')
   expect(all).not.toMatch(/[{}]/)
-  expect(all).toContain('Pixel')
+  expect(notes[0]).toMatch(/^Hi, I made nibbl/)
+  expect(notes[19]).toMatch(/^Still here\?/)
   expect(all).toContain('#000042 is yours forever')
   expect(all).toContain('getnibbl.pages.dev/p/42.')
   expect(all).toContain('/nibbl wave <serial>')
@@ -91,7 +114,7 @@ test('/nibbl notes lists what arrived, in order', async ($, on) => {
   expect(await nibbl($, 'notes')).toMatch(/^No notes yet/)
   for (let i = 0; i < 3; i++) await answer($)
   const first = h.toasts.find(t => NOTE.test(t))!.replace(NOTE, '')
-  expect(await nibbl($, 'notes')).toBe(`Notes from the maker (1 of 20):\n1. ${first}`)
+  expect(await nibbl($, 'notes')).toBe(`Notes from the maker (1 of 19):\n1. ${first}`)
 })
 
 test('/nibbl wave: every outcome has its own copy', async ($, on) => {
@@ -156,6 +179,89 @@ test('the rank line shows the next nibbl above, and top of the board when there 
   await answer($)
   await end($)
   expect(await nibbl($)).toContain('rank 1 of 26 · top of the board')
+})
+
+test('the first rank seen only seeds the best rank, with no toast even at #1 or top 10', async ($, on) => {
+  const h = harness(on, { store: named(), pet: { name: 'Pixel' } })
+  h.server.syncExtra = { rank: { pos: 1, total: 26, above: null } }
+  await start($)
+  await answer($)
+  await end($)
+  expect(h.toasts.filter(t => /top 10|#1 on/.test(t))).toHaveLength(0)
+  expect(await nibbl($)).toContain('rank 1 of 26')
+})
+
+test('rank is requested once, then not again for 24 h, and v rides in every sync', async ($, on) => {
+  const h = harness(on, { store: named(), pet: { name: 'Pixel' } })
+  h.server.syncExtra = { rank: { pos: 5, total: 26, above: { serial: 19, name: null, tier: 'rare', xp: 900 } } }
+  await start($)
+  await answer($)
+  await end($)
+  expect(h.syncs()[0]!.body.rank).toBe(true)
+  await h.clock.advance(61_000)
+  await answer($)
+  await end($)
+  expect(h.syncs()).toHaveLength(2)
+  expect('rank' in h.syncs()[1]!.body).toBe(false)
+  expect(typeof h.syncs()[1]!.body.v).toBe('string')
+})
+
+test('a rankAt 25 h old asks again', async ($, on) => {
+  const h = harness(on, { store: { ...named(), 'v1.rankAt': START - 25 * HOURS } })
+  await start($)
+  await answer($)
+  await end($)
+  expect(h.syncs()[0]!.body.rank).toBe(true)
+})
+
+test('a stale or missing rankAt asks, a fresh one does not', async ($, on) => {
+  const fresh = harness(on, { store: { ...named(), 'v1.rankAt': START - 23 * HOURS } })
+  await start($)
+  await answer($)
+  await end($)
+  expect('rank' in fresh.syncs()[0]!.body).toBe(false)
+})
+
+test('a hidden pet gets rank null: the rank line goes away and the ask is remembered', async ($, on) => {
+  const h = harness(on, { store: { ...named(), 'v1.rank': { pos: 3, total: 9, above: null } }, pet: { name: 'Pixel' } })
+  h.server.syncExtra = { rank: null }
+  await start($)
+  await answer($)
+  await end($)
+  expect(await nibbl($)).not.toMatch(/rank/)
+  await h.clock.advance(61_000)
+  await answer($)
+  await end($)
+  expect('rank' in h.syncs()[1]!.body).toBe(false)
+})
+
+test('importing a different pet clears the social state but keeps the update notice', async ($, on) => {
+  const h = harness(on, {
+    store: {
+      ...named(),
+      'v1.rank': { pos: 3, total: 9, above: null },
+      'v1.rankAt': START,
+      'v1.bestRank': 3,
+      'v1.waves': [{ from: 5, name: null, at: START }],
+      'v1.noteIdx': 4,
+      'v1.noteAt': START,
+      'v1.latest': '0.3.0',
+      'v1.updateSeen': '0.3.0',
+    },
+  })
+  await start($)
+  expect(await nibbl($, `import nibbl1:99:${'C'.repeat(43)} replace`)).toMatch(/now lives on this machine/)
+  const stats = await nibbl($)
+  expect(stats).not.toMatch(/rank|last wave|last note/)
+  expect(stats).toContain('update: ')
+  expect(await nibbl($, 'notes')).toMatch(/^No notes yet/)
+  void h
+})
+
+test('delivered notes stay listed after a restart, and a named pet has 19 notes to get', async ($, on) => {
+  harness(on, { store: { ...named(), 'v1.noteIdx': 2, 'v1.noteAt': START } })
+  await start($)
+  expect(await nibbl($, 'notes')).toMatch(/\(2 of 19\)/)
 })
 
 test('rank milestones toast once: first top 10, then first #1', async ($, on) => {

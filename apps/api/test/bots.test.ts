@@ -1,7 +1,7 @@
 import { genome, genomeKey, HOUR_MS, levelFromXp, visualKey, type Tier } from '@nibbl/core'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { BOT_CATCH_UP_HOURS, BOTS, botHourCounts, MAX_HOURLY_XP, SEED_LAUNCH_AT, seedXpBudget, xpForCounts } from '../src/bots'
-import { BOT_MAX_SERIAL, BOT_ROWS_SQL, growBots, runCron } from '../src/cron'
+import { BOT_MAX_SERIAL, BOT_ROWS_SQL, growBots, pruneWaves, runCron } from '../src/cron'
 import type { Env } from '../src/env'
 import { checkText, LABEL_MAX, NAME_MAX } from '../src/lib/filter'
 import type { PetRow } from '../src/lib/db'
@@ -148,6 +148,29 @@ describe('bot growth', () => {
       if (r.serial === 1) expect(gain).toBe(0)
       expect(gain).toBeLessThanOrEqual(BOT_CATCH_UP_HOURS * MAX_HOURLY_XP)
     }
+  })
+})
+
+describe('pruneWaves', () => {
+  const insertWave = (id: number, createdAt: number, delivered: number) =>
+    testEnv.DB.prepare('INSERT INTO waves (id, from_serial, to_serial, created_at, delivered) VALUES (?, 1, 2, ?, ?)').bind(id, createdAt, delivered).run()
+  const ids = async () => (await testEnv.DB.prepare('SELECT id FROM waves ORDER BY id').all<{ id: number }>()).results.map(r => r.id)
+
+  it('drops waves delivered before today and waves older than 30 days, keeps the rest', async () => {
+    const dayStart = Math.floor(T0 / DAY) * DAY
+    await insertWave(1, dayStart - 1000, 1) // delivered yesterday: gone
+    await insertWave(2, dayStart + 1000, 1) // delivered today: kept, it still counts toward today's limits
+    await insertWave(3, dayStart - 2 * DAY, 0) // undelivered, young: kept
+    await insertWave(4, T0 - 31 * DAY, 0) // undelivered, expired: gone
+    await insertWave(5, dayStart + 2000, 0)
+    await pruneWaves(testEnv.DB, T0)
+    expect(await ids()).toEqual([2, 3, 5])
+  })
+
+  it('runs as its own cron step', async () => {
+    await insertWave(1, T0 - 40 * DAY, 0)
+    await runCron(testEnv, T0)
+    expect(await ids()).toEqual([])
   })
 })
 

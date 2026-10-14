@@ -26,21 +26,42 @@ export const NOTES: readonly string[] = [
   'Still here? So am I. See you at the next level.',
 ]
 
-// A fresh shuffle of 0..n-1 for this pet: the same seed always gives the same order, so the next
-// note is always known from the index alone and no note repeats.
+// The order notes arrive in for this pet: note 1 first, the last note last, and a per-pet shuffle of
+// the middle (the same seed always gives the same order), so no note repeats.
 export const noteOrder = (seed: number, n: number = NOTES.length): number[] => {
-  const order = Array.from({ length: n }, (_, i) => i)
+  if (n <= 2) return Array.from({ length: n }, (_, i) => i)
+  const mid = Array.from({ length: n - 2 }, (_, i) => i + 1)
   const rng = mulberry32(seed)
-  for (let i = n - 1; i > 0; i--) {
+  for (let i = mid.length - 1; i > 0; i--) {
     const j = rng() % (i + 1)
-    ;[order[i], order[j]] = [order[j]!, order[i]!]
+    ;[mid[i], mid[j]] = [mid[j]!, mid[i]!]
   }
-  return order
+  return [0, ...mid, n - 1]
 }
+
+// Note 3 pushes /nibbl name, pointless once named; note 10 teases level 10, pointless once there.
+export const isSkipped = (note: number, pet: { name: string | null; level: number }): boolean =>
+  (note === 2 && pet.name !== null) || (note === 9 && pet.level >= 10)
+
+// The first position at or after `idx` whose note is not skipped (NOTES.length when none is left).
+export const nextNote = (pet: { seed: number; name: string | null; level: number }, idx: number): number => {
+  const order = noteOrder(pet.seed)
+  let i = idx
+  while (i < order.length && isSkipped(order[i]!, pet)) i++
+  return i
+}
+
+// Positions in the pet's order of the notes that arrived (skipped ones left out), in arrival order.
+export const shownNotes = (pet: { seed: number; name: string | null; level: number }, idx: number): number[] => {
+  const order = noteOrder(pet.seed)
+  return Array.from({ length: Math.min(idx, order.length) }, (_, p) => p).filter(p => !isSkipped(order[p]!, pet))
+}
+
+export const totalNotes = (pet: { name: string | null; level: number }): number => NOTES.filter((_, i) => !isSkipped(i, pet)).length
 
 // The public card URL takes the plain serial; everywhere else the serial is the padded #000042 form.
 export const fillNote = (text: string, name: string, serial: number): string =>
   text.replaceAll('/p/{serial}', `/p/${serial}`).replaceAll('{name}', name).replaceAll('{serial}', padSerial(serial))
 
-export const noteAt = (seed: number, index: number, name: string, serial: number): string =>
-  fillNote(NOTES[noteOrder(seed)[index]!]!, name, serial)
+export const noteAt = (seed: number, position: number, name: string, serial: number): string =>
+  fillNote(NOTES[noteOrder(seed)[position]!]!, name, serial)

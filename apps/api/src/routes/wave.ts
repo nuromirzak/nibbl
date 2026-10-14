@@ -13,7 +13,7 @@ export const wave = async (request: Request, env: Env, deps: Deps): Promise<Resp
   const pet = await authPet(env.DB, body)
   const to = serialOf(body.to)
   if (to === pet.serial) throw new HttpError(400, 'self_wave')
-  const target = await env.DB.prepare('SELECT serial, name FROM pets WHERE serial = ? AND is_hidden = 0 AND is_bot = 0')
+  const target = await env.DB.prepare('SELECT serial, name FROM pets WHERE serial = ? AND is_hidden = 0')
     .bind(to)
     .first<Target>()
   if (!target) throw new HttpError(404, 'not_found')
