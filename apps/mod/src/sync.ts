@@ -3,6 +3,7 @@ import type { EngineInterface } from 'claude-code'
 
 import { apiBase, backoff, holdUntil, postWithin, type Wait } from './api'
 import { CONFLICT_RETRY_MS, K, TRIM_AFTER_413 } from './config'
+import { applySocial } from './engage'
 import { hatchNow } from './hatch'
 import { refreshView } from './model'
 import type { ServerPet } from './pet'
@@ -56,6 +57,11 @@ const send = async ($: EngineInterface, sid: string, pet: ServerPet, now: number
     })
     await clearSent($, batch.upTo)
     await $.store.delete(K.syncWait)
+    try {
+      await applySocial($, { ...latest, xp }, out.body, now)
+    } catch (err) {
+      $.ui.log(`nibbl: social fields: ${err instanceof Error ? err.message : String(err)}`, { to: 'debug' })
+    }
     return 'synced'
   }
   if ((out.status === 401 || out.code === 'invalid_token' || out.code === 'invalid_serial') && mayReauth) {

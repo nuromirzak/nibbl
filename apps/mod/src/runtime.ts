@@ -17,6 +17,7 @@ export const rt = {
   lastBeat: 0,
   isHatching: false,
   isSyncing: false,
+  answered: 0,
   queueChain: Promise.resolve() as Promise<unknown>,
 }
 

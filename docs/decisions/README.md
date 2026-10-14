@@ -18,3 +18,4 @@ Owner product decisions, ADR-lite. Each file records what was decided, why, reje
 | 0012 | [domain](0012-domain.md) | No custom domain for now, free pages.dev subdomain |
 | 0013 | [landing-balance](0013-landing-balance.md) | "Show the loop, hide the outcomes" on the landing page |
 | 0014 | [metrics](0014-metrics.md) | North star Weekly Active Nibbls and guardrails |
+| 0016 | [social-v0-2](0016-social-v0-2.md) | Maker notes, waves, rank neighbours, update notice; supersedes the 0002 social deferral |

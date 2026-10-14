@@ -85,7 +85,7 @@ export const hatchNow = async ($: EngineInterface, why: HatchWhy, opts: { isLeas
     await refreshView($)
     const name = displayName(fresh.name)
     if (why === 'egg') {
-      $.ui.toast(`${name} hatched! #${padSerial(fresh.serial)} · ${tierText(fresh)} · rarest: ${rarestLine(genomeOf(fresh.seed, fresh.tier, fresh.shiny))}`)
+      $.ui.toast(`${name} hatched! #${padSerial(fresh.serial)} · ${tierText(fresh)} · rarest: ${rarestLine(genomeOf(fresh.seed, fresh.tier, fresh.shiny))} · /nibbl name to name it`)
     }
     if (why === 'spike') $.ui.toast(`${name} is now #${padSerial(fresh.serial)}, synced with the nibbl server.`)
     return 'hatched'

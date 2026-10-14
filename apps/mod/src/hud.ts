@@ -65,7 +65,7 @@ export const utcText = (at: number): string => `${new Date(at).toISOString().sli
 export const cardUrl = (base: string, serial: number): string => `${base}/p/${serial}`
 export const boardUrl = (base: string, serial: number): string => `${base}/leaderboard/?me=${serial}`
 
-export type SyncInfo = { base: string; pending: number; lastSyncAt: number | null }
+export type SyncInfo = { base: string; pending: number; lastSyncAt: number | null; extra?: readonly string[] }
 
 export const statsText = (view: NibblPetView, g: Genome, now: number, sync: SyncInfo): string => {
   const lv = levelFromXp(view.xp)
@@ -79,6 +79,7 @@ export const statsText = (view: NibblPetView, g: Genome, now: number, sync: Sync
   const serial = serialOf(view)
   if (serial === null) lines.push('not on the server yet: it links on the next hatch call')
   else lines.push(`card: ${cardUrl(sync.base, serial)}`, `leaderboard: ${boardUrl(sync.base, serial)}`)
+  lines.push(...(sync.extra ?? []))
   const waiting = `${sync.pending} event${sync.pending === 1 ? '' : 's'} waiting`
   lines.push(`sync: ${waiting}, ${sync.lastSyncAt === null ? 'never synced' : `last sync ${utcText(sync.lastSyncAt)}`}`)
   return lines.join('\n')
