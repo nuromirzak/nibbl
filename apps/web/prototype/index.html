@@ -783,7 +783,7 @@ apiGet('/api/week').then(j=>{
   const e=lead||win;if(!e) throw 0;
   $('wkl').textContent='\u265b '+(lead?'Leading this week':'Nibbl of the week');
   $('wkn').textContent=e.name||('#'+pad6(e.serial));
-  $('wkt').textContent=lead?'+'+fmtN(e.gain)+' xp so far':'crowned last week, +'+fmtN(e.gain)+' xp';
+  $('wkt').textContent=lead?'+'+fmtN(e.gain)+' xp so far':(e.retro?'retro crown, '+fmtN(e.gain)+' xp':'crowned last week, +'+fmtN(e.gain)+' xp');
   $('wk').hidden=false;
 }).catch(()=>{});
 Promise.all([

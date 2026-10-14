@@ -318,7 +318,7 @@ describe('week rollover', () => {
     await setXp(4, 700)
     await insertPet({ serial: 5, xp: 60 }) // hatched mid-week, no snapshot row: counts from 0
     await weekRollover(testEnv.DB, NEXT)
-    expect(await winners()).toEqual([{ week: '2026-W43', serial: 2, gain: 80, at: NEXT, delivered: 0 }])
+    expect(await winners()).toEqual([{ week: '2026-W43', serial: 2, gain: 80, at: NEXT, delivered: 0, retro: 0 }])
     expect(await achievements(2)).toEqual(['week'])
     expect(await weekCounter()).toBe(202644)
     expect((await testEnv.DB.prepare('SELECT xp FROM week_snap WHERE serial = 3').first<number>('xp'))).toBe(900)
@@ -412,6 +412,17 @@ describe('GET /api/week', () => {
     expect(body.winners.length).toBe(8)
     expect(body.winners[0]).toMatchObject({ week: '2026-W19', serial: 1, gain: 14, shiny: false })
     expect(body.winners[7]!.week).toBe('2026-W12')
+    expect(body.winners[0]!.retro).toBe(false)
+  })
+
+  it('orders winners by week and flags retro crowns', async () => {
+    await insertPet({ serial: 1, xp: 0 })
+    await insertPet({ serial: 2, xp: 0 })
+    await weekRollover(testEnv.DB, T0)
+    await testEnv.DB.prepare('INSERT INTO week_winners (week, serial, gain, at, retro) VALUES (?, ?, ?, ?, 1)').bind('2026-W41', 2, 1800, T0 + 5).run()
+    await testEnv.DB.prepare('INSERT INTO week_winners (week, serial, gain, at) VALUES (?, ?, ?, ?)').bind('2026-W42', 1, 300, T0).run()
+    const body = (await (await call('/api/week')).json()) as { winners: Record<string, unknown>[] }
+    expect(body.winners.map(w => [w.week, w.retro])).toEqual([['2026-W42', false], ['2026-W41', true]])
   })
 })
 

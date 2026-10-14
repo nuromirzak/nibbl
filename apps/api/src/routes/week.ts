@@ -4,7 +4,7 @@ import { json } from '../lib/http'
 import { isoWeek } from '../lib/retention'
 
 type Row = { serial: number; name: string | null; tier: string; shiny: number; seed: number; level: number; gain: number }
-type Winner = Row & { week: string }
+type Winner = Row & { week: string; retro: number }
 
 const view = ({ shiny, ...r }: { shiny: number } & Omit<Row, 'shiny'>) => ({ ...r, shiny: shiny === 1 })
 
@@ -24,8 +24,8 @@ const weekBoard = async (env: Env, deps: Deps): Promise<Response> => {
        ORDER BY gain DESC, p.serial ASC LIMIT 5`,
     ).bind(snapped),
     env.DB.prepare(
-      `SELECT w.week, p.serial, p.name, p.tier, p.shiny, p.seed, p.level, w.gain
-       FROM week_winners w JOIN pets p ON p.serial = w.serial WHERE p.is_hidden = 0 ORDER BY w.at DESC LIMIT 8`,
+      `SELECT w.week, p.serial, p.name, p.tier, p.shiny, p.seed, p.level, w.gain, w.retro
+       FROM week_winners w JOIN pets p ON p.serial = w.serial WHERE p.is_hidden = 0 ORDER BY w.week DESC LIMIT 8`,
     ),
   ])
   return json(
@@ -33,7 +33,7 @@ const weekBoard = async (env: Env, deps: Deps): Promise<Response> => {
       week: cur.label,
       endsAt: cur.endsAt,
       leaders: (leaders!.results as Row[]).map(view),
-      winners: (winners!.results as Winner[]).map(view),
+      winners: (winners!.results as Winner[]).map(({ retro, ...w }) => ({ ...view(w), retro: retro === 1 })),
     },
     200,
     { 'cache-control': 'public, max-age=300' },

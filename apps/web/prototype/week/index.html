@@ -173,9 +173,13 @@ function renderWinners(list){
     a.appendChild(el('span','rk','\u265b'));
     const nm=el('span','nm',nameOf(e));nm.appendChild(el('span','lbl',weekLabel(e.week)));a.appendChild(nm);
     a.appendChild(tierBadge(e));
-    a.appendChild(el('span','g','+'+fmtN(e.gain)+' xp'));
+    a.appendChild(el('span','g',e.retro?'retro, '+fmtN(e.gain)+' xp':'+'+fmtN(e.gain)+' xp'));
     host.appendChild(a);
   });
+  const g=el('div','wrow');g.appendChild(el('span','rk','\u00b7'));
+  const gn=el('span','nm','Genesis week');gn.appendChild(el('span','lbl',weekLabel('2026-W40')));g.appendChild(gn);
+  g.appendChild(el('span','g','no crown'));host.appendChild(g);
+  if(list.some(e=>e.retro)) host.appendChild(el('div','empty','Retro crowns cover the weeks before the weekly snapshot started on 14 October. They go to the nibbl that had the most XP on 14 October among those hatched by the end of that week. The maker\u2019s own pet is left out.'));
 }
 apiGet('/api/week').then(j=>{
   const leaders=Array.isArray(j.leaders)?j.leaders:[];
