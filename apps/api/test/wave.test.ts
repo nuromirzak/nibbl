@@ -196,7 +196,7 @@ describe('POST /api/sync social fields', () => {
     await wave(b, a.serial)
     const old = (await (await sync(a, T0 + 60_000, {})).json()) as Record<string, unknown>
     expect(Object.keys(old).sort()).toEqual(['heartsLeft', 'latest', 'level', 'xp'])
-    expect(old.latest).toBe('0.2.0')
+    expect(old.latest).toBe(testEnv.LATEST_VERSION)
     const row = await testEnv.DB.prepare('SELECT delivered FROM waves WHERE to_serial = ?').bind(a.serial).first<{ delivered: number }>()
     expect(row?.delivered).toBe(0)
     // Even with a rank flag: without v nothing social is computed.
@@ -210,6 +210,6 @@ describe('POST /api/sync social fields', () => {
     const a = await hatchPet(1)
     const body = (await (await sync(a, T0, {})).json()) as SyncBody
     for (const k of ['xp', 'level', 'heartsLeft'] as const) expect(Number.isInteger(body[k])).toBe(true)
-    expect(body.latest).toBe('0.2.0')
+    expect(body.latest).toBe(testEnv.LATEST_VERSION)
   })
 })
