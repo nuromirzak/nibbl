@@ -1,4 +1,4 @@
-import { drawPet, drawScene, genome, rarestTrait, stageForLevel, type Genome, type Stage, type Tier, type TraitOdds } from '@nibbl/core'
+import { achievementById, drawPet, drawScene, genome, rarestTrait, stageForLevel, type Genome, type Stage, type Tier, type TraitOdds } from '@nibbl/core'
 import type { Env } from '../env'
 import { petBySerial, type PetRow } from '../lib/db'
 import { NIGHT, OG_H, OG_SCALE, OG_W, renderGridPng } from '../lib/png'
@@ -45,10 +45,17 @@ export type CardView = {
   stage: Stage
   genesis: boolean
   rarest: TraitOdds
+  // Public profile extras; empty for hidden pets (they keep no social trail on the card).
+  achievements: string[]
+  invitedBy: number | null
+  invited: number
 }
 
+export type CardExtras = Pick<CardView, 'achievements' | 'invitedBy' | 'invited'>
+const NO_EXTRAS: CardExtras = { achievements: [], invitedBy: null, invited: 0 }
+
 // Hidden pets keep their card (it is the owner's proof) but lose name and label.
-export const cardView = (pet: PetRow): CardView => {
+export const cardView = (pet: PetRow, extras: CardExtras = NO_EXTRAS): CardView => {
   const g = genome(pet.seed, pet.tier as Tier, pet.shiny === 1)
   const hidden = pet.is_hidden === 1
   const displayName = hidden || !pet.name ? 'nibbl' : pet.name
@@ -65,6 +72,7 @@ export const cardView = (pet: PetRow): CardView => {
     stage: stageForLevel(pet.level),
     genesis: pet.genesis === 1,
     rarest: rarestTrait(g),
+    ...(hidden ? NO_EXTRAS : extras),
   }
 }
 
@@ -74,9 +82,19 @@ export const cardHtml = (v: CardView, origin: string): string => {
   const scene = gridSvg(drawScene(v.genome, { stage: v.stage, petX: CENTER_X }), 12, v.title)
   const tags = [
     `<span class="tag tier">${v.genome.tier}</span>`,
+    `<span class="tag">${v.stage}</span>`,
     v.genome.shiny ? '<span class="tag">shiny</span>' : '',
     v.genesis ? '<span class="tag">genesis</span>' : '',
   ].join('')
+  const earned = v.achievements.flatMap(id => achievementById(id)?.name ?? [])
+  const achievements = earned.length ? `<div class="tags">${earned.map(n => `<span class="tag ach">${e(n)}</span>`).join('')}</div>` : ''
+  const bonds = [
+    v.invitedBy ? `<p class="bond">invited by <a href="/p/${padSerial(v.invitedBy)}">#${padSerial(v.invitedBy)}</a></p>` : '',
+    v.invited > 0 ? `<p class="bond">friends invited: ${v.invited}</p>` : '',
+  ].join('')
+  const who = v.displayName === 'nibbl' ? `#${v.padded}` : v.displayName
+  const shareText = `Meet ${who}, my nibbl. It eats my bugs in Claude Code.`
+  const share = `https://x.com/intent/post?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(url)}`
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -111,6 +129,8 @@ h1{font:700 40px/1.1 'Pixelify Sans',monospace;overflow-wrap:anywhere}
 .tags{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
 .tag{font:400 12px/1 Silkscreen,monospace;padding:6px 8px;background:var(--ink);color:var(--white)}
 .tag.tier{color:var(--tier)}
+.tag.ach{background:var(--accent);color:var(--ink)}
+.bond{color:var(--slate);font-size:13px}
 dl{display:grid;grid-template-columns:auto 1fr;gap:4px 16px}
 dt{color:var(--slate)}
 a{color:var(--ink)}
@@ -123,8 +143,10 @@ footer{margin-top:20px;font-size:13px}
 <h1>${e(v.displayName)} <span class="serial">#${v.padded}</span></h1>
 ${v.label ? `<p class="label">${e(v.label)}</p>` : ''}
 <div class="tags">${tags}</div>
+${achievements}
+${bonds}
 <dl><dt>level</dt><dd>${v.level}</dd><dt>xp</dt><dd>${v.xp}</dd><dt>rarest</dt><dd>${e(traitLine(v.rarest))}</dd></dl>
-<footer><a href="/leaderboard?me=${v.serial}">See its rank</a> · <a href="/">Hatch your own nibbl</a></footer>
+<footer><a class="share" href="${e(share)}" rel="noopener">Share on X</a> · <a href="/leaderboard?me=${v.serial}">See its rank</a> · <a href="/">Hatch your own nibbl</a></footer>
 </main>
 </body>
 </html>`
@@ -136,6 +158,24 @@ const notFound = (): Response =>
     { status: 404, headers: { ...HTML_HEADERS, 'cache-control': 'public, max-age=60' } },
   )
 
+const cardExtras = async (db: D1Database, serial: number): Promise<CardExtras> => {
+  try {
+    const [ach, by, invited] = await db.batch([
+      db.prepare('SELECT id FROM pet_achievements WHERE serial = ? ORDER BY at, id').bind(serial),
+      db.prepare('SELECT invited_by AS n FROM pets WHERE serial = ?').bind(serial),
+      db.prepare('SELECT COUNT(*) AS n FROM pets WHERE invited_by = ?').bind(serial),
+    ])
+    return {
+      achievements: (ach!.results as { id: string }[]).map(r => r.id),
+      invitedBy: (by!.results[0] as { n: number | null } | undefined)?.n ?? null,
+      invited: (invited!.results[0] as { n: number }).n,
+    }
+  } catch {
+    // The card must render even if the retention tables are missing.
+    return NO_EXTRAS
+  }
+}
+
 export const card = async (request: Request, env: Env): Promise<Response> => {
   if (request.method !== 'GET' && request.method !== 'HEAD') {
     return new Response('method not allowed', { status: 405, headers: { allow: 'GET, HEAD' } })
@@ -145,7 +185,7 @@ export const card = async (request: Request, env: Env): Promise<Response> => {
   const serial = match ? Number(match[1]) : 0
   const pet = serial >= 1 ? await petBySerial(env.DB, serial) : null
   if (!match || !pet) return notFound()
-  const view = cardView(pet)
+  const view = cardView(pet, await cardExtras(env.DB, pet.serial))
   if (match[2] === '/badge.svg') {
     const text = `${view.title} · lvl ${view.level}`
     return new Response(badgeSvg(drawPet(view.genome, view.stage, 'idle'), text), {

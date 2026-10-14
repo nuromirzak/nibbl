@@ -6,10 +6,12 @@ import { hatch } from './routes/hatch'
 import { importPet } from './routes/import'
 import { leaderboard } from './routes/leaderboard'
 import { name } from './routes/name'
+import { pet } from './routes/pet'
 import { rank } from './routes/rank'
 import { stats } from './routes/stats'
 import { sync } from './routes/sync'
 import { wave } from './routes/wave'
+import { week } from './routes/week'
 
 export type Route = { method: 'GET' | 'POST'; handler: (request: Request, env: Env, deps: Deps) => Promise<Response> }
 
@@ -22,10 +24,14 @@ const API: Record<string, Route> = {
   '/api/stats': { method: 'GET', handler: stats },
   '/api/sync': { method: 'POST', handler: sync },
   '/api/wave': { method: 'POST', handler: wave },
+  '/api/week': { method: 'GET', handler: week },
 }
 
 // Parameterised routes: matched by prefix, the handler parses the rest of the path.
-const API_PREFIX: [string, Route][] = [['/api/rank/', { method: 'GET', handler: rank }]]
+const API_PREFIX: [string, Route][] = [
+  ['/api/rank/', { method: 'GET', handler: rank }],
+  ['/api/pet/', { method: 'GET', handler: pet }],
+]
 
 const isJson = (type: string | null): boolean => type?.split(';')[0].trim().toLowerCase() === 'application/json'
 

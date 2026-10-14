@@ -75,7 +75,7 @@ describe('migrations', () => {
     const names = results.map(r => r.name)
     for (const t of ['pets', 'xp_windows', 'hatch_ip', 'leaderboard_cache', 'counters', 'pets_board']) expect(names).toContain(t)
     const counters = await testEnv.DB.prepare('SELECT name FROM counters ORDER BY name').all<{ name: string }>()
-    expect(counters.results.map(r => r.name)).toEqual(['bot_hour', 'hatched', 'serial'])
+    expect(counters.results.map(r => r.name)).toEqual(['bot_hour', 'hatched', 'serial', 'week'])
   })
 })
 
