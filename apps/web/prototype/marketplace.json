@@ -10,8 +10,8 @@
       "description": "Nibbl: a tiny pixel pet above your prompt that nibbles your bugs",
       "source": {
         "source": "archive",
-        "url": "https://getnibbl.pages.dev/plugin/nibbl-0.2.0.zip",
-        "sha256": "b795d4d38942e1f1305d21d880ad40fe696546fb8b91076e7c42067cfafde6f0"
+        "url": "https://getnibbl.pages.dev/plugin/nibbl-0.3.0.zip",
+        "sha256": "3740c023e11e0944cc11cb944d416906b1e267195e4b49dbcca930106ca5aa38"
       }
     }
   ]

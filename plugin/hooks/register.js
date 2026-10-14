@@ -1,5 +1,5 @@
 // src/register.tsx
-import { read as read4 } from "claude-code";
+import { read as read6 } from "claude-code";
 
 // src/account.ts
 import { update as update3 } from "claude-code";
@@ -35,6 +35,7 @@ const NIGHT_TO_HOUR = 5;
 const NOTE_GAP_MS = 48 * 60 * 6e4;
 const NOTE_MIN_TURNS = 3;
 const WAVES_KEPT = 10;
+const TOAST_QUEUE_MAX = 12;
 const TOP_RANK = 10;
 const RANK_EVERY_MS = 24 * 60 * 6e4;
 const NAME_MAX = 16;
@@ -61,6 +62,9 @@ const K = {
   bestRank: "v1.bestRank",
   latest: "v1.latest",
   updateSeen: "v1.updateSeen",
+  toastQueue: "v1.toastQueue",
+  greetDay: "v1.greetDay",
+  inviteCode: "v1.inviteCode",
   spikePet: "pet",
   spikeEggTurns: "eggTurns"
 };
@@ -127,6 +131,18 @@ const post = async ($, base, path, payload) => {
     return { kind: "offline", reason: err instanceof Error ? err.message : String(err) };
   }
 };
+const get = async ($, base, path) => {
+  try {
+    const res = await $.http.fetch(`${base}${path}`, { method: "GET" });
+    return outcomeOf(res.status, res.text);
+  } catch (err) {
+    return { kind: "offline", reason: err instanceof Error ? err.message : String(err) };
+  }
+};
+const getWithin = async ($, base, path, ms = POST_TIMEOUT_MS) => {
+  const out = await withTimeout($, ms, get($, base, path));
+  return out === "timeout" ? { kind: "offline", reason: `no answer in ${ms} ms` } : out;
+};
 const postWithin = async ($, base, path, payload, ms = POST_TIMEOUT_MS) => {
   const out = await withTimeout($, ms, post($, base, path, payload));
   return out === "timeout" ? { kind: "offline", reason: `no answer in ${ms} ms` } : out;
@@ -150,7 +166,37 @@ const pickBase = (env, option) => {
 const apiBase = async ($) => pickBase(await $.env.get("NIBBL_API"), rt.options.apiBase);
 
 // src/hatch.ts
-import { update as update2 } from "claude-code";
+import { read as read2, update as update2 } from "claude-code";
+
+// ../../packages/core/src/achievements.ts
+const ZERO_TOTALS = {
+  turns: 0,
+  checks: 0,
+  commits: 0,
+  errors: 0,
+  pets: 0,
+  wavesSent: 0,
+  activeDays: 0
+};
+const ACHIEVEMENTS = [
+  { id: "first-bite", name: "First Bite", desc: "Pass 1 check", goal: 1, metric: (f) => f.checks },
+  { id: "bug-hunter", name: "Bug Hunter", desc: "Pass 100 checks", goal: 100, metric: (f) => f.checks },
+  { id: "exterminator", name: "Exterminator", desc: "Pass 1000 checks", goal: 1e3, metric: (f) => f.checks },
+  { id: "committed", name: "Committed", desc: "Make 100 commits", goal: 100, metric: (f) => f.commits },
+  { id: "shipper", name: "Shipper", desc: "Make 1000 commits", goal: 1e3, metric: (f) => f.commits },
+  { id: "pair", name: "Pair Programmer", desc: "Get 1000 answered turns", goal: 1e3, metric: (f) => f.turns },
+  { id: "marathon", name: "Marathon", desc: "Get 10000 answered turns", goal: 1e4, metric: (f) => f.turns },
+  { id: "stubborn", name: "Never Gives Up", desc: "Survive 100 failed tool runs", goal: 100, metric: (f) => f.errors },
+  { id: "regular", name: "Regular", desc: "Be active on 7 days", goal: 7, metric: (f) => f.activeDays },
+  { id: "devoted", name: "Devoted", desc: "Be active on 30 days", goal: 30, metric: (f) => f.activeDays },
+  { id: "teen", name: "Growing Up", desc: "Reach teen stage (level 10)", goal: 10, metric: (f) => f.level },
+  { id: "adult", name: "All Grown Up", desc: "Reach adult stage (level 25)", goal: 25, metric: (f) => f.level },
+  { id: "friends", name: "Friends", desc: "Invite someone or be invited", goal: 1, metric: (f) => f.friends ? 1 : 0 },
+  { id: "social", name: "Social Butterfly", desc: "Send 25 waves", goal: 25, metric: (f) => f.wavesSent },
+  { id: "week", name: "Nibbl of the Week", desc: "Win a week", goal: 1, metric: (f) => f.weekWins }
+];
+const achievementById = (id) => ACHIEVEMENTS.find((a) => a.id === id);
+const nextUp = (f, have, n = 3) => ACHIEVEMENTS.filter((a) => !have.has(a.id)).map((a, i) => ({ id: a.id, name: a.name, value: Math.min(a.metric(f), a.goal), goal: a.goal, i })).sort((x, y) => y.value / y.goal - x.value / x.goal || x.i - y.i).slice(0, n).map(({ i: _i, ...rest }) => rest);
 
 // ../../packages/core/src/cells.ts
 const toCellPairs = (grid) => {
@@ -408,9 +454,9 @@ const drawPet = (g, stage, expression) => {
       for (let x = 6 - (v >> 1 & 1); x <= 9 + (v >> 2 & 1); x++) paintBody(x, y, shade);
     }
   } else if (g.pattern === "stars" || g.pattern === "constellation") {
-    const count = g.pattern === "stars" ? 3 : 5;
+    const count2 = g.pattern === "stars" ? 3 : 5;
     const star = g.ramp === "ember" || g.ramp === "gold" ? C.white : C.yellow;
-    for (let i = 0; i < count; i++) {
+    for (let i = 0; i < count2; i++) {
       const color = g.pattern === "constellation" && i % 2 === 1 ? C.white : star;
       const at = place(free);
       if (at !== null) px[at[1]][at[0]] = color;
@@ -985,7 +1031,12 @@ const clockText = (ms) => {
   const minutes = Math.floor(total / 60);
   return minutes >= 60 ? `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, "0")}:${seconds}` : `${minutes}:${seconds}`;
 };
-const statusText = (look, now, awaySince) => look === "away" ? `\u26CF on expedition ${clockText(now - awaySince)}` : STATUS[look];
+const idleTextAt = (hour) => hour >= 5 && hour <= 11 ? "sipping coffee" : hour >= 12 && hour <= 17 ? "sunbathing" : hour >= 18 && hour <= 22 ? "reading the logs" : STATUS.chilling;
+const statusText = (look, now, awaySince, offsetMin) => {
+  if (look === "away") return `\u26CF on expedition ${clockText(now - awaySince)}`;
+  if (look === "chilling" && offsetMin !== void 0) return idleTextAt(localHour(now, offsetMin));
+  return STATUS[look];
+};
 const sceneKeyOf = (r, stage, anim, now, offsetMin) => {
   const look = lookOf(r, now, offsetMin);
   const isWalking = anim.petX !== (r.awaySince > 0 ? AWAY_X : HOME_X);
@@ -1052,7 +1103,7 @@ const hudLines = (view, turns, r, now, tz) => {
     return { title: "Egg", xp: `turns ${shown}/${HATCH_AFTER_TURNS}`, hearts: "", status: status2, compact: `Egg \xB7 turns ${shown}/${HATCH_AFTER_TURNS} \xB7 ${status2}` };
   }
   const hearts = heartsBar(heartsLeftOf(view, now));
-  const status = statusText(lookOf(r, now, tz), now, r.awaySince);
+  const status = statusText(lookOf(r, now, tz), now, r.awaySince, tz);
   const serial = serialOf(view);
   const short = serial === null ? view.name : `${view.name} #${padSerial(serial)}`;
   return { title: titleOf(view), xp: xpLineOf(view.xp), hearts, status, compact: `${short} \xB7 lvl ${levelFromXp(view.xp).level} ${hearts} \xB7 ${status}` };
@@ -1061,12 +1112,18 @@ const hudKey = (lines) => Object.values(lines).join("\n");
 const utcText = (at) => `${new Date(at).toISOString().slice(0, 16).replace("T", " ")} UTC`;
 const cardUrl = (base, serial) => `${base}/p/${serial}`;
 const boardUrl = (base, serial) => `${base}/leaderboard/?me=${serial}`;
+const stageLine = (level) => {
+  const stage = stageForLevel(level);
+  if (stage === "baby") return "stage: baby (teen at level 10)";
+  return `stage: ${stage} (since level ${stage === "teen" ? 10 : 25})`;
+};
 const statsText = (view, g, now, sync) => {
   const lv = levelFromXp(view.xp);
   const lines = [
     titleOf(view),
     tierText(view),
     `lvl ${lv.level}, ${view.xp} xp (${lv.intoLevel}/${lv.toNext} to next)  ${xpBar(lv.intoLevel, lv.toNext)}`,
+    stageLine(lv.level),
     `hearts this hour: ${heartsBar(heartsLeftOf(view, now))}`,
     `rarest trait: ${rarestLine(g)}`
   ];
@@ -1195,7 +1252,7 @@ const takeBatch = (queues, max = MAX_BATCH) => {
   return { events, upTo };
 };
 const removeUpTo = (q, n) => ({ ...q, events: q.events.filter((e) => e.n > n) });
-const keepNewest = (q, count) => ({ ...q, events: q.events.slice(Math.max(0, q.events.length - count)) });
+const keepNewest = (q, count2) => ({ ...q, events: q.events.slice(Math.max(0, q.events.length - count2)) });
 const pendingGain = (queues) => {
   let sum = 0;
   for (const q of queues) for (const e of q.events) sum += e.g;
@@ -1262,7 +1319,7 @@ const loadQueues = async ($) => {
   return out;
 };
 const clearSocial = async ($) => {
-  for (const key of [K.rank, K.rankAt, K.bestRank, K.waves, K.noteIdx, K.noteAt]) await $.store.delete(key);
+  for (const key of [K.rank, K.rankAt, K.bestRank, K.waves, K.noteIdx, K.noteAt, K.toastQueue, K.greetDay]) await $.store.delete(key);
 };
 const dropQueues = async ($) => {
   for (const key of await $.store.keys()) if (key.startsWith(QUEUE_PREFIX)) await $.store.delete(key);
@@ -1305,7 +1362,10 @@ const refreshView = async ($, announce = false) => {
   if (announce && prev && view && prev.serial === view.serial) {
     const was = levelFromXp(prev.xp).level;
     const is = levelFromXp(view.xp).level;
-    if (is > was) $.ui.toast(`${view.name} reached level ${is}!`);
+    if (is > was) {
+      if (stageForLevel(was) !== stageForLevel(is)) $.ui.toast(`${view.name} evolved into a${stageForLevel(is) === "adult" ? "n adult" : " teen"}! Show it off: /nibbl share`);
+      else $.ui.toast(`${view.name} reached level ${is}!`);
+    }
   }
   return view;
 };
@@ -1405,6 +1465,62 @@ const frameOf = (view, turns, r, anim, now, tz) => {
   return { ...petCells(g, sceneKeyOf(r, stageForLevel(levelFromXp(view.xp).level), anim, now, tz)), hud };
 };
 
+// src/greetings.ts
+const GREETINGS = {
+  morning: [
+    "Good morning! {name} is stretching.",
+    "Morning. {name} saved you the first bug of the day.",
+    "Rise and ship. {name} is ready.",
+    "Good morning! Coffee for you, bugs for {name}.",
+    "Morning! {name} perked up when you came back.",
+    "New day, clean slate. {name} says hi.",
+    "Good morning. Let's make the tests green.",
+    "Morning! {name} did a little wiggle when you came back."
+  ],
+  afternoon: [
+    "Good afternoon! {name} is wide awake.",
+    "Back after lunch? {name} is hungry too.",
+    "Afternoon. {name} kept your seat warm.",
+    "Hi again! {name} is glad you're back.",
+    "Good afternoon. One commit at a time.",
+    "Afternoon! {name} found a sunny spot above the prompt.",
+    "Hey! {name} is ready for whatever breaks next.",
+    "Good afternoon. Small steps, green checks."
+  ],
+  evening: [
+    "Good evening! {name} is glad you're here.",
+    "Evening session? {name} brought snacks.",
+    "Good evening. {name} is in a cozy mood.",
+    "Evening! Let's finish what we started.",
+    "Hi! {name} likes the quiet evening hours.",
+    "Good evening. {name} will keep you company.",
+    "Evening, coder. {name} is all ears.",
+    "One more feature? {name} believes in you."
+  ],
+  night: [
+    "Late night? {name} put on a nightcap.",
+    "Burning the midnight oil. {name} is here with you.",
+    "Hello, night owl. {name} is wide awake for you.",
+    "Shh, the bugs are sleeping. Good time to catch them.",
+    "Late session. {name} says: drink some water.",
+    "Night mode on. {name} is keeping watch.",
+    "Still up? {name} too.",
+    "Quiet hours. {name} is happy you stopped by."
+  ]
+};
+const bucketOfHour = (hour) => hour >= 5 && hour <= 11 ? "morning" : hour >= 12 && hour <= 17 ? "afternoon" : hour >= 18 && hour <= 22 ? "evening" : "night";
+const DAY_MS = 864e5;
+const localDay = (now, offsetMin) => Math.floor((now + offsetMin * 6e4) / DAY_MS);
+const localHourOf = (now, offsetMin) => {
+  const minutes = Math.floor(now / 6e4) + offsetMin;
+  return Math.floor((minutes % 1440 + 1440) % 1440 / 60);
+};
+const greetingFor = (seed, now, offsetMin, name) => {
+  const lines = GREETINGS[bucketOfHour(localHourOf(now, offsetMin))];
+  const rng = mulberry32((seed ^ localDay(now, offsetMin)) >>> 0);
+  return lines[rng() % lines.length].replaceAll("{name}", name);
+};
+
 // src/hatch.ts
 const hatchNow = async ($, why, opts = {}) => {
   if (rt.isHatching) return "busy";
@@ -1431,7 +1547,9 @@ const hatchNow = async ($, why, opts = {}) => {
         return "failed";
       }
     }
-    const out = await postWithin($, await apiBase($), "/api/hatch", { machineHash: id.hash });
+    const code = why === "egg" ? await $.store.get(K.inviteCode) : null;
+    const invite = typeof code === "number" && Number.isInteger(code) && code >= 1 ? code : null;
+    const out = await postWithin($, await apiBase($), "/api/hatch", { machineHash: id.hash, ...invite === null ? {} : { invite } });
     if (out.kind !== "ok") {
       const next = out.kind === "error" && out.status === 429 && out.retryAt !== null ? holdUntil(wait, out.retryAt) : backoff(wait, now);
       await $.store.set(K.hatchWait, next);
@@ -1464,6 +1582,8 @@ const hatchNow = async ($, why, opts = {}) => {
     if (old && !isSamePet) await clearSocial($);
     await savePet($, isSamePet && old ? { ...fresh, heartsHour: old.heartsHour, heartsUsed: old.heartsUsed, lastSyncAt: old.lastSyncAt } : fresh);
     await $.store.delete(K.egg);
+    await $.store.delete(K.inviteCode);
+    if (why !== "reauth") await $.store.set(K.greetDay, localDay(now, await read2($, tzAtom)));
     if (id.source === "install") await $.store.set(K.installSerial, fresh.serial);
     else await $.store.delete(K.installSerial);
     await forgetSpike($);
@@ -1582,7 +1702,7 @@ const importCommand = async ($, rest) => {
     await clearSocial($);
   }
   await savePet($, isSame && old ? { ...pet, heartsHour: old.heartsHour, heartsUsed: old.heartsUsed, lastSyncAt: old.lastSyncAt } : pet);
-  for (const key of [K.egg, K.hatchWait, K.syncWait]) await $.store.delete(key);
+  for (const key of [K.egg, K.hatchWait, K.syncWait, K.inviteCode]) await $.store.delete(key);
   if (id.source === "install") await $.store.set(K.installSerial, pet.serial);
   else await $.store.delete(K.installSerial);
   await forgetSpike($);
@@ -1592,7 +1712,10 @@ const importCommand = async ($, rest) => {
 };
 
 // src/commands.ts
-import { read as read2, update as update5 } from "claude-code";
+import { read as read4, update as update5 } from "claude-code";
+
+// src/engage.ts
+import { read as read3 } from "claude-code";
 
 // src/notes.ts
 const NOTES = [
@@ -1642,6 +1765,64 @@ const totalNotes = (pet) => NOTES.filter((_, i) => !isSkipped(i, pet)).length;
 const fillNote = (text, name, serial) => text.replaceAll("/p/{serial}", `/p/${serial}`).replaceAll("{name}", name).replaceAll("{serial}", padSerial(serial));
 const noteAt = (seed, position, name, serial) => fillNote(NOTES[noteOrder(seed)[position]], name, serial);
 
+// src/toasts.ts
+const TOAST_PRIORITY = ["hatch", "evolution", "week", "achievement", "invite", "wave", "greeting", "note", "update"];
+const isKind = (v) => typeof v === "string" && TOAST_PRIORITY.includes(v);
+const parseToastQueue = (v) => {
+  if (!Array.isArray(v)) return [];
+  const out = [];
+  for (const item of v) {
+    if (typeof item !== "object" || item === null) continue;
+    const { kind, text, ids, me } = item;
+    if (!isKind(kind) || typeof text !== "string" || text.length === 0) continue;
+    const cleanIds = Array.isArray(ids) ? ids.filter((i) => typeof i === "string") : [];
+    out.push(kind === "achievement" && cleanIds.length > 0 && typeof me === "string" ? { kind, text, ids: cleanIds, me } : { kind, text });
+  }
+  return out;
+};
+const nextIndex = (items) => {
+  let best = -1;
+  for (let i = 0; i < items.length; i++) {
+    if (best < 0 || TOAST_PRIORITY.indexOf(items[i].kind) < TOAST_PRIORITY.indexOf(items[best].kind)) best = i;
+  }
+  return best;
+};
+const capped = (items) => {
+  const out = [...items];
+  while (out.length > TOAST_QUEUE_MAX) {
+    let worst = 0;
+    for (let i = 1; i < out.length; i++) if (TOAST_PRIORITY.indexOf(out[i].kind) > TOAST_PRIORITY.indexOf(out[worst].kind)) worst = i;
+    out.splice(worst, 1);
+  }
+  return out;
+};
+const withToast = (items, kind, text) => items.some((t) => t.text === text) ? [...items] : capped([...items, { kind, text }]);
+const withAchievements = (items, ids, me, textOf) => {
+  const at = items.findIndex((t) => t.kind === "achievement" && t.ids !== void 0);
+  const merged = [.../* @__PURE__ */ new Set([...at >= 0 ? items[at].ids : [], ...ids])];
+  const text = textOf(merged, me);
+  if (text === null) return [...items];
+  const next = { kind: "achievement", text, ids: merged, me };
+  if (at < 0) return capped([...items, next]);
+  return items.map((t, i) => i === at ? next : t);
+};
+const loadToasts = async ($) => parseToastQueue(await $.store.get(K.toastQueue));
+const enqueue = async ($, kind, text) => {
+  await $.store.set(K.toastQueue, withToast(await loadToasts($), kind, text));
+};
+const enqueueAchievements = async ($, ids, me, textOf) => {
+  await $.store.set(K.toastQueue, withAchievements(await loadToasts($), ids, me, textOf));
+};
+const flushOne = async ($) => {
+  const items = await loadToasts($);
+  const i = nextIndex(items);
+  if (i < 0) return;
+  const [shown] = items.splice(i, 1);
+  if (items.length === 0) await $.store.delete(K.toastQueue);
+  else await $.store.set(K.toastQueue, items);
+  $.ui.toast(shown.text);
+};
+
 // src/social.ts
 const isPosInt = (v) => typeof v === "number" && Number.isInteger(v) && v >= 1;
 const isNameOrNull = (v) => v === null || typeof v === "string";
@@ -1665,10 +1846,28 @@ const parseRank = (v) => {
   return { pos: v.pos, total: v.total, above };
 };
 const parseLatest = (v) => typeof v === "string" && /^\d{1,4}\.\d{1,4}\.\d{1,4}$/.test(v) ? v : null;
+const parseUnlocked = (v) => {
+  if (!Array.isArray(v)) return [];
+  const out = [];
+  for (const id of v) if (typeof id === "string" && achievementById(id) !== void 0 && !out.includes(id)) out.push(id);
+  return out;
+};
+const parseInvites = (v) => {
+  if (!Array.isArray(v)) return [];
+  const out = [];
+  for (const i of v.slice(0, 5)) {
+    if (isObj(i) && isPosInt(i.serial) && isNameOrNull(i.name ?? null)) out.push({ serial: i.serial, name: typeof i.name === "string" && i.name.length > 0 ? i.name : null });
+  }
+  return out;
+};
+const parseWeekWin = (v) => isObj(v) && typeof v.week === "string" && /^\d{4}-W\d{2}$/.test(v.week) && typeof v.gain === "number" && Number.isFinite(v.gain) ? { week: v.week, gain: v.gain } : null;
 const parseSocial = (body) => ({
   waves: parseWaves(body.waves),
   rank: parseRank(body.rank),
-  latest: parseLatest(body.latest)
+  latest: parseLatest(body.latest),
+  unlocked: parseUnlocked(body.unlocked),
+  invites: parseInvites(body.invites),
+  weekWin: parseWeekWin(body.weekWin)
 });
 const parseWavesSeen = (v) => {
   if (!Array.isArray(v)) return [];
@@ -1686,6 +1885,17 @@ const waveToastText = (waves, me) => {
   if (waves.length === 1) return `${labelOf(waves[0].name, waves[0].from)} waved at ${me} \u2665`;
   return `${waves.length} nibbls waved at ${me} \u2665`;
 };
+const achievementToastText = (ids, me) => {
+  if (ids.length === 0) return null;
+  if (ids.length === 1) return `\u{1F3C6} ${me} unlocked ${achievementById(ids[0])?.name ?? ids[0]}`;
+  return `${me} unlocked ${ids.length} achievements`;
+};
+const inviteToastText = (invites) => {
+  if (invites.length === 0) return null;
+  if (invites.length === 1) return `Your friend's nibbl #${padSerial(invites[0].serial)} hatched. You are Friends now \u2665`;
+  return `${invites.length} friends hatched their nibbls. You are Friends now \u2665`;
+};
+const weekToastText = (me, base) => `${me} is the Nibbl of the Week! ${base}/week`;
 const rankLine = (r, serverXp) => {
   const head = `rank ${r.pos} of ${r.total}`;
   if (!r.above) return `${head} \xB7 top of the board`;
@@ -1716,7 +1926,7 @@ const waveErrorText = (status, code, to) => {
 };
 
 // src/version.ts
-const VERSION = true ? "0.2.0" : "0.0.0-dev";
+const VERSION = true ? "0.3.0" : "0.0.0-dev";
 const SEMVER = /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/;
 const parseSemver = (v) => {
   const m = typeof v === "string" ? SEMVER.exec(v) : null;
@@ -1747,7 +1957,17 @@ const maybeNote = async ($) => {
   if (last !== null && now - last < NOTE_GAP_MS) return;
   await $.store.set(K.noteIdx, idx + 1);
   await $.store.set(K.noteAt, now);
-  $.ui.toast(`\u2709 from the maker: ${noteAt(pet.seed, idx, displayName(pet.name), pet.serial)}`);
+  await enqueue($, "note", `\u2709 from the maker: ${noteAt(pet.seed, idx, displayName(pet.name), pet.serial)}`);
+};
+const maybeGreet = async ($) => {
+  const pet = await loadPet($);
+  if (!pet) return;
+  const now = await $.clock.now();
+  const tz = await read3($, tzAtom);
+  const day = localDay(now, tz);
+  if (num(await $.store.get(K.greetDay)) === day) return;
+  await $.store.set(K.greetDay, day);
+  await enqueue($, "greeting", greetingFor(pet.seed, now, tz, displayName(pet.name)));
 };
 const notesCommand = async ($) => {
   const pet = await loadPet($);
@@ -1761,11 +1981,17 @@ const notesCommand = async ($) => {
 const applySocial = async ($, pet, body, now) => {
   const social = parseSocial(body);
   const me = displayName(pet.name);
+  const won = social.weekWin;
+  if (won) await enqueue($, "week", weekToastText(me, await apiBase($)));
+  const earned = social.unlocked.filter((id) => id !== "teen" && id !== "adult");
+  if (earned.length > 0) await enqueueAchievements($, earned, me, achievementToastText);
+  const invited = inviteToastText(social.invites);
+  if (invited !== null) await enqueue($, "invite", invited);
   const text = waveToastText(social.waves, me);
   if (text !== null) {
     const kept = [...social.waves.map((w) => ({ ...w, at: now })), ...parseWavesSeen(await $.store.get(K.waves))].slice(0, WAVES_KEPT);
     await $.store.set(K.waves, kept);
-    $.ui.toast(text);
+    await enqueue($, "wave", text);
   }
   if (social.rank) {
     await $.store.set(K.rank, social.rank);
@@ -1773,8 +1999,8 @@ const applySocial = async ($, pet, body, now) => {
     const best = num(await $.store.get(K.bestRank));
     if (best === null || social.rank.pos < best) await $.store.set(K.bestRank, social.rank.pos);
     const hit = best === null ? null : rankMilestone(best, social.rank.pos);
-    if (hit === "first") $.ui.toast(`${me} is #1 on the board!`);
-    else if (hit === "top10") $.ui.toast(`${me} made the top ${TOP_RANK}!`);
+    if (hit === "first") await enqueue($, "wave", `${me} is #1 on the board!`);
+    else if (hit === "top10") await enqueue($, "wave", `${me} made the top ${TOP_RANK}!`);
   } else if (body.rank === null) {
     await $.store.delete(K.rank);
     await $.store.set(K.rankAt, now);
@@ -1783,7 +2009,7 @@ const applySocial = async ($, pet, body, now) => {
     await $.store.set(K.latest, social.latest);
     if (isNewer(social.latest) && await $.store.get(K.updateSeen) !== social.latest) {
       await $.store.set(K.updateSeen, social.latest);
-      $.ui.toast(updateToast(social.latest));
+      await enqueue($, "update", updateToast(social.latest));
     }
   }
 };
@@ -1798,6 +2024,8 @@ const socialStatsLines = async ($, pet) => {
   const rank = parseRank(await $.store.get(K.rank));
   if (rank) lines.push(rankLine(rank, pet.xp));
   if (isNewer(await $.store.get(K.latest))) lines.push(updateLine());
+  const waiting = (await loadToasts($)).length;
+  if (waiting > 0) lines.push(`news waiting: ${waiting} (one shows after each answered turn)`);
   return lines;
 };
 
@@ -1950,15 +2178,104 @@ const petPressed = async ($) => {
   await recordEvent($, "pet");
 };
 
+// src/growth.ts
+const ACHIEVEMENTS_TIMEOUT_MS = 5e3;
+const LINKING = "Your nibbl is still linking to the server. Try again in a minute.";
+const article = (word) => /^[aeiou]/i.test(word) ? "an" : "a";
+const shareLine = (p, url) => {
+  const stage = stageForLevel(levelFromXp(p.xp).level);
+  const who = p.name && p.name.length > 0 ? `Meet ${p.name}, my nibbl` : "Meet my nibbl";
+  return `${who} #${padSerial(p.serial)}, ${article(p.tier)} ${p.tier} ${stage}. It eats my bugs in Claude Code. ${url}`;
+};
+const shareCommand = async ($) => {
+  const pet = await loadPet($);
+  if (!pet) return await loadSpike($) ? LINKING : "Hatch the egg first, then share it.";
+  const view = await refreshView($);
+  const url = cardUrl(await apiBase($), pet.serial);
+  const line = shareLine({ name: pet.name, serial: pet.serial, tier: pet.tier, xp: view?.xp ?? pet.xp }, url);
+  return [`card: ${url}`, line, `Post it: https://x.com/intent/post?text=${encodeURIComponent(line)}`].join("\n");
+};
+const count = (v) => typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : 0;
+const isObj2 = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
+const parsePublicPet = (body) => {
+  const unlocked = [];
+  if (Array.isArray(body.achievements)) {
+    for (const a of body.achievements) {
+      if (isObj2(a) && typeof a.id === "string" && achievementById(a.id) && typeof a.at === "number" && Number.isFinite(a.at) && !unlocked.some((u) => u.id === a.id)) {
+        unlocked.push({ id: a.id, at: a.at });
+      }
+    }
+  }
+  const t = isObj2(body.totals) ? body.totals : {};
+  const totals = {
+    turns: count(t.turns),
+    checks: count(t.checks),
+    commits: count(t.commits),
+    errors: count(t.errors),
+    pets: count(t.pets),
+    wavesSent: count(t.wavesSent),
+    activeDays: count(t.activeDays)
+  };
+  const facts = {
+    ...ZERO_TOTALS,
+    ...totals,
+    level: count(body.level),
+    friends: count(body.friends) > 0 || typeof body.invitedBy === "number",
+    weekWins: count(body.weekWins)
+  };
+  return { unlocked, facts };
+};
+const dayText = (at) => new Date(at).toISOString().slice(0, 10);
+const achievementsText = (body) => {
+  const { unlocked, facts } = parsePublicPet(body);
+  const lines = [`Achievements (${unlocked.length} of ${ACHIEVEMENTS.length}):`];
+  for (const u of unlocked) lines.push(`  ${achievementById(u.id).name} - ${dayText(u.at)} UTC`);
+  const next = nextUp(facts, new Set(unlocked.map((u) => u.id)), 3);
+  if (next.length === 0) lines.push("All unlocked.");
+  else {
+    lines.push("Next:");
+    for (const n of next) lines.push(`  ${n.name} ${n.value}/${n.goal}`);
+  }
+  return lines.join("\n");
+};
+const achievementsCommand = async ($) => {
+  const pet = await loadPet($);
+  if (!pet) return await loadSpike($) ? LINKING : "Hatch the egg first.";
+  const out = await getWithin($, await apiBase($), `/api/pet/${pet.serial}`, ACHIEVEMENTS_TIMEOUT_MS);
+  if (out.kind === "offline") return "Could not reach the nibbl server. Try again later.";
+  if (out.kind === "error") return out.status === 404 ? "Your nibbl is hidden from the board, so its card is private." : `The server answered ${out.code}. Try again later.`;
+  return achievementsText(out.body);
+};
+const INSTALL = ["/plugin marketplace add https://getnibbl.pages.dev/marketplace.json", "/plugin install nibbl@nibbl"];
+const INVITE_USAGE = "Usage: /nibbl invite <serial>, for example /nibbl invite 19. Run it before your egg hatches.";
+const inviteCommand = async ($, rest) => {
+  const pet = await loadPet($);
+  const hasPet = pet !== null || await loadSpike($) !== null;
+  if (rest === "") {
+    if (pet) {
+      return [`Ask a friend to install nibbl and run /nibbl invite ${pet.serial} before their egg hatches.`, ...INSTALL.map((l) => `  ${l}`)].join("\n");
+    }
+    return hasPet ? LINKING : INVITE_USAGE;
+  }
+  if (hasPet) return "Invites work only before your egg hatches.";
+  const code = parseWaveTarget(rest);
+  if (code === null) return INVITE_USAGE;
+  await $.store.set(K.inviteCode, code);
+  return `Saved. If #${padSerial(code)} exists, your nibbls become Friends when your egg hatches.`;
+};
+
 // src/help.ts
-const COMMAND_DESCRIPTION = "Your nibbl: stats, pet, name, label, wave, notes, odds, export, import, hide";
-const COMMAND_HINT = "[pet | name <text> | label <text> | wave <serial> | notes | odds | export | import <code> | hide]";
+const COMMAND_DESCRIPTION = "Your nibbl: stats, pet, name, label, wave, share, achievements, invite, notes, odds, export, import, hide";
+const COMMAND_HINT = "[pet | name <text> | label <text> | wave <serial> | share | achievements | invite [serial] | notes | odds | export | import <code> | hide]";
 const HELP = [
   "/nibbl                 stats, card and leaderboard links",
   "/nibbl pet             pet it (or ctrl+x tab, then p, on the band)",
   "/nibbl name <text>     rename your pet (once a week, up to 16 characters)",
   "/nibbl label <text>    set a label (up to 24 characters); /nibbl label alone clears it",
   "/nibbl wave <serial>   wave at another nibbl (10 a day, one per nibbl)",
+  "/nibbl share           a ready post and card link to show your nibbl off",
+  "/nibbl achievements    your achievements and the next ones",
+  "/nibbl invite [serial] invite a friend (or enter who invited you, before your egg hatches)",
   "/nibbl notes           notes from the maker you have received",
   "/nibbl odds            hatch odds and your pet's traits",
   "/nibbl export          show the secret code that moves your pet",
@@ -2001,7 +2318,7 @@ const waveCommand = async ($, rest) => {
 // src/commands.ts
 const statsCommand = async ($) => {
   const view = await refreshView($);
-  if (!view) return eggStatsText(await read2($, eggAtom));
+  if (!view) return eggStatsText(await read4($, eggAtom));
   const pet = await loadPet($);
   const pending = countEvents(Object.values(await loadQueues($)));
   return statsText(view, genomeOf(view.seed, view.tier, view.shiny), await $.clock.now(), {
@@ -2016,7 +2333,7 @@ const oddsCommand = async ($) => {
   return oddsText(view, view ? genomeOf(view.seed, view.tier, view.shiny) : null);
 };
 const hideCommand = async ($) => {
-  const isHidden = !await read2($, hiddenAtom);
+  const isHidden = !await read4($, hiddenAtom);
   await update5($, hiddenAtom, () => isHidden);
   await $.store.set(K.hidden, isHidden);
   if (isHidden) await recordEvent($, "hide");
@@ -2041,6 +2358,9 @@ const runCommand = async ($, args) => {
   if (verb === "name") return nameCommand($, "name", rest);
   if (verb === "label") return nameCommand($, "label", rest);
   if (verb === "wave") return waveCommand($, rest);
+  if (verb === "share") return shareCommand($);
+  if (verb === "achievements") return achievementsCommand($);
+  if (verb === "invite") return inviteCommand($, rest);
   if (verb === "notes") return notesCommand($);
   if (verb === "export") return exportCommand($);
   if (verb === "import") return importCommand($, rest);
@@ -2051,7 +2371,7 @@ const runCommand = async ($, args) => {
 import { update as update6 } from "claude-code";
 
 // src/ticker.ts
-import { read as read3 } from "claude-code";
+import { read as read5 } from "claude-code";
 const ensureRunning = async ($) => {
   if (!rt.isRegistered) {
     try {
@@ -2075,13 +2395,13 @@ const beat = async ($, now) => {
 const tick = async ($) => {
   const now = await $.clock.now();
   await beat($, now);
-  const r = await read3($, reactAtom);
+  const r = await read5($, reactAtom);
   rt.anim = stepAnim(rt.anim, r, Math.random());
   const band = rt.band;
   if (!band) return;
-  const view = await read3($, petAtom);
-  const turns = await read3($, eggAtom);
-  const tz = await read3($, tzAtom);
+  const view = await read5($, petAtom);
+  const turns = await read5($, eggAtom);
+  const tz = await read5($, tzAtom);
   if (hudKey(hudLines(view, turns, r, now, tz)) !== band.hud) {
     $.ui.invalidate("ui.render");
     return;
@@ -2145,6 +2465,13 @@ const onAnsweredTurn = async ($) => {
 };
 
 // src/register.tsx
+const guarded = async ($, what, work) => {
+  try {
+    await work();
+  } catch (err) {
+    $.ui.log(`nibbl: ${what}: ${err instanceof Error ? err.message : String(err)}`, { to: "debug" });
+  }
+};
 export const register = (on, options) => {
   rt.options = options;
   on("session.start", async ($, e, next) => {
@@ -2165,7 +2492,9 @@ export const register = (on, options) => {
     if (isAnswer) {
       await onAnsweredTurn($);
       rt.answered++;
-      await maybeNote($);
+      await guarded($, "note", () => maybeNote($));
+      await guarded($, "greeting", () => maybeGreet($));
+      await guarded($, "toast", () => flushOne($));
     }
     return next(e);
   });
@@ -2192,15 +2521,15 @@ export const register = (on, options) => {
     return next(e);
   });
   on("ui.render", { component: "AbovePrompt" }, async ($, e, next) => {
-    if (e.props.hasSurvey || await read4($, hiddenAtom)) {
+    if (e.props.hasSurvey || await read6($, hiddenAtom)) {
       rt.band = null;
       return next(e);
     }
     const now = await $.clock.now();
-    const view = await read4($, petAtom);
-    const turns = await read4($, eggAtom);
-    const r = await read4($, reactAtom);
-    const tz = await read4($, tzAtom);
+    const view = await read6($, petAtom);
+    const turns = await read6($, eggAtom);
+    const r = await read6($, reactAtom);
+    const tz = await read6($, tzAtom);
     const frame = frameOf(view, turns, r, rt.anim, now, tz);
     const lines = hudLines(view, turns, r, now, tz);
     const isFull = e.surface === "terminal" && e.props.maxRows >= MIN_FULL_ROWS && e.props.bodyColumns >= MIN_FULL_COLUMNS;
