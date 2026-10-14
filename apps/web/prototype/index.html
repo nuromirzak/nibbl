@@ -60,6 +60,7 @@
 .xpseg i{width:10px;height:10px;background:#2a3044}
 .xpseg i.on{background:var(--green)}
 .hearts{display:flex;gap:4px}
+.whatsnew{margin:14px 0 0;font-size:14px;line-height:1.5;color:var(--silver)}.whatsnew b{color:var(--white)}.whatsnew code{font-size:12px;word-break:break-all}
 .dev-hud .hint{color:var(--silver);min-height:16px}
 .lvlup{position:absolute;left:50%;top:9%;transform:translateX(-50%);--bg:var(--yellow);--bd:var(--ink);color:var(--ink);padding:10px 16px 8px;text-align:center;display:none;z-index:5;pointer-events:none}
 .lvlup b{display:block;font:400 22px/1 var(--f-label)}
@@ -272,6 +273,7 @@ footer h2{font-size:clamp(36px,5vw,56px)}
           <button class="btn px" id="copy" type="button">Copy</button>
         </div>
       </div>
+      <p class="whatsnew"><b>New in 0.2.0:</b> wave at other nibbls, notes from the maker, your rank on the board. Already installed? Run <code>/plugin marketplace update nibbl</code>, then <code>/plugin update nibbl@nibbl</code>, or turn on auto-update in <code>/plugin</code> &gt; Marketplaces.</p>
       <div class="counter"><i class="dot"></i><span class="lbl">hatched: <b id="hatched">1 337</b> nibbls so far</span></div>
     </div>
 

@@ -32,6 +32,11 @@ const HOME_X = 8;
 const AWAY_X = 16;
 const NIGHT_FROM_HOUR = 2;
 const NIGHT_TO_HOUR = 5;
+const NOTE_GAP_MS = 48 * 60 * 6e4;
+const NOTE_MIN_TURNS = 3;
+const WAVES_KEPT = 10;
+const TOP_RANK = 10;
+const RANK_EVERY_MS = 24 * 60 * 6e4;
 const NAME_MAX = 16;
 const LABEL_MAX = 24;
 const MIN_FULL_ROWS = 8;
@@ -48,6 +53,14 @@ const K = {
   installId: "v1.installId",
   machineHash: "v1.machineHash",
   installSerial: "v1.installSerial",
+  noteIdx: "v1.noteIdx",
+  noteAt: "v1.noteAt",
+  waves: "v1.waves",
+  rank: "v1.rank",
+  rankAt: "v1.rankAt",
+  bestRank: "v1.bestRank",
+  latest: "v1.latest",
+  updateSeen: "v1.updateSeen",
   spikePet: "pet",
   spikeEggTurns: "eggTurns"
 };
@@ -65,6 +78,7 @@ const rt = {
   lastBeat: 0,
   isHatching: false,
   isSyncing: false,
+  answered: 0,
   queueChain: Promise.resolve()
 };
 const later = ($, work) => {
@@ -1059,6 +1073,7 @@ const statsText = (view, g, now, sync) => {
   const serial = serialOf(view);
   if (serial === null) lines.push("not on the server yet: it links on the next hatch call");
   else lines.push(`card: ${cardUrl(sync.base, serial)}`, `leaderboard: ${boardUrl(sync.base, serial)}`);
+  lines.push(...sync.extra ?? []);
   const waiting = `${sync.pending} event${sync.pending === 1 ? "" : "s"} waiting`;
   lines.push(`sync: ${waiting}, ${sync.lastSyncAt === null ? "never synced" : `last sync ${utcText(sync.lastSyncAt)}`}`);
   return lines.join("\n");
@@ -1245,6 +1260,9 @@ const loadQueues = async ($) => {
     if (q) out[key] = q;
   }
   return out;
+};
+const clearSocial = async ($) => {
+  for (const key of [K.rank, K.rankAt, K.bestRank, K.waves, K.noteIdx, K.noteAt]) await $.store.delete(key);
 };
 const dropQueues = async ($) => {
   for (const key of await $.store.keys()) if (key.startsWith(QUEUE_PREFIX)) await $.store.delete(key);
@@ -1436,12 +1454,14 @@ const hatchNow = async ($, why, opts = {}) => {
     if (why === "reauth" && old && !isSamePet) {
       await $.store.delete(K.pet);
       await dropQueues($);
+      await clearSocial($);
       await $.store.set(K.egg, 0);
       await update2($, eggAtom, () => 0);
       await refreshView($);
       $.ui.toast(`${displayName(old.name)} #${padSerial(old.serial)} now lives on another machine. A new egg appeared here.`);
       return "moved";
     }
+    if (old && !isSamePet) await clearSocial($);
     await savePet($, isSamePet && old ? { ...fresh, heartsHour: old.heartsHour, heartsUsed: old.heartsUsed, lastSyncAt: old.lastSyncAt } : fresh);
     await $.store.delete(K.egg);
     if (id.source === "install") await $.store.set(K.installSerial, fresh.serial);
@@ -1450,8 +1470,9 @@ const hatchNow = async ($, why, opts = {}) => {
     await update2($, eggAtom, () => 0);
     await refreshView($);
     const name = displayName(fresh.name);
+    if (why !== "reauth") rt.answered = 0;
     if (why === "egg") {
-      $.ui.toast(`${name} hatched! #${padSerial(fresh.serial)} \xB7 ${tierText(fresh)} \xB7 rarest: ${rarestLine(genomeOf(fresh.seed, fresh.tier, fresh.shiny))}`);
+      $.ui.toast(`${name} hatched! #${padSerial(fresh.serial)} \xB7 ${tierText(fresh)} \xB7 rarest: ${rarestLine(genomeOf(fresh.seed, fresh.tier, fresh.shiny))} \xB7 /nibbl name to name it`);
     }
     if (why === "spike") $.ui.toast(`${name} is now #${padSerial(fresh.serial)}, synced with the nibbl server.`);
     return "hatched";
@@ -1556,7 +1577,10 @@ const importCommand = async ($, rest) => {
   const pet = fromOwnerView(out.body, code.token, now);
   if (!pet) return "Import failed: the server answered something unexpected.";
   const isSame = old !== null && old.serial === pet.serial;
-  if (!isSame) await dropQueues($);
+  if (!isSame) {
+    await dropQueues($);
+    await clearSocial($);
+  }
   await savePet($, isSame && old ? { ...pet, heartsHour: old.heartsHour, heartsUsed: old.heartsUsed, lastSyncAt: old.lastSyncAt } : pet);
   for (const key of [K.egg, K.hatchWait, K.syncWait]) await $.store.delete(key);
   if (id.source === "install") await $.store.set(K.installSerial, pet.serial);
@@ -1569,6 +1593,213 @@ const importCommand = async ($, rest) => {
 
 // src/commands.ts
 import { read as read2, update as update5 } from "claude-code";
+
+// src/notes.ts
+const NOTES = [
+  "Hi, I made nibbl. Thanks for keeping {name} alive. It means more than a star.",
+  "{name} has never seen your code. It only knows that you showed up.",
+  "Tip: /nibbl name gives it a name. Most nibbls still don't have one.",
+  "Somewhere right now another nibbl is eating a bug. You're not coding alone.",
+  "Only 3% of eggs hatch legendary. {name} is one of a kind anyway.",
+  "Tests went red? That's just lunch for {name}.",
+  "Tip: /nibbl wave <serial> sends a heart to another nibbl. Try the one above you.",
+  "Long day? {name} doesn't count hours, only the times you came back.",
+  "Every serial is issued once and never reused. #{serial} is yours forever.",
+  "Your nibbl changes shape at level 10. No spoilers.",
+  "I read every GitHub issue. Tell me what {name} should do next.",
+  "Breaks are allowed. {name} sleeps fine and never dies.",
+  "Commit early, commit often. {name} likes the crunch.",
+  "Tip: /nibbl odds shows your rarest trait. Some are 1 in 24.",
+  "Someone in another country hatched a nibbl today. Hi to both of you.",
+  "Nibbl is one person's side project. Thanks for being one of the first.",
+  "{name}'s card is public: getnibbl.pages.dev/p/{serial}. Show it off if you like.",
+  "Green build, happy pet. Red build, fed pet. {name} wins either way.",
+  "If {name} made you smile once this week, it did its job.",
+  "Still here? So am I. See you at the next level."
+];
+const noteOrder = (seed, n = NOTES.length) => {
+  if (n <= 2) return Array.from({ length: n }, (_, i) => i);
+  const mid = Array.from({ length: n - 2 }, (_, i) => i + 1);
+  const rng = mulberry32(seed);
+  for (let i = mid.length - 1; i > 0; i--) {
+    const j = rng() % (i + 1);
+    [mid[i], mid[j]] = [mid[j], mid[i]];
+  }
+  return [0, ...mid, n - 1];
+};
+const isSkipped = (note, pet) => note === 2 && pet.name !== null || note === 9 && pet.level >= 10;
+const nextNote = (pet, idx) => {
+  const order = noteOrder(pet.seed);
+  let i = idx;
+  while (i < order.length && isSkipped(order[i], pet)) i++;
+  return i;
+};
+const shownNotes = (pet, idx) => {
+  const order = noteOrder(pet.seed);
+  return Array.from({ length: Math.min(idx, order.length) }, (_, p) => p).filter((p) => !isSkipped(order[p], pet));
+};
+const totalNotes = (pet) => NOTES.filter((_, i) => !isSkipped(i, pet)).length;
+const fillNote = (text, name, serial) => text.replaceAll("/p/{serial}", `/p/${serial}`).replaceAll("{name}", name).replaceAll("{serial}", padSerial(serial));
+const noteAt = (seed, position, name, serial) => fillNote(NOTES[noteOrder(seed)[position]], name, serial);
+
+// src/social.ts
+const isPosInt = (v) => typeof v === "number" && Number.isInteger(v) && v >= 1;
+const isNameOrNull = (v) => v === null || typeof v === "string";
+const isObj = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
+const parseWaves = (v) => {
+  if (!Array.isArray(v)) return [];
+  const out = [];
+  for (const w of v.slice(0, 5)) {
+    if (isObj(w) && isPosInt(w.from) && isNameOrNull(w.name ?? null)) out.push({ from: w.from, name: typeof w.name === "string" && w.name.length > 0 ? w.name : null });
+  }
+  return out;
+};
+const parseRank = (v) => {
+  if (!isObj(v) || !isPosInt(v.pos) || !isPosInt(v.total)) return null;
+  let above = null;
+  if (v.above !== null && v.above !== void 0) {
+    const a = v.above;
+    if (!isObj(a) || !isPosInt(a.serial) || !isNameOrNull(a.name ?? null) || typeof a.tier !== "string" || typeof a.xp !== "number" || !Number.isFinite(a.xp)) return null;
+    above = { serial: a.serial, name: typeof a.name === "string" && a.name.length > 0 ? a.name : null, tier: a.tier, xp: a.xp };
+  }
+  return { pos: v.pos, total: v.total, above };
+};
+const parseLatest = (v) => typeof v === "string" && /^\d{1,4}\.\d{1,4}\.\d{1,4}$/.test(v) ? v : null;
+const parseSocial = (body) => ({
+  waves: parseWaves(body.waves),
+  rank: parseRank(body.rank),
+  latest: parseLatest(body.latest)
+});
+const parseWavesSeen = (v) => {
+  if (!Array.isArray(v)) return [];
+  const out = [];
+  for (const w of v) {
+    if (isObj(w) && isPosInt(w.from) && isNameOrNull(w.name ?? null) && typeof w.at === "number" && Number.isFinite(w.at)) {
+      out.push({ from: w.from, name: typeof w.name === "string" ? w.name : null, at: w.at });
+    }
+  }
+  return out;
+};
+const labelOf = (name, serial) => name ? `${name} #${padSerial(serial)}` : `#${padSerial(serial)}`;
+const waveToastText = (waves, me) => {
+  if (waves.length === 0) return null;
+  if (waves.length === 1) return `${labelOf(waves[0].name, waves[0].from)} waved at ${me} \u2665`;
+  return `${waves.length} nibbls waved at ${me} \u2665`;
+};
+const rankLine = (r, serverXp) => {
+  const head = `rank ${r.pos} of ${r.total}`;
+  if (!r.above) return `${head} \xB7 top of the board`;
+  const a = r.above;
+  return `${head} \xB7 next: #${padSerial(a.serial)} (${a.xp} xp, ${Math.max(0, a.xp - serverXp)} ahead) \xB7 /nibbl wave ${a.serial}`;
+};
+const rankMilestone = (best, pos) => {
+  if (pos === 1 && (best === null || best > 1)) return "first";
+  if (pos <= 10 && (best === null || best > 10)) return "top10";
+  return null;
+};
+const UPDATE_HOW = "/plugin marketplace update nibbl, then /plugin update nibbl@nibbl";
+const updateLine = () => `update: ${UPDATE_HOW} (or turn on auto-update: /plugin > Marketplaces > nibbl)`;
+const updateToast = (latest) => `nibbl ${latest} is out: ${UPDATE_HOW}`;
+const WAVE_USAGE = "Usage: /nibbl wave <serial>, for example /nibbl wave 16.";
+const parseWaveTarget = (raw) => {
+  const m = /^#?(\d{1,6})$/.exec(raw.trim());
+  const n = m ? Number(m[1]) : 0;
+  return n >= 1 ? n : null;
+};
+const waveErrorText = (status, code, to) => {
+  const who = `#${padSerial(to)}`;
+  if (status === 400 && code === "self_wave") return "You can't wave at yourself.";
+  if (status === 404) return `No nibbl ${who} to wave at.`;
+  if (code === "already_waved") return `You already waved at ${who} today.`;
+  if (code === "wave_limit") return "That's 10 waves today. More tomorrow.";
+  return `The server answered ${code}. Try again later.`;
+};
+
+// src/version.ts
+const VERSION = true ? "0.2.0" : "0.0.0-dev";
+const SEMVER = /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/;
+const parseSemver = (v) => {
+  const m = typeof v === "string" ? SEMVER.exec(v) : null;
+  return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
+};
+const isNewer = (latest, current = VERSION) => {
+  const a = parseSemver(latest);
+  const b = parseSemver(current.split("-")[0]);
+  if (!a || !b) return false;
+  for (let i = 0; i < 3; i++) if (a[i] !== b[i]) return a[i] > b[i];
+  return false;
+};
+
+// src/engage.ts
+const num = (v) => typeof v === "number" && Number.isFinite(v) ? v : null;
+const noteIndexOf = async ($) => {
+  const i = num(await $.store.get(K.noteIdx));
+  return i !== null && Number.isInteger(i) && i >= 0 ? Math.min(i, NOTES.length) : 0;
+};
+const maybeNote = async ($) => {
+  if (rt.answered < NOTE_MIN_TURNS) return;
+  const pet = await loadPet($);
+  if (!pet) return;
+  const idx = nextNote(pet, await noteIndexOf($));
+  if (idx >= NOTES.length) return;
+  const now = await $.clock.now();
+  const last = num(await $.store.get(K.noteAt));
+  if (last !== null && now - last < NOTE_GAP_MS) return;
+  await $.store.set(K.noteIdx, idx + 1);
+  await $.store.set(K.noteAt, now);
+  $.ui.toast(`\u2709 from the maker: ${noteAt(pet.seed, idx, displayName(pet.name), pet.serial)}`);
+};
+const notesCommand = async ($) => {
+  const pet = await loadPet($);
+  if (!pet) return "Hatch the egg first. Notes from the maker start after that.";
+  const idx = await noteIndexOf($);
+  if (idx === 0) return "No notes yet. One arrives now and then while you work, at most every 2 days.";
+  const shown = shownNotes(pet, idx);
+  const lines = shown.map((i, n) => `${n + 1}. ${noteAt(pet.seed, i, displayName(pet.name), pet.serial)}`);
+  return [`Notes from the maker (${shown.length} of ${totalNotes(pet)}):`, ...lines].join("\n");
+};
+const applySocial = async ($, pet, body, now) => {
+  const social = parseSocial(body);
+  const me = displayName(pet.name);
+  const text = waveToastText(social.waves, me);
+  if (text !== null) {
+    const kept = [...social.waves.map((w) => ({ ...w, at: now })), ...parseWavesSeen(await $.store.get(K.waves))].slice(0, WAVES_KEPT);
+    await $.store.set(K.waves, kept);
+    $.ui.toast(text);
+  }
+  if (social.rank) {
+    await $.store.set(K.rank, social.rank);
+    await $.store.set(K.rankAt, now);
+    const best = num(await $.store.get(K.bestRank));
+    if (best === null || social.rank.pos < best) await $.store.set(K.bestRank, social.rank.pos);
+    const hit = best === null ? null : rankMilestone(best, social.rank.pos);
+    if (hit === "first") $.ui.toast(`${me} is #1 on the board!`);
+    else if (hit === "top10") $.ui.toast(`${me} made the top ${TOP_RANK}!`);
+  } else if (body.rank === null) {
+    await $.store.delete(K.rank);
+    await $.store.set(K.rankAt, now);
+  }
+  if (social.latest !== null) {
+    await $.store.set(K.latest, social.latest);
+    if (isNewer(social.latest) && await $.store.get(K.updateSeen) !== social.latest) {
+      await $.store.set(K.updateSeen, social.latest);
+      $.ui.toast(updateToast(social.latest));
+    }
+  }
+};
+const socialStatsLines = async ($, pet) => {
+  const lines = [];
+  if (!pet) return lines;
+  const idx = await noteIndexOf($);
+  const last = shownNotes(pet, idx).at(-1);
+  if (last !== void 0) lines.push(`last note: ${noteAt(pet.seed, last, displayName(pet.name), pet.serial)}`);
+  const wave = parseWavesSeen(await $.store.get(K.waves))[0];
+  if (wave) lines.push(`last wave: ${labelOf(wave.name, wave.from)} waved at you`);
+  const rank = parseRank(await $.store.get(K.rank));
+  if (rank) lines.push(rankLine(rank, pet.xp));
+  if (isNewer(await $.store.get(K.latest))) lines.push(updateLine());
+  return lines;
+};
 
 // src/events.ts
 import { update as update4 } from "claude-code";
@@ -1590,7 +1821,15 @@ const send = async ($, sid, pet, now, reason, mayReauth = true) => {
   const batch = takeBatch(sendable(all, own, now));
   if (batch.events.length === 0) return "empty";
   const wait = await loadWait($, K.syncWait);
-  const out = await postWithin($, await apiBase($), "/api/sync", { serial: pet.serial, token: pet.token, events: toWire(batch.events) });
+  const rankAt = await $.store.get(K.rankAt);
+  const wantsRank = typeof rankAt !== "number" || !Number.isFinite(rankAt) || now - rankAt >= RANK_EVERY_MS;
+  const out = await postWithin($, await apiBase($), "/api/sync", {
+    serial: pet.serial,
+    token: pet.token,
+    events: toWire(batch.events),
+    v: VERSION,
+    ...wantsRank ? { rank: true } : {}
+  });
   if (out.kind === "offline") return fail($, reason, `offline (${out.reason})`, backoff(wait, now));
   if (out.kind === "ok") {
     const { xp, level, heartsLeft } = out.body;
@@ -1611,6 +1850,11 @@ const send = async ($, sid, pet, now, reason, mayReauth = true) => {
     });
     await clearSent($, batch.upTo);
     await $.store.delete(K.syncWait);
+    try {
+      await applySocial($, { ...latest, xp }, out.body, now);
+    } catch (err) {
+      $.ui.log(`nibbl: social fields: ${err instanceof Error ? err.message : String(err)}`, { to: "debug" });
+    }
     return "synced";
   }
   if ((out.status === 401 || out.code === "invalid_token" || out.code === "invalid_serial") && mayReauth) {
@@ -1707,13 +1951,15 @@ const petPressed = async ($) => {
 };
 
 // src/help.ts
-const COMMAND_DESCRIPTION = "Your nibbl: stats, pet, name, label, odds, export, import, hide";
-const COMMAND_HINT = "[pet | name <text> | label <text> | odds | export | import <code> | hide]";
+const COMMAND_DESCRIPTION = "Your nibbl: stats, pet, name, label, wave, notes, odds, export, import, hide";
+const COMMAND_HINT = "[pet | name <text> | label <text> | wave <serial> | notes | odds | export | import <code> | hide]";
 const HELP = [
   "/nibbl                 stats, card and leaderboard links",
   "/nibbl pet             pet it (or ctrl+x tab, then p, on the band)",
   "/nibbl name <text>     rename your pet (once a week, up to 16 characters)",
   "/nibbl label <text>    set a label (up to 24 characters); /nibbl label alone clears it",
+  "/nibbl wave <serial>   wave at another nibbl (10 a day, one per nibbl)",
+  "/nibbl notes           notes from the maker you have received",
   "/nibbl odds            hatch odds and your pet's traits",
   "/nibbl export          show the secret code that moves your pet",
   "/nibbl import <code>   move a pet to this machine",
@@ -1726,6 +1972,32 @@ const splitArgs = (args) => {
   return { verb: trimmed.slice(0, space).toLowerCase(), rest: trimmed.slice(space + 1).trim() };
 };
 
+// src/wave.ts
+const waveCommand = async ($, rest) => {
+  const to = parseWaveTarget(rest);
+  if (to === null) return WAVE_USAGE;
+  const pet = await loadPet($);
+  if (!pet) {
+    if (await loadSpike($)) return "Your nibbl is still linking to the server. Try again in a minute.";
+    return "Hatch the egg first, then wave at others.";
+  }
+  if (to === pet.serial) return "You can't wave at yourself.";
+  const base = await apiBase($);
+  const call = (p) => postWithin($, base, "/api/wave", { serial: p.serial, token: p.token, to });
+  let out = await call(pet);
+  if (out.kind === "error" && out.status === 401) {
+    const result = await hatchNow($, "reauth");
+    const fresh = result === "hatched" ? await loadPet($) : null;
+    if (fresh) out = await call(fresh);
+  }
+  if (out.kind === "offline") return "Could not reach the nibbl server. Try again later.";
+  if (out.kind === "error" && out.status === 401) return "Could not reach your pet's account. Try /nibbl wave again later.";
+  if (out.kind === "error") return waveErrorText(out.status, out.code, to);
+  const target = out.body.to;
+  const name = typeof target === "object" && target !== null && typeof target.name === "string" ? target.name : null;
+  return `You waved at ${name && name.length > 0 ? name : `#${padSerial(to)}`} \u2665`;
+};
+
 // src/commands.ts
 const statsCommand = async ($) => {
   const view = await refreshView($);
@@ -1735,7 +2007,8 @@ const statsCommand = async ($) => {
   return statsText(view, genomeOf(view.seed, view.tier, view.shiny), await $.clock.now(), {
     base: await apiBase($),
     pending,
-    lastSyncAt: pet?.lastSyncAt ?? null
+    lastSyncAt: pet?.lastSyncAt ?? null,
+    extra: await socialStatsLines($, pet)
   });
 };
 const oddsCommand = async ($) => {
@@ -1767,6 +2040,8 @@ const runCommand = async ($, args) => {
   if (verb === "hide") return hideCommand($);
   if (verb === "name") return nameCommand($, "name", rest);
   if (verb === "label") return nameCommand($, "label", rest);
+  if (verb === "wave") return waveCommand($, rest);
+  if (verb === "notes") return notesCommand($);
   if (verb === "export") return exportCommand($);
   if (verb === "import") return importCommand($, rest);
   return HELP;
@@ -1887,7 +2162,11 @@ export const register = (on, options) => {
     await ensureLoaded($);
     const isAnswer = e.reason === "answer";
     await react($, (r, now) => onTurnEnd(r, now, isAnswer));
-    if (isAnswer) await onAnsweredTurn($);
+    if (isAnswer) {
+      await onAnsweredTurn($);
+      rt.answered++;
+      await maybeNote($);
+    }
     return next(e);
   });
   on("tool.call", async ($, e, next) => {
