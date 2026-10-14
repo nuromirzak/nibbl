@@ -38,6 +38,20 @@ export const post = async ($: EngineInterface, base: string, path: string, paylo
   }
 }
 
+export const get = async ($: EngineInterface, base: string, path: string): Promise<ApiOutcome> => {
+  try {
+    const res = await $.http.fetch(`${base}${path}`, { method: 'GET' })
+    return outcomeOf(res.status, res.text)
+  } catch (err) {
+    return { kind: 'offline', reason: err instanceof Error ? err.message : String(err) }
+  }
+}
+
+export const getWithin = async ($: EngineInterface, base: string, path: string, ms = POST_TIMEOUT_MS): Promise<ApiOutcome> => {
+  const out = await withTimeout($, ms, get($, base, path))
+  return out === 'timeout' ? { kind: 'offline', reason: `no answer in ${ms} ms` } : out
+}
+
 // $.http.fetch has no timeout: a hung request would hold the sync or hatch guard forever, so these
 // posts give up after POST_TIMEOUT_MS and count as offline (the request may still land: at-least-once).
 export const postWithin = async ($: EngineInterface, base: string, path: string, payload: unknown, ms = POST_TIMEOUT_MS): Promise<ApiOutcome> => {

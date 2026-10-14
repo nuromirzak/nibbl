@@ -17,7 +17,7 @@ export const TOKEN_A = 'A'.repeat(43)
 export const TOKEN_B = 'B'.repeat(43)
 export const IMPORT_TOKEN = 'C'.repeat(43)
 
-export type Call = { url: string; path: string; body: Record<string, unknown>; headers: Record<string, string>; raw: string }
+export type Call = { url: string; path: string; method: string; body: Record<string, unknown>; headers: Record<string, string>; raw: string }
 export type Reply = { status: number; body: unknown } | { status: number; text: string } | 'offline'
 
 export const owner = (over: Record<string, unknown> = {}) => ({
@@ -35,8 +35,11 @@ export const owner = (over: Record<string, unknown> = {}) => ({
 })
 
 // A store holding a hatched, freshly synced pet #42, in the shape the mod keeps under v1.pet.
+// The day's greeting is marked as already shown, so a test sees one only when it asks for it
+// (override 'v1.greetDay').
 export const hatchedStore = (over: Record<string, unknown> = {}): Record<string, unknown> => ({
   'v1.pet': { ...owner(), token: TOKEN_A, heartsHour: Math.floor(START / HOUR), heartsUsed: 0, lastSyncAt: START, ...over },
+  'v1.greetDay': Math.floor(START / 86_400_000),
 })
 
 export const BAND = (maxRows = 12, bodyColumns = 100) => ({
@@ -73,6 +76,8 @@ export const harness = (on: On, opts: HarnessOptions = {}) => {
     label: (pet.label ?? null) as string | null,
     // Optional /api/sync fields (waves, rank, latest), spread into the answer as they are.
     syncExtra: {} as Record<string, unknown>,
+    // GET /api/pet/:serial answer (null = 404).
+    publicPet: null as Record<string, unknown> | null,
     // Nibbls that exist to be waved at: serial -> name.
     targets: new Map<number, string | null>([[16, 'Ziutek'], [19, null]]),
     waved: new Set<number>(),
@@ -120,6 +125,9 @@ export const harness = (on: On, opts: HarnessOptions = {}) => {
       server.waved.add(to)
       return { status: 200, body: { ok: true, to: { serial: to, name: server.targets.get(to) ?? null } } }
     }
+    if (call.path === `/api/pet/${server.pet.serial}` && call.method === 'GET') {
+      return server.publicPet ? { status: 200, body: server.publicPet } : { status: 404, body: { error: 'not_found' } }
+    }
     if (call.path === '/api/import') {
       if (b.serial !== 99 || b.token !== IMPORT_TOKEN) return { status: 401, body: { error: 'unauthorized' } }
       return { status: 200, body: owner({ serial: 99, name: 'Pixel', tier: 'epic', xp: 500, level: 9 }) }
@@ -132,6 +140,7 @@ export const harness = (on: On, opts: HarnessOptions = {}) => {
     const call: Call = {
       url: e.url,
       path: new URL(e.url).pathname,
+      method: e.init?.method ?? 'GET',
       body: raw ? (JSON.parse(raw) as Record<string, unknown>) : {},
       headers: e.init?.headers ?? {},
       raw,

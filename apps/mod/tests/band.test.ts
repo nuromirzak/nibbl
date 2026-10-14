@@ -23,7 +23,7 @@ test('a hatched pet draws HUD text, a [♥] button and a 32x8 Raster with transp
   expect(await ui.find({ type: 'Text', text: 'Nibbl #000042' })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /^lvl 1 {2}[▓░]{5} 0\/10$/ })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: '♥♥♥♥♥' })).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: 'chilling' })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: 'sunbathing' })).toBeDefined()
   expect(await ui.find({ type: 'Button', key: 'pet' })).toBeDefined()
   const raster = await ui.find({ type: 'Raster' })
   expect(raster?.props.columns).toBe(32)
@@ -38,7 +38,7 @@ test('a hatched pet draws HUD text, a [♥] button and a 32x8 Raster with transp
 test('short or narrow bands and non-terminal surfaces get one line of text', async ($, on) => {
   harness(on, { store: hatchedStore() })
   await start($)
-  const line = 'Nibbl #000042 · lvl 1 ♥♥♥♥♥ · chilling'
+  const line = 'Nibbl #000042 · lvl 1 ♥♥♥♥♥ · sunbathing'
   const short = await $.ui.mount({ plugin: 'nibbl', surface: 'terminal', ...BAND(6) })
   expect(await short.find({ type: 'Raster' })).toBeUndefined()
   expect(await short.find({ type: 'Text', text: line })).toBeDefined()
@@ -65,7 +65,7 @@ test('a turn sends the pet on an expedition with a live clock and brings it back
   await turnEnd($)
   expect(await ui.find({ type: 'Text', text: 'back with loot' })).toBeDefined()
   await h.clock.advance(4_500)
-  expect(await ui.find({ type: 'Text', text: 'chilling' })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: 'sunbathing' })).toBeDefined()
   await ui.unmount()
 })
 
@@ -127,7 +127,7 @@ test('the same moment is daytime on a machine at -07:00', async ($, on) => {
   harness(on, { store: hatchedStore(), now: Date.UTC(2026, 9, 2, 21, 30), utcOffset: '-0700' })
   await start($)
   const ui = await $.ui.mount({ plugin: 'nibbl', surface: 'terminal', ...BAND() })
-  expect(await ui.find({ type: 'Text', text: 'chilling' })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: 'sunbathing' })).toBeDefined()
   await ui.unmount()
 })
 

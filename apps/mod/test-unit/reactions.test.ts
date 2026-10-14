@@ -81,6 +81,7 @@ describe('status text', () => {
     expect(clockText(3_725_000)).toBe('1:02:05')
     expect(statusText('away', NOW + 65_000, NOW)).toBe('⛏ on expedition 1:05')
     expect(statusText('oops', NOW, 0)).toBe('oops, a bug')
+    expect(statusText('oops', NOW, 0, 300)).toBe('oops, a bug')
   })
 })
 
@@ -130,5 +131,27 @@ describe('lift safety', () => {
           const key = sceneKeyOf(r, 'adult', { frame, petX, blink: false }, NOW, 300)
           if (key.loot || key.zzz) expect(key.lift).toBe(0)
         }
+  })
+})
+
+describe('statusText by time of day', () => {
+  const at = (hour: number) => Date.UTC(2026, 9, 2, hour, 0)
+  it('says what the idle pet does in the morning, afternoon and evening', () => {
+    expect(statusText('chilling', at(5), 0, 0)).toBe('sipping coffee')
+    expect(statusText('chilling', at(11), 0, 0)).toBe('sipping coffee')
+    expect(statusText('chilling', at(12), 0, 0)).toBe('sunbathing')
+    expect(statusText('chilling', at(17), 0, 0)).toBe('sunbathing')
+    expect(statusText('chilling', at(18), 0, 0)).toBe('reading the logs')
+    expect(statusText('chilling', at(22), 0, 0)).toBe('reading the logs')
+  })
+  it('keeps the plain text from 23 to 01, and follows the offset', () => {
+    expect(statusText('chilling', at(23), 0, 0)).toBe('chilling')
+    expect(statusText('chilling', at(0), 0, 0)).toBe('chilling')
+    expect(statusText('chilling', at(1), 0, 0)).toBe('chilling')
+    expect(statusText('chilling', at(9), 0, 300)).toBe('sunbathing') // 14:00 local
+    expect(statusText('chilling', at(9), 0)).toBe('chilling') // offset unknown
+  })
+  it('never overrides a reaction, zzz or night', () => {
+    for (const look of ['oops', 'loved', 'yum', 'shipped', 'loot', 'zzz', 'night'] as const) expect(statusText(look, at(9), 0, 0)).not.toMatch(/coffee|sunbathing|logs/)
   })
 })

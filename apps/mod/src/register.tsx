@@ -10,12 +10,13 @@ import { onAnsweredTurn, start } from './lifecycle'
 import { ensureLoaded } from './model'
 import { onActive, onTurnEnd, onTurnStart } from './reactions'
 import { rt, withTimeout } from './runtime'
-import { maybeNote } from './engage'
+import { maybeGreet, maybeNote } from './engage'
 import { exportCode } from './pet'
 import { frameOf } from './scene'
 import { eggAtom, hiddenAtom, petAtom, reactAtom, tzAtom } from './state'
 import { loadPet } from './store'
 import { syncNow } from './sync'
+import { flushOne } from './toasts'
 
 export const register: Register = (on, options) => {
   rt.options = options
@@ -41,6 +42,8 @@ export const register: Register = (on, options) => {
       await onAnsweredTurn($)
       rt.answered++
       await maybeNote($)
+      await maybeGreet($)
+      await flushOne($)
     }
     return next(e)
   })

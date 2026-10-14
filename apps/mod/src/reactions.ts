@@ -76,8 +76,17 @@ export const clockText = (ms: number): string => {
   return minutes >= 60 ? `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, '0')}:${seconds}` : `${minutes}:${seconds}`
 }
 
-export const statusText = (look: Look, now: number, awaySince: number): string =>
-  look === 'away' ? `⛏ on expedition ${clockText(now - awaySince)}` : STATUS[look]
+// When nothing else is going on, the band says what the pet does at this time of day (morning 5-11,
+// afternoon 12-17, evening 18-22). 23-01 keeps the plain text, 02-04 is the night look. Without an
+// offset the time of day is unknown and the plain text stays.
+const idleTextAt = (hour: number): string =>
+  hour >= 5 && hour <= 11 ? 'sipping coffee' : hour >= 12 && hour <= 17 ? 'sunbathing' : hour >= 18 && hour <= 22 ? 'reading the logs' : STATUS.chilling
+
+export const statusText = (look: Look, now: number, awaySince: number, offsetMin?: number): string => {
+  if (look === 'away') return `⛏ on expedition ${clockText(now - awaySince)}`
+  if (look === 'chilling' && offsetMin !== undefined) return idleTextAt(localHour(now, offsetMin))
+  return STATUS[look]
+}
 
 export type SceneKey = {
   stage: Stage
