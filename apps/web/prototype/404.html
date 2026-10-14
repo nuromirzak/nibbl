@@ -56,7 +56,7 @@ footer{padding:48px 0;border-top:4px solid #1a1c2c}
       <div class="ground"></div>
       <div class="pet" id="pet">
         <div class="bubble" aria-hidden="true"><canvas id="q"></canvas></div>
-        <canvas id="sprite" role="img" aria-label="A lost nibbl"></canvas>
+        <canvas id="lostpet" role="img" aria-label="A lost nibbl"></canvas>
       </div>
     </div>
     <h1>404: this page got nibbled</h1>
@@ -87,8 +87,8 @@ document.getElementById('path').textContent=location.pathname+location.search;
 
 var seed=1+Math.floor(Math.random()*999999);
 var sc=function(){return innerWidth<760?4:6;};
-var sprite=document.getElementById('sprite');
-mountSprite(sprite,genome(seed),{scale:sc,poke:true,life:seed});
+var petEl=document.getElementById('lostpet');
+mountSprite(petEl,genome(seed),{scale:sc,poke:true,life:seed});
 startLoop();
 
 /* pixel "?" speech bubble, drawn once on a 2d canvas */
@@ -135,7 +135,7 @@ startLoop();
   var reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
   var x=0,dir=1,target=null,wait=0,last=performance.now();
   function bounds(){return Math.max(0,scene.clientWidth-pet.offsetWidth-16);}
-  function place(){pet.style.transform='translateX('+Math.round(x)+'px)';sprite.classList.toggle('flip',dir<0);}
+  function place(){pet.style.transform='translateX('+Math.round(x)+'px)';petEl.classList.toggle('flip',dir<0);}
   x=bounds()/2;place();
   if(reduce)return;
   function tick(t){
@@ -156,8 +156,8 @@ startLoop();
 })();
 
 document.getElementById('petit').addEventListener('click',function(){
-  var r=sprite.getBoundingClientRect();
-  sprite.dispatchEvent(new MouseEvent('click',{bubbles:true,clientX:r.left+r.width/2,clientY:r.top+r.height/3}));
+  var r=petEl.getBoundingClientRect();
+  petEl.dispatchEvent(new MouseEvent('click',{bubbles:true,clientX:r.left+r.width/2,clientY:r.top+r.height/3}));
 });
 </script>
 </body>
