@@ -36,7 +36,7 @@
     // Genesis = hatched before LAUNCH_AT + 30 days. Set to the real launch moment before launch.
     "LAUNCH_AT": "2026-10-31T00:00:00Z",
     // Newest mod version, returned by /api/sync. Bump on each release.
-    "LATEST_VERSION": "0.2.0"
+    "LATEST_VERSION": "0.3.0"
   },
   "observability": { "enabled": true },
   "upload_source_maps": true
