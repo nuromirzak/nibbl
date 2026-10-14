@@ -1,11 +1,13 @@
-export const COMMAND_DESCRIPTION = 'Your nibbl: stats, pet, name, label, odds, export, import, hide'
-export const COMMAND_HINT = '[pet | name <text> | label <text> | odds | export | import <code> | hide]'
+export const COMMAND_DESCRIPTION = 'Your nibbl: stats, pet, name, label, wave, notes, odds, export, import, hide'
+export const COMMAND_HINT = '[pet | name <text> | label <text> | wave <serial> | notes | odds | export | import <code> | hide]'
 
 export const HELP = [
   '/nibbl                 stats, card and leaderboard links',
   '/nibbl pet             pet it (or ctrl+x tab, then p, on the band)',
   '/nibbl name <text>     rename your pet (once a week, up to 16 characters)',
   '/nibbl label <text>    set a label (up to 24 characters); /nibbl label alone clears it',
+  '/nibbl wave <serial>   wave at another nibbl (10 a day, one per nibbl)',
+  '/nibbl notes           notes from the maker you have received',
   "/nibbl odds            hatch odds and your pet's traits",
   '/nibbl export          show the secret code that moves your pet',
   '/nibbl import <code>   move a pet to this machine',

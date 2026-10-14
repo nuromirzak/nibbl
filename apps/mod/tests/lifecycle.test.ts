@@ -27,7 +27,7 @@ test('the egg hatches after 10 answered main-loop turns; subagent turns do not c
   expect(call.url).toBe('https://getnibbl.pages.dev/api/hatch')
   expect(call.headers['content-type']).toBe('application/json')
   expect(call.body).toEqual({ machineHash: MACHINE_HASH })
-  expect(h.toasts.some(t => /^Nibbl hatched! #000042 · rare · Genesis · rarest: .+ [\d.]+% odds$/.test(t))).toBe(true)
+  expect(h.toasts.some(t => /^Nibbl hatched! #000042 · rare · Genesis · rarest: .+ [\d.]+% odds · \/nibbl name to name it$/.test(t))).toBe(true)
   const stats = await nibbl($)
   expect(stats).toMatch(/^Nibbl #000042\n/)
   expect(stats).toContain('card: https://getnibbl.pages.dev/p/42')

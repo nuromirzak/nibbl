@@ -74,7 +74,39 @@ export const sync = async (request: Request, env: Env, deps: Deps): Promise<Resp
       ).bind(pet.serial, Number(hour), w.pet ?? 0, w.turn ?? 0, w.check_pass ?? 0, w.commit ?? 0, pet.serial, now),
     )
 
-  const [update] = await env.DB.batch([
+  // Only a 0.2.0+ client (it sends `v`) reads the social fields, so only it consumes waves or costs a rank query.
+  const isSocial = typeof body.v === 'string'
+  const wantsRank = isSocial && body.rank === true
+  const inbox = isSocial
+    ? (
+        await env.DB.prepare(
+          `SELECT w.id, w.from_serial AS "from", p.name FROM waves w JOIN pets p ON p.serial = w.from_serial
+           WHERE w.to_serial = ? AND w.delivered = 0 AND p.is_hidden = 0 ORDER BY w.id LIMIT 5`,
+        )
+          .bind(pet.serial)
+          .all<{ id: number; from: number; name: string | null }>()
+      ).results
+    : []
+  // Marked delivered in the same batch, behind the same last_sync_at guard, so a lost race delivers nothing twice.
+  const markDelivered = inbox.map(w =>
+    env.DB.prepare(`UPDATE waves SET delivered = 1 WHERE id = ? AND delivered = 0 AND ${guard}`).bind(w.id, pet.serial, now),
+  )
+  // Rank reads ride in the same batch as the write, so a committed sync cannot fail afterwards. The
+  // position cost is O(rows above this pet) per request: see docs/decisions/0016-social-v0-2.md.
+  // Same ordering as routes/rank.ts: xp DESC, serial ASC, hidden pets excluded.
+  const rankReads =
+    wantsRank && pet.is_hidden === 0
+      ? [
+          env.DB.prepare('SELECT COUNT(*) AS n FROM pets WHERE is_hidden = 0 AND (xp > ? OR (xp = ? AND serial < ?))').bind(xp, xp, pet.serial),
+          env.DB.prepare("SELECT value AS n FROM counters WHERE name = 'hatched'"),
+          env.DB.prepare(
+            `SELECT serial, name, tier, xp FROM pets WHERE is_hidden = 0 AND (xp > ? OR (xp = ? AND serial < ?))
+             ORDER BY xp ASC, serial DESC LIMIT 1`,
+          ).bind(xp, xp, pet.serial),
+        ]
+      : []
+
+  const [update, ...rest] = await env.DB.batch([
     env.DB.prepare('UPDATE pets SET xp = ?, level = ?, last_sync_at = ? WHERE serial = ? AND last_sync_at IS ?').bind(
       xp,
       level,
@@ -84,7 +116,24 @@ export const sync = async (request: Request, env: Env, deps: Deps): Promise<Resp
     ),
     env.DB.prepare(`DELETE FROM xp_windows WHERE serial = ? AND hour < ? AND ${guard}`).bind(pet.serial, oldestHour, pet.serial, now),
     ...windowWrites,
+    ...markDelivered,
+    ...rankReads,
   ])
   if (update.meta.changes === 0) throw new HttpError(409, 'sync_conflict')
-  return json({ xp, level, heartsLeft: heartsLeft(windows, now) })
+
+  const base = { xp, level, heartsLeft: heartsLeft(windows, now) }
+  if (!isSocial) return json({ ...base, latest: env.LATEST_VERSION })
+  const social: Record<string, unknown> = { waves: inbox.map(w => ({ from: w.from, name: w.name })) }
+  if (wantsRank) {
+    if (pet.is_hidden === 1) social.rank = null
+    else {
+      const [aheadRes, totalRes, aboveRes] = rest.slice(rest.length - 3)
+      const ahead = (aheadRes!.results[0] as { n: number }).n
+      const hatched = (totalRes!.results[0] as { n: number } | undefined)?.n ?? 0
+      const above = (aboveRes!.results[0] as { serial: number; name: string | null; tier: string; xp: number } | undefined) ?? null
+      // `hatched` counts every pet ever hatched (bots included, hidden pets too): an upper bound, never below the position.
+      social.rank = { pos: ahead + 1, total: Math.max(hatched, ahead + 1), above }
+    }
+  }
+  return json({ ...base, ...social, latest: env.LATEST_VERSION })
 }

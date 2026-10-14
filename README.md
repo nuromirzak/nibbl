@@ -25,6 +25,8 @@ In Claude Code:
 
 No account, no login, no API key. An egg appears above your prompt. Keep working and it hatches.
 
+To get new versions automatically: `/plugin`, then **Marketplaces**, select **nibbl**, **Enable auto-update**. Claude Code leaves it off for community marketplaces.
+
 <p align="center">
   <img src="docs/assets/band.gif" width="880" alt="Claude runs tests, a test fails and a bug drops into the pet's scene, the fix passes and the pet eats the bug and pops a heart">
 </p>

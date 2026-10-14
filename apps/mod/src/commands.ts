@@ -4,6 +4,7 @@ import type { EngineInterface } from 'claude-code'
 import { exportCommand, importCommand, nameCommand } from './account'
 import { apiBase } from './api'
 import { K } from './config'
+import { notesCommand, socialStatsLines } from './engage'
 import { petPressed, recordEvent } from './events'
 import { HELP, splitArgs } from './help'
 import { eggStatsText, heartsBar, heartsLeftOf, oddsText, statsText } from './hud'
@@ -12,6 +13,7 @@ import { countEvents } from './queue'
 import { genomeOf } from './scene'
 import { eggAtom, hiddenAtom } from './state'
 import { loadPet, loadQueues } from './store'
+import { waveCommand } from './wave'
 
 const statsCommand = async ($: EngineInterface): Promise<string> => {
   const view = await refreshView($)
@@ -22,6 +24,7 @@ const statsCommand = async ($: EngineInterface): Promise<string> => {
     base: await apiBase($),
     pending,
     lastSyncAt: pet?.lastSyncAt ?? null,
+    extra: await socialStatsLines($, pet),
   })
 }
 
@@ -60,6 +63,8 @@ export const runCommand = async ($: EngineInterface, args: string): Promise<stri
   if (verb === 'hide') return hideCommand($)
   if (verb === 'name') return nameCommand($, 'name', rest)
   if (verb === 'label') return nameCommand($, 'label', rest)
+  if (verb === 'wave') return waveCommand($, rest)
+  if (verb === 'notes') return notesCommand($)
   if (verb === 'export') return exportCommand($)
   if (verb === 'import') return importCommand($, rest)
   return HELP

@@ -10,7 +10,7 @@ import { displayName, fromOwnerView, padSerial } from './pet'
 import { rt } from './runtime'
 import { genomeOf } from './scene'
 import { eggAtom } from './state'
-import { dropQueues, forgetSpike, loadPet, loadSpike, loadWait, releaseLease, savePet, tryLease } from './store'
+import { clearSocial, dropQueues, forgetSpike, loadPet, loadSpike, loadWait, releaseLease, savePet, tryLease } from './store'
 
 export type HatchWhy = 'egg' | 'spike' | 'reauth'
 export type HatchResult = 'hatched' | 'moved' | 'waiting' | 'busy' | 'failed'
@@ -70,12 +70,14 @@ export const hatchNow = async ($: EngineInterface, why: HatchWhy, opts: { isLeas
       // The old pet was imported on another machine; this one starts over with an egg.
       await $.store.delete(K.pet)
       await dropQueues($)
+      await clearSocial($)
       await $.store.set(K.egg, 0)
       await update($, eggAtom, () => 0)
       await refreshView($)
       $.ui.toast(`${displayName(old.name)} #${padSerial(old.serial)} now lives on another machine. A new egg appeared here.`)
       return 'moved'
     }
+    if (old && !isSamePet) await clearSocial($)
     await savePet($, isSamePet && old ? { ...fresh, heartsHour: old.heartsHour, heartsUsed: old.heartsUsed, lastSyncAt: old.lastSyncAt } : fresh)
     await $.store.delete(K.egg)
     if (id.source === 'install') await $.store.set(K.installSerial, fresh.serial)
@@ -84,8 +86,10 @@ export const hatchNow = async ($: EngineInterface, why: HatchWhy, opts: { isLeas
     await update($, eggAtom, () => 0)
     await refreshView($)
     const name = displayName(fresh.name)
+    // The hatch toast is the news of this moment: a maker note needs 3 answered turns after it.
+    if (why !== 'reauth') rt.answered = 0
     if (why === 'egg') {
-      $.ui.toast(`${name} hatched! #${padSerial(fresh.serial)} · ${tierText(fresh)} · rarest: ${rarestLine(genomeOf(fresh.seed, fresh.tier, fresh.shiny))}`)
+      $.ui.toast(`${name} hatched! #${padSerial(fresh.serial)} · ${tierText(fresh)} · rarest: ${rarestLine(genomeOf(fresh.seed, fresh.tier, fresh.shiny))} · /nibbl name to name it`)
     }
     if (why === 'spike') $.ui.toast(`${name} is now #${padSerial(fresh.serial)}, synced with the nibbl server.`)
     return 'hatched'

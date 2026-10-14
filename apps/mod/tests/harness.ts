@@ -71,6 +71,11 @@ export const harness = (on: On, opts: HarnessOptions = {}) => {
     hatches: 0,
     name: (pet.name ?? null) as string | null,
     label: (pet.label ?? null) as string | null,
+    // Optional /api/sync fields (waves, rank, latest), spread into the answer as they are.
+    syncExtra: {} as Record<string, unknown>,
+    // Nibbls that exist to be waved at: serial -> name.
+    targets: new Map<number, string | null>([[16, 'Ziutek'], [19, null]]),
+    waved: new Set<number>(),
   }
   // hang: the fetch never answers (a stuck connection), so only the mod's own timeout ends it.
   const net = { offline: false, hang: false }
@@ -96,7 +101,7 @@ export const harness = (on: On, opts: HarnessOptions = {}) => {
     if (call.path === '/api/sync') {
       if (!isAuthed) return { status: 401, body: { error: 'unauthorized' } }
       server.xp += (b.events as { type: string }[]).reduce((sum, e) => sum + (XP[e.type] ?? 0), 0)
-      return { status: 200, body: { xp: server.xp, level: 1, heartsLeft: 5 } }
+      return { status: 200, body: { xp: server.xp, level: 1, heartsLeft: 5, ...server.syncExtra } }
     }
     if (call.path === '/api/name') {
       if (!isAuthed) return { status: 401, body: { error: 'unauthorized' } }
@@ -104,6 +109,16 @@ export const harness = (on: On, opts: HarnessOptions = {}) => {
       if (b.label === '') server.label = null
       else if (typeof b.label === 'string') server.label = b.label
       return { status: 200, body: { name: server.name, label: server.label } }
+    }
+    if (call.path === '/api/wave') {
+      if (!isAuthed) return { status: 401, body: { error: 'unauthorized' } }
+      const to = b.to as number
+      if (to === server.pet.serial) return { status: 400, body: { error: 'self_wave' } }
+      if (!server.targets.has(to)) return { status: 404, body: { error: 'not_found' } }
+      if (server.waved.has(to)) return { status: 429, body: { error: 'already_waved', retryAt: START + 86_400_000 } }
+      if (server.waved.size >= 10) return { status: 429, body: { error: 'wave_limit', retryAt: START + 86_400_000 } }
+      server.waved.add(to)
+      return { status: 200, body: { ok: true, to: { serial: to, name: server.targets.get(to) ?? null } } }
     }
     if (call.path === '/api/import') {
       if (b.serial !== 99 || b.token !== IMPORT_TOKEN) return { status: 401, body: { error: 'unauthorized' } }

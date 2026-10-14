@@ -40,6 +40,7 @@ export const resetDb = async (): Promise<void> => {
     [
       'DELETE FROM pets',
       'DELETE FROM xp_windows',
+      'DELETE FROM waves',
       'DELETE FROM hatch_ip',
       'DELETE FROM leaderboard_cache',
       'UPDATE counters SET value = 0',
