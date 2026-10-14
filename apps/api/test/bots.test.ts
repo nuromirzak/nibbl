@@ -103,12 +103,12 @@ describe('bot growth', () => {
     expect(MAX_HOURLY_XP).toBe(130)
   })
 
-  it('grows like a steady human over a week', () => {
+  it('grows like a relaxed human over a week', () => {
     for (const bot of BOTS) {
       let week = 0
       for (let h = 490_000; h < 490_000 + 24 * 7; h++) week += xpForCounts(botHourCounts(bot, h))
-      expect(week).toBeGreaterThan(100)
-      expect(week).toBeLessThan(2000)
+      expect(week).toBeGreaterThan(50)
+      expect(week).toBeLessThan(700)
     }
   })
 

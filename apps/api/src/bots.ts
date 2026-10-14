@@ -46,8 +46,9 @@ export type HourCounts = { pet: number; turn: number; check_pass: number; commit
 
 export const BOT_CATCH_UP_HOURS = 24
 
-// A bot works like a steady human: active in a quarter of its local work hours (late evening
-// for night owls), half as often on weekends, rarely otherwise, and never above player caps.
+// A bot works like a relaxed human: active in about one in eight of its local work hours (late
+// evening for night owls), half as often on weekends, rarely otherwise, and never above player
+// caps. Kept slow on purpose so active real players overtake bots on the board.
 export const botHourCounts = (bot: Pick<BotSpec, 'serial' | 'tz' | 'owl'>, hour: number): HourCounts => {
   const rng = mulberry32(Math.imul(bot.serial, 0x9e3779b1) ^ hour)
   const localHour = hour + bot.tz
@@ -55,7 +56,7 @@ export const botHourCounts = (bot: Pick<BotSpec, 'serial' | 'tz' | 'owl'>, hour:
   // Day 0 (1970-01-01) was a Thursday; 0 = Sunday.
   const weekday = (((Math.floor(localHour / 24) + 4) % 7) + 7) % 7
   const working = bot.owl ? clock >= 20 || clock < 3 : clock >= 9 && clock < 19
-  let chance = working ? 25 : 3
+  let chance = working ? 12 : 1
   if (weekday === 0 || weekday === 6) chance = Math.floor(chance / 2)
   if (rng() % 100 >= chance) return { pet: 0, turn: 0, check_pass: 0, commit: 0 }
   const turn = 3 + (rng() % 8)
