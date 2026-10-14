@@ -3,6 +3,7 @@ import { resolve } from 'node:path'
 import { writeGif, writePng } from './encode'
 import { bandFrames } from './band'
 import { badgeSvg } from './badge'
+import { evolutionFrames } from './evolution'
 import { heroFrames } from './hero'
 import { petsSheet } from './sheet'
 import { socialPreview } from './social'
@@ -15,6 +16,7 @@ const report = (name: string, bytes: number) => console.log(`${name.padEnd(20)} 
 const jobs: Record<string, () => number> = {
   'hero.gif': () => writeGif(`${OUT}/hero.gif`, heroFrames()),
   'band.gif': () => writeGif(`${OUT}/band.gif`, bandFrames()),
+  'evolution.gif': () => writeGif(`${OUT}/evolution.gif`, evolutionFrames()),
   'social-preview.png': () => writePng(`${OUT}/social-preview.png`, socialPreview()),
   'pets-sheet.png': () => writePng(`${OUT}/pets-sheet.png`, petsSheet()),
   'badge-example.svg': () => {
