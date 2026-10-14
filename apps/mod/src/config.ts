@@ -30,6 +30,12 @@ export const AWAY_X = 16
 export const NIGHT_FROM_HOUR = 2
 export const NIGHT_TO_HOUR = 5
 
+// Maker notes: at most one per 48 h, never in a session's first turns.
+export const NOTE_GAP_MS = 48 * 60 * 60_000
+export const NOTE_MIN_TURNS = 3
+export const WAVES_KEPT = 10
+export const TOP_RANK = 10
+
 export const NAME_MAX = 16
 export const LABEL_MAX = 24
 export const MIN_FULL_ROWS = 8
@@ -52,6 +58,13 @@ export const K = {
   installId: 'v1.installId',
   machineHash: 'v1.machineHash',
   installSerial: 'v1.installSerial',
+  noteIdx: 'v1.noteIdx',
+  noteAt: 'v1.noteAt',
+  waves: 'v1.waves',
+  rank: 'v1.rank',
+  bestRank: 'v1.bestRank',
+  latest: 'v1.latest',
+  updateSeen: 'v1.updateSeen',
   spikePet: 'pet',
   spikeEggTurns: 'eggTurns',
 } as const

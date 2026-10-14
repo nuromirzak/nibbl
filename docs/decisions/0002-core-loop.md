@@ -22,4 +22,4 @@ Scope for v1 had to be small enough to ship and still give a reason to come back
 
 ## Consequences
 - Progress depends only on real work, never on absence.
-- Social features wait for a later version.
+- Social features wait for a later version (superseded by [0016](0016-social-v0-2.md) for waves, rank neighbours and maker notes).

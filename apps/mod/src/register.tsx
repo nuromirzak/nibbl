@@ -10,6 +10,7 @@ import { onAnsweredTurn, start } from './lifecycle'
 import { ensureLoaded } from './model'
 import { onActive, onTurnEnd, onTurnStart } from './reactions'
 import { rt, withTimeout } from './runtime'
+import { maybeNote } from './engage'
 import { exportCode } from './pet'
 import { frameOf } from './scene'
 import { eggAtom, hiddenAtom, petAtom, reactAtom, tzAtom } from './state'
@@ -36,7 +37,11 @@ export const register: Register = (on, options) => {
     await ensureLoaded($)
     const isAnswer = e.reason === 'answer'
     await react($, (r, now) => onTurnEnd(r, now, isAnswer))
-    if (isAnswer) await onAnsweredTurn($)
+    if (isAnswer) {
+      await onAnsweredTurn($)
+      rt.answered++
+      await maybeNote($)
+    }
     return next(e)
   })
 

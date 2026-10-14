@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const out = process.env.NIBBL_MOD_DIR ?? join(here, 'dist')
-const VERSION = '0.1.0'
+const VERSION = '0.2.0'
 
 // A clean folder every time, so nothing the engine laid into a loaded dev copy (.claude-plugin/types) survives.
 rmSync(out, { recursive: true, force: true })
@@ -20,6 +20,7 @@ const hooks = await build({
   jsxFragment: 'Fragment',
   external: ['claude-code'],
   target: 'es2022',
+  define: { __NIBBL_VERSION__: JSON.stringify(VERSION) },
   logLevel: 'info',
   write: false,
   entryPoints: [join(here, 'src/register.tsx')],

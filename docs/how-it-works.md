@@ -54,6 +54,7 @@ What leaves your machine, and nothing else:
 |---|---|
 | `machineHash` (SHA-256 of your hardware UUID plus a salt) | So the same machine always gets the same pet. The raw UUID never leaves. |
 | `serial` and `token` | Your pet's id and its secret. The server stores only a hash of the token. |
+| The serial you wave at (`/nibbl wave <serial>`) | So the server can deliver the wave to that nibbl. No text, only the number. |
 | Event counts (type and time: turn, check passed, commit, error, pet, hide) | To compute XP on the server with hourly caps. |
 | Serials you wave at | To deliver a wave to that pet. No text. |
 
