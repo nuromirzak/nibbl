@@ -50,7 +50,7 @@ export const loadQueues = async ($: EngineInterface): Promise<Record<string, Que
 // The social state belongs to one pet: when another serial takes this machine, it starts clean.
 // v1.latest and v1.updateSeen describe the plugin, not the pet, so they stay.
 export const clearSocial = async ($: EngineInterface): Promise<void> => {
-  for (const key of [K.rank, K.rankAt, K.bestRank, K.waves, K.noteIdx, K.noteAt]) await $.store.delete(key)
+  for (const key of [K.rank, K.rankAt, K.bestRank, K.waves, K.noteIdx, K.noteAt, K.toastQueue, K.greetDay]) await $.store.delete(key)
 }
 
 export const dropQueues = async ($: EngineInterface): Promise<void> => {

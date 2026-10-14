@@ -1,6 +1,7 @@
 import { HOUR_MS, levelFromXp } from '@nibbl/core'
 import { BOT_CATCH_UP_HOURS, BOTS, botHourCounts, xpForCounts } from './bots'
 import type { Env } from './env'
+import { isoWeek, weekLabel } from './lib/retention'
 import { DAY_MS } from './routes/hatch'
 
 export const LEADERBOARD_SIZE = 100
@@ -97,6 +98,39 @@ export const growBots = async (db: D1Database, now: number): Promise<number> => 
   return hour - from + 1
 }
 
+// Nibbl of the week. counters.week holds the ISO week (year * 100 + week) the snapshot belongs to, 0 = none yet.
+// First run only snapshots. When the week changes, the real, visible pet with the biggest xp gain since the
+// snapshot wins the finished week (ties: lower serial; a pet without a snapshot row counts from 0), then the
+// snapshot is replaced. All in one batch, so a failed run leaves the old week to be rolled again.
+export const weekRollover = async (db: D1Database, now: number): Promise<void> => {
+  const cur = isoWeek(now).key
+  const stored = (await db.prepare("SELECT value FROM counters WHERE name = 'week'").first<number>('value')) ?? 0
+  if (stored === cur) return
+  const resnap = [
+    db.prepare('DELETE FROM week_snap'),
+    db.prepare('INSERT INTO week_snap (serial, xp) SELECT serial, xp FROM pets'),
+    db.prepare("INSERT INTO counters (name, value) VALUES ('week', ?) ON CONFLICT (name) DO UPDATE SET value = excluded.value").bind(cur),
+  ]
+  if (stored === 0) {
+    await db.batch(resnap)
+    return
+  }
+  const winner = await db
+    .prepare(
+      `SELECT p.serial, p.xp - COALESCE(s.xp, 0) AS gain FROM pets p LEFT JOIN week_snap s ON s.serial = p.serial
+       WHERE p.is_bot = 0 AND p.is_hidden = 0 AND p.xp - COALESCE(s.xp, 0) > 0 ORDER BY gain DESC, p.serial ASC LIMIT 1`,
+    )
+    .first<{ serial: number; gain: number }>()
+  const award = winner
+    ? [
+        db.prepare('INSERT OR IGNORE INTO week_winners (week, serial, gain, at) VALUES (?, ?, ?, ?)').bind(weekLabel(stored), winner.serial, winner.gain, now),
+        // Tied to the stored row, so a lost week_winners insert (already won) can never award a second time.
+        db.prepare("INSERT OR IGNORE INTO pet_achievements (serial, id, at, reported) SELECT serial, 'week', ?, 0 FROM week_winners WHERE week = ?").bind(now, weekLabel(stored)),
+      ]
+    : []
+  await db.batch([...award, ...resnap])
+}
+
 // Each step is isolated so one failure cannot starve the others. Only err.message is logged
 // (no PII), and an aggregate error is rethrown at the end so the failure shows in Workers logs.
 export const runCron = async (env: Env, now: number): Promise<void> => {
@@ -104,6 +138,7 @@ export const runCron = async (env: Env, now: number): Promise<void> => {
   const steps: [string, () => Promise<unknown>][] = [
     ['growBots', () => growBots(env.DB, now)],
     ['rebuildLeaderboard', () => rebuildLeaderboard(env.DB, now)],
+    ['weekRollover', () => weekRollover(env.DB, now)],
     ['pruneHatchIp', () => pruneHatchIp(env.DB, now)],
     ['pruneWaves', () => pruneWaves(env.DB, now)],
   ]

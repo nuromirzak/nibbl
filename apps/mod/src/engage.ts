@@ -1,13 +1,21 @@
 // The 0.2.0 social layer on top of the store: maker notes (offline), waves, rank and update notice
 // arriving with /api/sync. Pure text and parsing live in notes.ts and social.ts.
+import { read } from 'claude-code'
 import type { EngineInterface } from 'claude-code'
 
+import { apiBase } from './api'
 import { K, NOTE_GAP_MS, NOTE_MIN_TURNS, TOP_RANK, WAVES_KEPT } from './config'
+import { greetingFor, localDay } from './greetings'
 import { NOTES, noteAt, nextNote, shownNotes, totalNotes } from './notes'
 import { displayName, type ServerPet } from './pet'
 import { rt } from './runtime'
+import { tzAtom } from './state'
 import { loadPet } from './store'
+import { enqueue, enqueueAchievements, loadToasts } from './toasts'
 import {
+  achievementToastText,
+  inviteToastText,
+  weekToastText,
   parseRank,
   parseSocial,
   parseWavesSeen,
@@ -40,7 +48,20 @@ export const maybeNote = async ($: EngineInterface): Promise<void> => {
   // Write first: a second session finishing a turn right now must not send the same note twice.
   await $.store.set(K.noteIdx, idx + 1)
   await $.store.set(K.noteAt, now)
-  $.ui.toast(`✉ from the maker: ${noteAt(pet.seed, idx, displayName(pet.name), pet.serial)}`)
+  await enqueue($, 'note', `✉ from the maker: ${noteAt(pet.seed, idx, displayName(pet.name), pet.serial)}`)
+}
+
+// The first answered turn of the local day greets a hatched pet (never the egg, and the hatch day
+// itself is marked by hatch.ts). The greeting queues like any other toast.
+export const maybeGreet = async ($: EngineInterface): Promise<void> => {
+  const pet = await loadPet($)
+  if (!pet) return
+  const now = await $.clock.now()
+  const tz = await read($, tzAtom)
+  const day = localDay(now, tz)
+  if (num(await $.store.get(K.greetDay)) === day) return
+  await $.store.set(K.greetDay, day)
+  await enqueue($, 'greeting', greetingFor(pet.seed, now, tz, displayName(pet.name)))
 }
 
 export const notesCommand = async ($: EngineInterface): Promise<string> => {
@@ -58,11 +79,19 @@ export const applySocial = async ($: EngineInterface, pet: ServerPet, body: Reco
   const social = parseSocial(body)
   const me = displayName(pet.name)
 
+  const won = social.weekWin
+  if (won) await enqueue($, 'week', weekToastText(me, await apiBase($)))
+  // Growing Up and All Grown Up are announced by the evolution toast, so they never get one of their own.
+  const earned = social.unlocked.filter(id => id !== 'teen' && id !== 'adult')
+  if (earned.length > 0) await enqueueAchievements($, earned, me, achievementToastText)
+  const invited = inviteToastText(social.invites)
+  if (invited !== null) await enqueue($, 'invite', invited)
+
   const text = waveToastText(social.waves, me)
   if (text !== null) {
     const kept = [...social.waves.map(w => ({ ...w, at: now })), ...parseWavesSeen(await $.store.get(K.waves))].slice(0, WAVES_KEPT)
     await $.store.set(K.waves, kept)
-    $.ui.toast(text)
+    await enqueue($, 'wave', text)
   }
 
   if (social.rank) {
@@ -72,8 +101,8 @@ export const applySocial = async ($: EngineInterface, pet: ServerPet, body: Reco
     if (best === null || social.rank.pos < best) await $.store.set(K.bestRank, social.rank.pos)
     // The first observation only seeds the best rank: a pet that already sits in the top 10 is not news.
     const hit = best === null ? null : rankMilestone(best, social.rank.pos)
-    if (hit === 'first') $.ui.toast(`${me} is #1 on the board!`)
-    else if (hit === 'top10') $.ui.toast(`${me} made the top ${TOP_RANK}!`)
+    if (hit === 'first') await enqueue($, 'wave', `${me} is #1 on the board!`)
+    else if (hit === 'top10') await enqueue($, 'wave', `${me} made the top ${TOP_RANK}!`)
   } else if (body.rank === null) {
     // A hidden pet has no rank; remember that we asked, and drop a stale line.
     await $.store.delete(K.rank)
@@ -84,7 +113,7 @@ export const applySocial = async ($: EngineInterface, pet: ServerPet, body: Reco
     await $.store.set(K.latest, social.latest)
     if (isNewer(social.latest) && (await $.store.get(K.updateSeen)) !== social.latest) {
       await $.store.set(K.updateSeen, social.latest)
-      $.ui.toast(updateToast(social.latest))
+      await enqueue($, 'update', updateToast(social.latest))
     }
   }
 }
@@ -101,5 +130,7 @@ export const socialStatsLines = async ($: EngineInterface, pet: ServerPet | null
   const rank = parseRank(await $.store.get(K.rank))
   if (rank) lines.push(rankLine(rank, pet.xp))
   if (isNewer(await $.store.get(K.latest))) lines.push(updateLine())
+  const waiting = (await loadToasts($)).length
+  if (waiting > 0) lines.push(`news waiting: ${waiting} (one shows after each answered turn)`)
   return lines
 }

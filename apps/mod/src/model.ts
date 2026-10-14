@@ -1,4 +1,4 @@
-import { HOUR_MS, levelFromXp } from '@nibbl/core'
+import { HOUR_MS, levelFromXp, stageForLevel } from '@nibbl/core'
 import { read, update } from 'claude-code'
 import type { EngineInterface } from 'claude-code'
 
@@ -24,7 +24,11 @@ export const refreshView = async ($: EngineInterface, announce = false): Promise
   if (announce && prev && view && prev.serial === view.serial) {
     const was = levelFromXp(prev.xp).level
     const is = levelFromXp(view.xp).level
-    if (is > was) $.ui.toast(`${view.name} reached level ${is}!`)
+    if (is > was) {
+      // Growing into a new stage is the bigger news: it replaces the level toast.
+      if (stageForLevel(was) !== stageForLevel(is)) $.ui.toast(`${view.name} evolved into a${stageForLevel(is) === 'adult' ? 'n adult' : ' teen'}! Show it off: /nibbl share`)
+      else $.ui.toast(`${view.name} reached level ${is}!`)
+    }
   }
   return view
 }

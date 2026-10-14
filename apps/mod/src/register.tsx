@@ -1,5 +1,5 @@
 import { read } from 'claude-code'
-import type { Register } from 'claude-code'
+import type { EngineInterface, Register } from 'claude-code'
 
 import { EXPORT_MARK, exportSerialOf } from './account'
 import { runCommand } from './commands'
@@ -10,12 +10,21 @@ import { onAnsweredTurn, start } from './lifecycle'
 import { ensureLoaded } from './model'
 import { onActive, onTurnEnd, onTurnStart } from './reactions'
 import { rt, withTimeout } from './runtime'
-import { maybeNote } from './engage'
+import { maybeGreet, maybeNote } from './engage'
 import { exportCode } from './pet'
 import { frameOf } from './scene'
 import { eggAtom, hiddenAtom, petAtom, reactAtom, tzAtom } from './state'
 import { loadPet } from './store'
 import { syncNow } from './sync'
+import { flushOne } from './toasts'
+
+const guarded = async ($: EngineInterface, what: string, work: () => Promise<void>): Promise<void> => {
+  try {
+    await work()
+  } catch (err) {
+    $.ui.log(`nibbl: ${what}: ${err instanceof Error ? err.message : String(err)}`, { to: 'debug' })
+  }
+}
 
 export const register: Register = (on, options) => {
   rt.options = options
@@ -40,7 +49,10 @@ export const register: Register = (on, options) => {
     if (isAnswer) {
       await onAnsweredTurn($)
       rt.answered++
-      await maybeNote($)
+      // News is a bonus: a throw here must never skip next(e).
+      await guarded($, 'note', () => maybeNote($))
+      await guarded($, 'greeting', () => maybeGreet($))
+      await guarded($, 'toast', () => flushOne($))
     }
     return next(e)
   })

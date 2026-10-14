@@ -21,6 +21,8 @@ export type CallInit = {
   env?: Partial<Env>
   // Extra request headers; null removes a default (e.g. the JSON content-type).
   headers?: Record<string, string | null>
+  // Keep the edge cache entry for this URL (default: purged first, so tests do not see each other's pages).
+  keepEdgeCache?: boolean
 }
 
 export const call = async (path: string, init: CallInit = {}): Promise<Response> => {
@@ -31,6 +33,7 @@ export const call = async (path: string, init: CallInit = {}): Promise<Response>
     if (v === null) delete headers[k]
     else headers[k] = v
   }
+  if (!init.keepEdgeCache) await caches.default.delete(new Request(ORIGIN + path))
   const request = new Request(ORIGIN + path, { method: init.method ?? (body === undefined ? 'GET' : 'POST'), headers, body })
   return handle(request, { ...testEnv, ...init.env }, { now: () => init.now ?? T0 })
 }
@@ -41,6 +44,11 @@ export const resetDb = async (): Promise<void> => {
       'DELETE FROM pets',
       'DELETE FROM xp_windows',
       'DELETE FROM waves',
+      'DELETE FROM pet_totals',
+      'DELETE FROM pet_achievements',
+      'DELETE FROM invite_notices',
+      'DELETE FROM week_snap',
+      'DELETE FROM week_winners',
       'DELETE FROM hatch_ip',
       'DELETE FROM leaderboard_cache',
       'UPDATE counters SET value = 0',

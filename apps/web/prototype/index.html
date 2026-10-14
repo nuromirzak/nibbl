@@ -162,6 +162,12 @@ a.lrow:focus-visible{outline-offset:-4px}
 .lrow .lv{font-family:var(--f-label);font-size:14px;white-space:nowrap}
 .lrow .tg{display:flex;flex-wrap:wrap;gap:4px}
 .lb-more{margin-top:32px}
+.wk{margin-top:24px;display:flex;gap:12px 16px;align-items:center;flex-wrap:wrap;padding:12px 20px;text-decoration:none;color:var(--white)}
+.wk[hidden]{display:none}
+.wk .lbl{color:var(--slate)}
+.wk b{font:500 20px/1.1 var(--f-head);overflow-wrap:anywhere}
+.wk .go{margin-left:auto;color:var(--yellow);font-size:14px}
+.wk:hover b{text-decoration:underline}
 
 /* pet card section */
 .card-sec{display:grid;grid-template-columns:1fr 440px;gap:64px;align-items:center}
@@ -273,7 +279,7 @@ footer h2{font-size:clamp(36px,5vw,56px)}
           <button class="btn px" id="copy" type="button">Copy</button>
         </div>
       </div>
-      <p class="whatsnew"><b>New in 0.2.0:</b> wave at other nibbls, notes from the maker, your rank on the board. Already installed? Run <code>/plugin marketplace update nibbl</code>, then <code>/plugin update nibbl@nibbl</code>, or turn on auto-update in <code>/plugin</code> &gt; Marketplaces.</p>
+      <p class="whatsnew"><b>New in 0.3.0:</b> your nibbl greets you each day, evolves with a share card, earns achievements, and you can invite friends. Plus <a href="/week/">Nibbl of the week</a>. Already installed? Run <code>/plugin marketplace update nibbl</code>, then <code>/plugin update nibbl@nibbl</code>, or turn on auto-update in <code>/plugin</code> &gt; Marketplaces.</p>
       <div class="counter"><i class="dot"></i><span class="lbl">hatched: <b id="hatched">1 337</b> nibbls so far</span></div>
     </div>
 
@@ -390,6 +396,7 @@ footer h2{font-size:clamp(36px,5vw,56px)}
       <div class="lrow h lbl"><span>#</span><span></span><span>nibbl</span><span>form</span><span>lvl</span><span>tier</span></div>
     </div>
     <div class="lb-more"><a class="btn px ghost" href="/leaderboard">See the full leaderboard</a></div>
+    <a class="wk px" id="wk" href="/week/" hidden><span class="lbl" id="wkl">&#9819; Nibbl of the week</span><b id="wkn"></b><span id="wkt" class="lbl"></span><span class="go">See the week &rarr;</span></a>
   </div>
 </section>
 
@@ -771,6 +778,14 @@ function renderRecent(top){
     rec.appendChild(a); mountSprite(a.querySelector('canvas'),p.g,{scale:()=>3,life:n});
   }
 }
+apiGet('/api/week').then(j=>{
+  const lead=Array.isArray(j.leaders)&&j.leaders[0], win=Array.isArray(j.winners)&&j.winners[0];
+  const e=lead||win;if(!e) throw 0;
+  $('wkl').textContent='\u265b '+(lead?'Leading this week':'Nibbl of the week');
+  $('wkn').textContent=e.name||('#'+pad6(e.serial));
+  $('wkt').textContent=lead?'+'+fmtN(e.gain)+' xp so far':'crowned last week, +'+fmtN(e.gain)+' xp';
+  $('wk').hidden=false;
+}).catch(()=>{});
 Promise.all([
   apiGet('/api/stats').then(j=>{if(!Number.isFinite(j.hatched)) throw 0;return j.hatched;}).catch(()=>null),
   apiGet('/api/leaderboard').then(j=>{if(!Array.isArray(j.entries)||!j.entries.length) throw 0;return liveRows(j.entries);}).catch(()=>null)

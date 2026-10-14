@@ -94,7 +94,7 @@ export const importCommand = async ($: EngineInterface, rest: string): Promise<s
     await clearSocial($)
   }
   await savePet($, isSame && old ? { ...pet, heartsHour: old.heartsHour, heartsUsed: old.heartsUsed, lastSyncAt: old.lastSyncAt } : pet)
-  for (const key of [K.egg, K.hatchWait, K.syncWait]) await $.store.delete(key)
+  for (const key of [K.egg, K.hatchWait, K.syncWait, K.inviteCode]) await $.store.delete(key)
   // The server now binds this pet to the hash just sent, so a later re-hatch may use it too.
   if (id.source === 'install') await $.store.set(K.installSerial, pet.serial)
   else await $.store.delete(K.installSerial)

@@ -15,7 +15,9 @@
     "directory": "../web/prototype",
     "binding": "ASSETS",
     // Only these paths run the Worker; every other request is a free static asset hit.
-    "run_worker_first": ["/api/*", "/p/*"]
+    "run_worker_first": ["/api/*", "/p/*"],
+    // Unknown paths serve /404.html with a real 404 status.
+    "not_found_handling": "404-page"
   },
   "d1_databases": [
     {

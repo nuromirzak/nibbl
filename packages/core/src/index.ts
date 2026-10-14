@@ -1,3 +1,4 @@
+export * from './achievements'
 export * from './cells'
 export * from './draw'
 export * from './egg'

@@ -1,0 +1,61 @@
+# nibbl
+
+> Nibbl is a tiny pixel pet mod for Claude Code that lives above your prompt, hatches after 10 answered turns, eats bugs when your tests pass, and costs zero model tokens.
+
+## What it is
+
+A free, open-source (MIT) Claude Code mod. Every pet is unique, rolled once per machine on the server, with public odds (common 40%, uncommon 30%, rare 18%, epic 9%, legendary 3%, shiny 4% on top). It reacts to what really happens in your session: a bug appears on an error, it eats the bugs when checks pass, it carries a box on a commit, it goes on an expedition while Claude works and sleeps when you are away. It grows over months through five stages (egg, baby, teen, adult, elder). It never interrupts you and never reads your code.
+
+## Install
+
+In Claude Code:
+
+    /plugin marketplace add https://getnibbl.pages.dev/marketplace.json
+    /plugin install nibbl@nibbl
+
+Alternative, from GitHub:
+
+    /plugin marketplace add nuromirzak/nibbl
+
+Auto-update is off by default for community marketplaces. To turn it on: `/plugin`, then Marketplaces, then nibbl, then Enable auto-update. Manual update: `/plugin marketplace update nibbl`, then `/plugin update nibbl@nibbl`, then restart.
+
+## Commands
+
+- `/nibbl`: name, serial, tier, level, XP, hearts, rarest trait, card and leaderboard links, rank, last note and wave
+- `/nibbl pet`: pet it from the prompt (5 an hour give XP)
+- `/nibbl name <text>`: rename your pet (once a week, up to 16 characters)
+- `/nibbl label <text>`: set a label (up to 24 characters); `/nibbl label` alone clears it
+- `/nibbl odds`: hatch odds and the odds of each of your pet's traits
+- `/nibbl export`: show the secret code that moves your pet to another machine
+- `/nibbl import <code>`: move a pet to this machine
+- `/nibbl hide`: hide or show the band; the pet keeps living
+- `/nibbl wave <serial>`: send a wave (a heart, no text, no XP) to another nibbl; 10 a day, one per nibbl per day
+- `/nibbl notes`: list the notes from the maker you have received
+- `/nibbl share` (0.3.0): print your card URL and a ready post text, no network call
+- `/nibbl achievements` (0.3.0): unlocked achievements, and the next ones with progress
+- `/nibbl invite [serial]` (0.3.0): invite a friend; a friend still on an egg runs it with your serial before hatching
+
+## How XP works
+
+The server computes XP, so a modified client cannot outgrow honest players. A pet gives 2 XP (5 per hour cap), a Claude turn gives 3 XP (20 per hour), a passing test, typecheck, lint or build gives 2 XP (20 per hour), and `git commit` gives 2 XP (10 per hour). Level n to n+1 costs round(10 * n^1.4) XP. Rarity never changes XP or level. Stages: baby at level 1, teen at 10, adult at 25, elder at 50.
+
+## Privacy
+
+What leaves your machine:
+
+- A SHA-256 hash of your machine id plus a salt, your pet's serial and secret token, and the name, label and wave target serials you set yourself.
+- Event types and times only (turn, check_pass, commit, error, pet, hide). Never prompts, code, file names, commands or outputs.
+- Nothing else, and only to getnibbl.pages.dev. No accounts, no ads, no trackers.
+
+Full policy, retention and how to delete your pet: https://getnibbl.pages.dev/privacy/
+
+## Links
+
+- [GitHub repository](https://github.com/nuromirzak/nibbl)
+- [Leaderboard](https://getnibbl.pages.dev/leaderboard/)
+- [Nibbl of the week](https://getnibbl.pages.dev/week/)
+- [Pet card pattern](https://getnibbl.pages.dev/p/<serial>): a public card per pet, for example /p/19
+- [marketplace.json](https://getnibbl.pages.dev/marketplace.json)
+- [Plugin README (raw)](https://raw.githubusercontent.com/nuromirzak/nibbl/main/plugin/README.md)
+- [Privacy policy](https://getnibbl.pages.dev/privacy/)
+- [llms-full.txt](https://getnibbl.pages.dev/llms-full.txt): this file plus the full plugin README and the technical write-up

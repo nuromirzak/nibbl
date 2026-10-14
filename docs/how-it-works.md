@@ -55,8 +55,11 @@ What leaves your machine, and nothing else:
 | `machineHash` (SHA-256 of your hardware UUID plus a salt) | So the same machine always gets the same pet. The raw UUID never leaves. |
 | `serial` and `token` | Your pet's id and its secret. The server stores only a hash of the token. |
 | The serial you wave at (`/nibbl wave <serial>`) | So the server can deliver the wave to that nibbl. No text, only the number. |
+| The inviter serial you enter with `/nibbl invite <serial>` (once, at hatch) | So the server can record the friend bond between the two pets. No XP or odds change. |
 | Event counts (type and time: turn, check passed, commit, error, pet, hide) | To compute XP on the server with hourly caps. |
 
+- Kept on the server while the pet exists: lifetime totals of the same events (turns, checks passed, commits, failed tool runs, pets, waves sent, active days), which drive achievements.
+- Public on the pet's card: unlocked achievements and the invite relation (friends). A snapshot of each pet's XP at the start of the week is kept for one week, for Nibbl of the week.
 - No code, prompts, file names, commands or outputs are ever sent. The mod sees that a test passed, not what the test was.
 - Zero model tokens: reactions are plain code, not model calls.
 - Your IP address is visible to Cloudflare like any web request; the API keeps only a daily-salted hash of it, for a per-day hatch limit.

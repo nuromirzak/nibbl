@@ -34,6 +34,7 @@ export const NIGHT_TO_HOUR = 5
 export const NOTE_GAP_MS = 48 * 60 * 60_000
 export const NOTE_MIN_TURNS = 3
 export const WAVES_KEPT = 10
+export const TOAST_QUEUE_MAX = 12
 export const TOP_RANK = 10
 // The rank costs the server O(position) rows, so the mod asks for it at most once a day.
 export const RANK_EVERY_MS = 24 * 60 * 60_000
@@ -68,6 +69,9 @@ export const K = {
   bestRank: 'v1.bestRank',
   latest: 'v1.latest',
   updateSeen: 'v1.updateSeen',
+  toastQueue: 'v1.toastQueue',
+  greetDay: 'v1.greetDay',
+  inviteCode: 'v1.inviteCode',
   spikePet: 'pet',
   spikeEggTurns: 'eggTurns',
 } as const

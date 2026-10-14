@@ -179,6 +179,8 @@ describe('POST /api/sync social fields', () => {
     expect('rank' in falsy).toBe(false)
     const asked = (await (await syncRank(a, T0 + 180_000)).json()) as Record<string, unknown>
     expect(Object.keys(asked).sort()).toEqual(['heartsLeft', 'latest', 'level', 'rank', 'waves', 'xp'])
+    const v3 = (await (await sync(a, T0 + 240_000, { v: '0.3.0' })).json()) as Record<string, unknown>
+    expect(Object.keys(v3).sort()).toEqual(['heartsLeft', 'invites', 'latest', 'level', 'unlocked', 'waves', 'weekWin', 'xp'])
   })
 
   it('answers rank: null for a hidden pet', async () => {

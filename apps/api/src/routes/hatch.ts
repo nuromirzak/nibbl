@@ -2,8 +2,9 @@ import { genomeKey, pickUnique, visualKey, type Genome } from '@nibbl/core'
 import type { Deps, Env } from '../env'
 import { isUniqueViolation, ownerView, petByMachine, takenKeys, type OwnerView, type PetRow } from '../lib/db'
 import { randomToken, sha256Hex } from '../lib/hmac'
-import { HttpError, json, machineHashOf, MAX_SMALL_BYTES, readJson } from '../lib/http'
+import { HttpError, json, machineHashOf, MAX_SERIAL, MAX_SMALL_BYTES, readJson } from '../lib/http'
 import { ipBucket } from '../lib/ip'
+import { isMissingSchema } from '../lib/retention'
 import { BATCH, candidates } from '../lib/roll'
 
 export const DAY_MS = 86_400_000
@@ -77,11 +78,25 @@ const reissue = async (db: D1Database, pet: PetRow, now: number): Promise<HatchR
   return hatchResult(pet, token)
 }
 
+const inviteOf = (v: unknown): number | null =>
+  typeof v === 'number' && Number.isInteger(v) && v >= 1 && v <= MAX_SERIAL ? v : null
+
+// An invite counts only from a real, visible pet on another machine. Anything else is ignored silently.
+const validInviter = async (db: D1Database, serial: number | null, machineHash: string): Promise<number | null> => {
+  if (serial === null) return null
+  const row = await db
+    .prepare('SELECT serial FROM pets WHERE serial = ? AND is_hidden = 0 AND is_bot = 0 AND machine_hash != ?')
+    .bind(serial, machineHash)
+    .first<{ serial: number }>()
+  return row ? row.serial : null
+}
+
 export const hatch = async (request: Request, env: Env, deps: Deps): Promise<Response> => {
   const body = await readJson(request, MAX_SMALL_BYTES)
   const machineHash = machineHashOf(body.machineHash)
   const launchAt = launchAtOf(env)
   const now = deps.now()
+  const invite = inviteOf(body.invite)
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     const existing = await petByMachine(env.DB, machineHash)
     if (existing) return json(await reissue(env.DB, existing, now))
@@ -99,16 +114,35 @@ export const hatch = async (request: Request, env: Env, deps: Deps): Promise<Res
     const genesis = now < launchAt + GENESIS_MS
     try {
       // One batch is one transaction: the counter bump rolls back if the insert fails.
-      const [, inserted] = await env.DB.batch([
+      const tokenHash = await sha256Hex(token)
+      const insertBatch = (inviter: number | null) => [
         env.DB.prepare("UPDATE counters SET value = value + 1 WHERE name IN ('serial', 'hatched')"),
         env.DB.prepare(
-          `INSERT INTO pets (serial, machine_hash, token_hash, seed, genome_key, visual_key, tier, shiny, genesis, hatched_at)
-           VALUES ((SELECT value FROM counters WHERE name = 'serial'), ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
-        ).bind(machineHash, await sha256Hex(token), g.seed, genomeKey(g), visualKey(g), g.tier, g.shiny ? 1 : 0, genesis ? 1 : 0, now),
+          `INSERT INTO pets (serial, machine_hash, token_hash, seed, genome_key, visual_key, tier, shiny, genesis, hatched_at${inviter === null ? '' : ', invited_by'})
+           VALUES ((SELECT value FROM counters WHERE name = 'serial'), ?, ?, ?, ?, ?, ?, ?, ?, ?${inviter === null ? '' : ', ?'}) RETURNING *`,
+        ).bind(machineHash, tokenHash, g.seed, genomeKey(g), visualKey(g), g.tier, g.shiny ? 1 : 0, genesis ? 1 : 0, now, ...(inviter === null ? [] : [inviter])),
         env.DB.prepare(
           'INSERT INTO hatch_ip (ip_hash, count, last_at) VALUES (?, 1, ?) ON CONFLICT (ip_hash) DO UPDATE SET count = count + 1, last_at = excluded.last_at',
         ).bind(ipHash, now),
-      ])
+        // Friends bond for both pets, plus a notice the inviter's next sync delivers. No XP, no odds.
+        ...(inviter === null
+          ? []
+          : [
+              env.DB.prepare("INSERT OR IGNORE INTO pet_achievements (serial, id, at) VALUES ((SELECT value FROM counters WHERE name = 'serial'), 'friends', ?)").bind(now),
+              env.DB.prepare("INSERT OR IGNORE INTO pet_achievements (serial, id, at) VALUES (?, 'friends', ?)").bind(inviter, now),
+              env.DB.prepare("INSERT INTO invite_notices (to_serial, from_serial, created_at) VALUES (?, (SELECT value FROM counters WHERE name = 'serial'), ?)").bind(inviter, now),
+            ]),
+      ]
+      const inviter = await validInviter(env.DB, invite, machineHash)
+      let results: D1Result[]
+      try {
+        results = await env.DB.batch(insertBatch(inviter))
+      } catch (err) {
+        // Worker deployed before migration 0004: hatch without the invite rather than fail.
+        if (inviter === null || !isMissingSchema(err)) throw err
+        results = await env.DB.batch(insertBatch(null))
+      }
+      const inserted = results[1]!
       return json(hatchResult(inserted.results[0] as PetRow, token))
     } catch (err) {
       // A concurrent hatch took this machine or this genome; re-read and try again.

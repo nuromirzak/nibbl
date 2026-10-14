@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { NOTES, fillNote, isSkipped, nextNote, noteAt, noteOrder, shownNotes, totalNotes } from '../src/notes'
-import { parseSocial, parseWaveTarget, rankLine, rankMilestone, waveToastText } from '../src/social'
+import { achievementToastText, inviteToastText, parseInvites, parseUnlocked, parseWeekWin, weekToastText, parseSocial, parseWaveTarget, rankLine, rankMilestone, waveToastText } from '../src/social'
 import { isNewer } from '../src/version'
 
 describe('notes', () => {
@@ -57,11 +57,11 @@ describe('isNewer', () => {
 describe('parseSocial', () => {
   it('reads a good answer', () => {
     const s = parseSocial({ waves: [{ from: 3, name: null }], rank: { pos: 2, total: 5, above: null }, latest: '0.2.0' })
-    expect(s).toEqual({ waves: [{ from: 3, name: null }], rank: { pos: 2, total: 5, above: null }, latest: '0.2.0' })
+    expect(s).toEqual({ waves: [{ from: 3, name: null }], rank: { pos: 2, total: 5, above: null }, latest: '0.2.0', unlocked: [], invites: [], weekWin: null })
   })
   it('ignores junk', () => {
-    expect(parseSocial({ waves: 1, rank: [], latest: 2 })).toEqual({ waves: [], rank: null, latest: null })
-    expect(parseSocial({})).toEqual({ waves: [], rank: null, latest: null })
+    expect(parseSocial({ waves: 1, rank: [], latest: 2 })).toEqual({ waves: [], rank: null, latest: null, unlocked: [], invites: [], weekWin: null })
+    expect(parseSocial({})).toEqual({ waves: [], rank: null, latest: null, unlocked: [], invites: [], weekWin: null })
   })
 })
 
@@ -84,5 +84,32 @@ describe('texts', () => {
     expect(rankMilestone(5, 1)).toBe('first')
     expect(rankMilestone(1, 1)).toBeNull()
     expect(rankMilestone(null, 1)).toBe('first')
+  })
+})
+
+describe('0.3.0 sync fields', () => {
+  it('keeps known achievement ids once and drops the rest', () => {
+    expect(parseUnlocked(['bug-hunter', 'bug-hunter', 'nope', 3, null, 'first-bite'])).toEqual(['bug-hunter', 'first-bite'])
+    expect(parseUnlocked('bug-hunter')).toEqual([])
+  })
+  it('reads invites leniently, at most 5', () => {
+    expect(parseInvites([{ serial: 27, name: 'Zed' }, { serial: 0 }, { serial: 'x' }, 7, { serial: 5, name: '' }])).toEqual([
+      { serial: 27, name: 'Zed' },
+      { serial: 5, name: null },
+    ])
+    expect(parseInvites(Array.from({ length: 9 }, (_, i) => ({ serial: i + 1, name: null })))).toHaveLength(5)
+    expect(parseInvites({})).toEqual([])
+  })
+  it('reads a week win only in its exact shape', () => {
+    expect(parseWeekWin({ week: '2026-W43', gain: 1240 })).toEqual({ week: '2026-W43', gain: 1240 })
+    for (const bad of [null, 1, [], {}, { week: 'x', gain: 1 }, { week: '2026-W43', gain: 'a' }, { week: '2026-W43', gain: Infinity }]) expect(parseWeekWin(bad)).toBeNull()
+  })
+  it('words the toasts', () => {
+    expect(achievementToastText(['bug-hunter'], 'Pixel')).toBe('🏆 Pixel unlocked Bug Hunter')
+    expect(achievementToastText(['bug-hunter', 'first-bite', 'teen'], 'Pixel')).toBe('Pixel unlocked 3 achievements')
+    expect(achievementToastText([], 'Pixel')).toBeNull()
+    expect(inviteToastText([{ serial: 27, name: null }])).toBe("Your friend's nibbl #000027 hatched. You are Friends now ♥")
+    expect(inviteToastText([{ serial: 27, name: null }, { serial: 28, name: null }])).toBe('2 friends hatched their nibbls. You are Friends now ♥')
+    expect(weekToastText('Pixel', 'https://getnibbl.pages.dev')).toBe('Pixel is the Nibbl of the Week! https://getnibbl.pages.dev/week')
   })
 })
