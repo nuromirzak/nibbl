@@ -1,4 +1,4 @@
-import { CAPS_PER_HOUR, HOUR_MS, SHINY_BP, TIER_BP, TIERS, levelFromXp, rarestTrait, traitOdds, type Genome } from '@nibbl/core'
+import { CAPS_PER_HOUR, HOUR_MS, SHINY_BP, stageForLevel, TIER_BP, TIERS, levelFromXp, rarestTrait, traitOdds, type Genome } from '@nibbl/core'
 
 import type { NibblPetView, NibblReaction } from '../types'
 import { HATCH_AFTER_TURNS } from './config'
@@ -51,7 +51,7 @@ export const hudLines = (view: NibblPetView | null, turns: number, r: NibblReact
     return { title: 'Egg', xp: `turns ${shown}/${HATCH_AFTER_TURNS}`, hearts: '', status, compact: `Egg · turns ${shown}/${HATCH_AFTER_TURNS} · ${status}` }
   }
   const hearts = heartsBar(heartsLeftOf(view, now))
-  const status = statusText(lookOf(r, now, tz), now, r.awaySince)
+  const status = statusText(lookOf(r, now, tz), now, r.awaySince, tz)
   const serial = serialOf(view)
   const short = serial === null ? view.name : `${view.name} #${padSerial(serial)}`
   return { title: titleOf(view), xp: xpLineOf(view.xp), hearts, status, compact: `${short} · lvl ${levelFromXp(view.xp).level} ${hearts} · ${status}` }
@@ -65,6 +65,12 @@ export const utcText = (at: number): string => `${new Date(at).toISOString().sli
 export const cardUrl = (base: string, serial: number): string => `${base}/p/${serial}`
 export const boardUrl = (base: string, serial: number): string => `${base}/leaderboard/?me=${serial}`
 
+export const stageLine = (level: number): string => {
+  const stage = stageForLevel(level)
+  if (stage === 'baby') return 'stage: baby (teen at level 10)'
+  return `stage: ${stage} (since level ${stage === 'teen' ? 10 : 25})`
+}
+
 export type SyncInfo = { base: string; pending: number; lastSyncAt: number | null; extra?: readonly string[] }
 
 export const statsText = (view: NibblPetView, g: Genome, now: number, sync: SyncInfo): string => {
@@ -73,6 +79,7 @@ export const statsText = (view: NibblPetView, g: Genome, now: number, sync: Sync
     titleOf(view),
     tierText(view),
     `lvl ${lv.level}, ${view.xp} xp (${lv.intoLevel}/${lv.toNext} to next)  ${xpBar(lv.intoLevel, lv.toNext)}`,
+    stageLine(lv.level),
     `hearts this hour: ${heartsBar(heartsLeftOf(view, now))}`,
     `rarest trait: ${rarestLine(g)}`,
   ]

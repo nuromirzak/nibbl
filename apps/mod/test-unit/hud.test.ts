@@ -38,7 +38,7 @@ describe('HUD lines', () => {
     })
     expect(hudLines(null, 12, CALM, NOW, 0).status).toBe('hatching...')
     const level = levelFromXp(312).level
-    expect(hudLines(VIEW, 0, CALM, NOW, 0).compact).toBe(`Byte #000042 · lvl ${level} ♥♥♥♡♡ · chilling`)
+    expect(hudLines(VIEW, 0, CALM, NOW, 0).compact).toBe(`Byte #000042 · lvl ${level} ♥♥♥♡♡ · sipping coffee`)
   })
 })
 

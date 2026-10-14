@@ -1,12 +1,23 @@
 // Pure helpers for the social layer (0.2.0): lenient parsing of the optional /api/sync fields and
 // every line of text they produce. Nothing here touches the engine, so vitest covers it directly.
+import { achievementById } from '@nibbl/core'
+
 import { padSerial } from './pet'
 
 export type WaveIn = { from: number; name: string | null }
 export type WaveSeen = WaveIn & { at: number }
 export type RankAbove = { serial: number; name: string | null; tier: string; xp: number }
 export type RankInfo = { pos: number; total: number; above: RankAbove | null }
-export type Social = { waves: WaveIn[]; rank: RankInfo | null; latest: string | null }
+export type InviteIn = { serial: number; name: string | null }
+export type WeekWin = { week: string; gain: number }
+export type Social = {
+  waves: WaveIn[]
+  rank: RankInfo | null
+  latest: string | null
+  unlocked: string[]
+  invites: InviteIn[]
+  weekWin: WeekWin | null
+}
 
 const isPosInt = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v) && v >= 1
 const isNameOrNull = (v: unknown): v is string | null => v === null || typeof v === 'string'
@@ -34,12 +45,35 @@ export const parseRank = (v: unknown): RankInfo | null => {
 
 export const parseLatest = (v: unknown): string | null => (typeof v === 'string' && /^\d{1,4}\.\d{1,4}\.\d{1,4}$/.test(v) ? v : null)
 
+// Only ids this mod's catalog knows count, each once: a newer server may award ones it cannot name.
+export const parseUnlocked = (v: unknown): string[] => {
+  if (!Array.isArray(v)) return []
+  const out: string[] = []
+  for (const id of v) if (typeof id === 'string' && achievementById(id) !== undefined && !out.includes(id)) out.push(id)
+  return out
+}
+
+export const parseInvites = (v: unknown): InviteIn[] => {
+  if (!Array.isArray(v)) return []
+  const out: InviteIn[] = []
+  for (const i of v.slice(0, 5)) {
+    if (isObj(i) && isPosInt(i.serial) && isNameOrNull(i.name ?? null)) out.push({ serial: i.serial, name: typeof i.name === 'string' && i.name.length > 0 ? i.name : null })
+  }
+  return out
+}
+
+export const parseWeekWin = (v: unknown): WeekWin | null =>
+  isObj(v) && typeof v.week === 'string' && /^\d{4}-W\d{2}$/.test(v.week) && typeof v.gain === 'number' && Number.isFinite(v.gain) ? { week: v.week, gain: v.gain } : null
+
 // Missing or malformed optional fields are ignored, never an error: a 0.2.0 mod must keep working
 // against an older server and against a server that changes these shapes.
 export const parseSocial = (body: Record<string, unknown>): Social => ({
   waves: parseWaves(body.waves),
   rank: parseRank(body.rank),
   latest: parseLatest(body.latest),
+  unlocked: parseUnlocked(body.unlocked),
+  invites: parseInvites(body.invites),
+  weekWin: parseWeekWin(body.weekWin),
 })
 
 export const parseWavesSeen = (v: unknown): WaveSeen[] => {
@@ -60,6 +94,20 @@ export const waveToastText = (waves: readonly WaveIn[], me: string): string | nu
   if (waves.length === 1) return `${labelOf(waves[0]!.name, waves[0]!.from)} waved at ${me} ♥`
   return `${waves.length} nibbls waved at ${me} ♥`
 }
+
+export const achievementToastText = (ids: readonly string[], me: string): string | null => {
+  if (ids.length === 0) return null
+  if (ids.length === 1) return `🏆 ${me} unlocked ${achievementById(ids[0]!)?.name ?? ids[0]}`
+  return `${me} unlocked ${ids.length} achievements`
+}
+
+export const inviteToastText = (invites: readonly InviteIn[]): string | null => {
+  if (invites.length === 0) return null
+  if (invites.length === 1) return `Your friend's nibbl #${padSerial(invites[0]!.serial)} hatched. You are Friends now ♥`
+  return `${invites.length} friends hatched their nibbls. You are Friends now ♥`
+}
+
+export const weekToastText = (me: string, base: string): string => `${me} is the Nibbl of the Week! ${base}/week`
 
 export const rankLine = (r: RankInfo, serverXp: number): string => {
   const head = `rank ${r.pos} of ${r.total}`

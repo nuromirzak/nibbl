@@ -6,6 +6,7 @@ import { apiBase } from './api'
 import { K } from './config'
 import { notesCommand, socialStatsLines } from './engage'
 import { petPressed, recordEvent } from './events'
+import { achievementsCommand, inviteCommand, shareCommand } from './growth'
 import { HELP, splitArgs } from './help'
 import { eggStatsText, heartsBar, heartsLeftOf, oddsText, statsText } from './hud'
 import { ensureLoaded, refreshView } from './model'
@@ -64,6 +65,9 @@ export const runCommand = async ($: EngineInterface, args: string): Promise<stri
   if (verb === 'name') return nameCommand($, 'name', rest)
   if (verb === 'label') return nameCommand($, 'label', rest)
   if (verb === 'wave') return waveCommand($, rest)
+  if (verb === 'share') return shareCommand($)
+  if (verb === 'achievements') return achievementsCommand($)
+  if (verb === 'invite') return inviteCommand($, rest)
   if (verb === 'notes') return notesCommand($)
   if (verb === 'export') return exportCommand($)
   if (verb === 'import') return importCommand($, rest)

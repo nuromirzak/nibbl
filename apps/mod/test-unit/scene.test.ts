@@ -29,7 +29,7 @@ describe('scene cells', () => {
     const two = frameOf(VIEW, 0, CALM, ANIM, NOW, 300)
     expect(two.id).toBe(one.id)
     expect(two.cells).toBe(one.cells)
-    expect(one.hud).toBe('chilling|♥♥♥♡♡')
+    expect(one.hud).toBe('sunbathing|♥♥♥♡♡')
   })
 
   it('changes the scene when the pet is away and puts the expedition clock in the HUD key', () => {

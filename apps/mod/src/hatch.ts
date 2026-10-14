@@ -1,4 +1,4 @@
-import { update } from 'claude-code'
+import { read, update } from 'claude-code'
 import type { EngineInterface } from 'claude-code'
 
 import { apiBase, backoff, holdUntil, postWithin } from './api'
@@ -9,7 +9,8 @@ import { refreshView } from './model'
 import { displayName, fromOwnerView, padSerial } from './pet'
 import { rt } from './runtime'
 import { genomeOf } from './scene'
-import { eggAtom } from './state'
+import { localDay } from './greetings'
+import { eggAtom, tzAtom } from './state'
 import { clearSocial, dropQueues, forgetSpike, loadPet, loadSpike, loadWait, releaseLease, savePet, tryLease } from './store'
 
 export type HatchWhy = 'egg' | 'spike' | 'reauth'
@@ -44,7 +45,10 @@ export const hatchNow = async ($: EngineInterface, why: HatchWhy, opts: { isLeas
         return 'failed'
       }
     }
-    const out = await postWithin($, await apiBase($), '/api/hatch', { machineHash: id.hash })
+    // The inviter's serial (typed with /nibbl invite while still an egg) rides along on the egg's hatch only.
+    const code = why === 'egg' ? await $.store.get(K.inviteCode) : null
+    const invite = typeof code === 'number' && Number.isInteger(code) && code >= 1 ? code : null
+    const out = await postWithin($, await apiBase($), '/api/hatch', { machineHash: id.hash, ...(invite === null ? {} : { invite }) })
     if (out.kind !== 'ok') {
       // hatch_rate_limited and rehatch_rate_limited say when; everything else backs off.
       const next = out.kind === 'error' && out.status === 429 && out.retryAt !== null ? holdUntil(wait, out.retryAt) : backoff(wait, now)
@@ -80,6 +84,9 @@ export const hatchNow = async ($: EngineInterface, why: HatchWhy, opts: { isLeas
     if (old && !isSamePet) await clearSocial($)
     await savePet($, isSamePet && old ? { ...fresh, heartsHour: old.heartsHour, heartsUsed: old.heartsUsed, lastSyncAt: old.lastSyncAt } : fresh)
     await $.store.delete(K.egg)
+    await $.store.delete(K.inviteCode)
+    // The hatch day is greeted by the hatch toast itself.
+    if (why !== 'reauth') await $.store.set(K.greetDay, localDay(now, await read($, tzAtom)))
     if (id.source === 'install') await $.store.set(K.installSerial, fresh.serial)
     else await $.store.delete(K.installSerial)
     await forgetSpike($)
