@@ -299,7 +299,7 @@ test('an update toast shows once per version, and /nibbl keeps the hint', async 
   await sync()
   const updates = h.toasts.filter(t => /is out/.test(t))
   expect(updates).toEqual(['nibbl 0.3.0 is out: /plugin marketplace update nibbl, then /plugin update nibbl@nibbl'])
-  expect(await nibbl($)).toContain('update: /plugin marketplace update nibbl, then /plugin update nibbl@nibbl')
+  expect(await nibbl($)).toContain('update: /plugin marketplace update nibbl, then /plugin update nibbl@nibbl (or turn on auto-update: /plugin > Marketplaces > nibbl)')
   h.server.syncExtra = { latest: '0.10.0' }
   await sync()
   expect(h.toasts.filter(t => /is out/.test(t))).toHaveLength(2)

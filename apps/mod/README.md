@@ -7,6 +7,8 @@ A tiny pixel pet that lives above your Claude Code prompt. It hatches from an eg
     /plugin marketplace add https://getnibbl.pages.dev/marketplace.json
     /plugin install nibbl@nibbl
 
+To get updates automatically: `/plugin`, **Marketplaces**, **nibbl**, **Enable auto-update** (Claude Code leaves it off for community marketplaces).
+
 ## Commands
 
 | Command | What it does |

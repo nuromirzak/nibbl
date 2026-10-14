@@ -78,7 +78,8 @@ export const rankMilestone = (best: number | null, pos: number): RankMilestone =
 }
 
 export const UPDATE_HOW = '/plugin marketplace update nibbl, then /plugin update nibbl@nibbl'
-export const updateLine = (): string => `update: ${UPDATE_HOW}`
+// Third-party marketplaces do not auto-update by default, so the line also says how to turn it on.
+export const updateLine = (): string => `update: ${UPDATE_HOW} (or turn on auto-update: /plugin > Marketplaces > nibbl)`
 export const updateToast = (latest: string): string => `nibbl ${latest} is out: ${UPDATE_HOW}`
 
 export const WAVE_USAGE = 'Usage: /nibbl wave <serial>, for example /nibbl wave 16.'
