@@ -74,7 +74,7 @@ Run `/nibbl` to see your serial, then paste this into your profile README with y
 
 **Does it slow Claude down or cost tokens?** No. It is drawn by plain code and never calls the model.
 
-**What does it send?** Only that something happened (a turn, a passing check, a commit) and when. Never your code, prompts, files or commands. Details in [how it works](docs/how-it-works.md).
+**What does it send?** Only that something happened (a turn, a passing check, a commit) and when. Never your code, prompts, files or commands. Details in [how it works](docs/how-it-works.md) and the [privacy policy](https://getnibbl.pages.dev/privacy/).
 
 **Can it die?** Never.
 

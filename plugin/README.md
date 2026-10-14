@@ -42,6 +42,17 @@ Every egg is rolled on the server, once per machine, with the same odds for ever
 
 All of it goes to https://getnibbl.pages.dev and nowhere else. The export code is a secret: anyone who has it owns your pet, so it is drawn on your screen only and never sent to the model.
 
+Full privacy policy, retention and how to delete your pet: https://getnibbl.pages.dev/privacy/
+
+## Troubleshooting
+
+- **No band above the prompt.** Nibbl needs a Claude Code version with mods (function hooks). Update Claude Code, then restart it. In a short terminal the band shrinks to one line; `/nibbl` always works.
+- **Clicking `[♥]` or pressing `p` does nothing.** The band takes keys only when it has focus: press `ctrl+x tab` first, or use `/nibbl pet`.
+- **Still an egg.** It hatches after 10 answered turns. `/nibbl` shows how many are left.
+- **"Could not reach the nibbl server".** You are offline or the server is busy. Events wait in a local queue and sync later; nothing is lost.
+- **New version not showing.** Community marketplaces do not auto-update: run `/plugin marketplace update nibbl`, then `/plugin update nibbl@nibbl`, and restart. Or turn on auto-update in `/plugin`, Marketplaces, nibbl.
+- **Anything else.** Open an issue: https://github.com/nuromirzak/nibbl/issues
+
 ## Local testing
 
 Run the API with `pnpm -C apps/api dev` and point the mod at it with `NIBBL_API=http://localhost:8787` (or the `Nibbl server` option in `/config`).
