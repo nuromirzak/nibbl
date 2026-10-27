@@ -21,6 +21,8 @@ export type SceneOpts = {
   box?: boolean // a box held in front of the pet (a commit)
   nightcap?: boolean // a sleeping cap over the top of the head (02:00-05:00 local)
   zzz?: boolean // a Z bobbing in the pet's top-right corner while it sleeps
+  // A visiting pet standing left of the owner (owner expected at petX 16). Skipped while away.
+  guest?: { genome: Genome; stage: Stage; expression?: Expression; x?: number }
 }
 
 // Non-finite input (NaN, Infinity from a bad option) maps to min so a scene always draws.
@@ -33,6 +35,33 @@ const BUG: [number, number, number][] = [
 const HEART: [number, number][] = [
   [1, 0], [3, 0], [0, 1], [1, 1], [2, 1], [3, 1], [4, 1], [1, 2], [2, 2], [3, 2], [2, 3],
 ]
+
+// Copies a sprite's non-null pixels into the scene at column x, raised by `lift` rows. Never touches the
+// ground row and clips at the scene edges.
+export const stampPet = (scene: Grid, sprite: Grid, x: number, lift = 0): void => {
+  for (let y = 0; y < sprite.length; y++) {
+    const sy = y - lift
+    if (sy < 0 || sy >= GROUND) continue
+    for (let sx = 0; sx < sprite[y].length; sx++) {
+      const cell = sprite[y][sx]
+      const tx = x + sx
+      if (cell !== null && tx >= 0 && tx < SCENE_W) scene[sy][tx] = cell
+    }
+  }
+}
+
+const columnSpan = (sprite: Grid): { left: number; right: number } | null => {
+  let left = Infinity
+  let right = -1
+  for (const row of sprite) {
+    for (let x = 0; x < row.length; x++) {
+      if (row[x] === null) continue
+      left = Math.min(left, x)
+      right = Math.max(right, x)
+    }
+  }
+  return right < 0 ? null : { left, right }
+}
 
 export const drawGround = (scene: Grid): void => {
   for (let x = 0; x < SCENE_W; x++) scene[GROUND][x] = x % 2 === 0 ? C.slate : C.dusk
@@ -107,16 +136,19 @@ export const drawScene = (g: Genome, opts: SceneOpts = {}): Grid => {
   if (isHome) {
     for (let x = petX + 4; x <= petX + 11; x++) setCell(scene, x, GROUND - 1, C.dusk)
     const pet = drawPet(g, opts.stage ?? 'adult', opts.expression ?? 'idle')
-    for (let y = 0; y < PET_SIZE; y++) {
-      const sy = y - lift
-      if (sy < 0 || sy >= GROUND) continue
-      for (let x = 0; x < PET_SIZE; x++) {
-        const cell = pet[y][x]
-        if (cell !== null) scene[sy][petX + x] = cell
-      }
-    }
+    stampPet(scene, pet, petX, lift)
     if (opts.nightcap) drawNightcap(scene, pet, petX, lift)
     if (opts.box) drawBox(scene, pet, petX, lift)
+    const guest = opts.guest
+    if (guest) {
+      const sprite = drawPet(guest.genome, guest.stage, guest.expression ?? 'happy')
+      const ownerSpan = columnSpan(pet)
+      const guestSpan = columnSpan(sprite)
+      const auto = ownerSpan && guestSpan ? petX + ownerSpan.left - guestSpan.right - 2 : 0
+      const gx = clamp(guest.x ?? auto, 0, SCENE_W - PET_SIZE)
+      for (let x = gx + 4; x <= gx + 11; x++) if (scene[GROUND - 1][x] === null) setCell(scene, x, GROUND - 1, C.dusk)
+      stampPet(scene, sprite, gx)
+    }
   }
 
   const bugs = clamp(opts.bugs ?? 0, 0, 3)

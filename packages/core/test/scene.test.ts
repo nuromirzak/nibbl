@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { toCellPairs } from '../src/cells'
 import { drawEgg, drawEggScene } from '../src/egg'
-import { genome } from '../src/genome'
+import { genome, inheritsMark } from '../src/genome'
 import type { Grid } from '../src/grid'
 import { C } from '../src/palette'
-import { SCENE_H, SCENE_W, drawScene } from '../src/scene'
+import { SCENE_H, SCENE_W, drawScene, stampPet } from '../src/scene'
+import { drawPet, type Stage } from '../src/draw'
+import { MARK_MOTIFS, MARK_SPOTS } from '../src/genes'
 
 describe('drawScene', () => {
   it('is 32x16 with a ground row', () => {
@@ -181,3 +183,102 @@ describe('reaction overlays', () => {
     expect(drawScene(g, { petX: 6, zzz: true, frame: 0 })).not.toEqual(drawScene(g, { petX: 6, zzz: true, frame: 1 }))
   })
 })
+
+describe('stampPet', () => {
+  const solid = (): Grid => Array.from({ length: 16 }, () => Array<number | null>(16).fill(C.white)) as Grid
+  const blank = (): Grid => Array.from({ length: SCENE_H }, () => Array<number | null>(SCENE_W).fill(null)) as Grid
+
+  it('clips at the scene edges', () => {
+    const s = blank()
+    stampPet(s, solid(), -4)
+    expect(s[0][0]).toBe(C.white)
+    expect(s[0][11]).toBe(C.white)
+    expect(s[0][12]).toBeNull()
+    const r = blank()
+    stampPet(r, solid(), 28)
+    expect(r[0][31]).toBe(C.white)
+    expect(r[0][27]).toBeNull()
+  })
+
+  it('never writes the ground row and honours lift', () => {
+    const s = blank()
+    stampPet(s, solid(), 0, 2)
+    expect(s[SCENE_H - 1].every(c => c === null)).toBe(true)
+    expect(s[SCENE_H - 3][0]).toBe(C.white)
+    expect(s[SCENE_H - 2][0]).toBeNull()
+    expect(s[0][0]).toBe(C.white)
+    const up = blank()
+    stampPet(up, solid(), 0, 3)
+    expect(up[SCENE_H - 4][0]).toBe(C.white)
+    expect(up[SCENE_H - 3][0]).toBeNull()
+  })
+})
+
+describe('guest pets', () => {
+  const stages = ['baby', 'teen', 'adult'] as const
+  const owner = genome(42, 'rare', false)
+  const visitor = genome(777, 'common', false)
+
+  it('never overlaps the owner at petX 16 for any stage pair', () => {
+    for (const os of stages) {
+      for (const gs of stages) {
+        const ownerOnly = blankMask(drawScene(owner, { stage: os, petX: 16, expression: 'idle' }))
+        const guestSprite = drawPet(visitor, gs, 'happy')
+        const gx = guestX(owner, os, visitor, gs)
+        const guestMask = blankMask(scene32(guestSprite, gx))
+        for (let y = 0; y < SCENE_H - 1; y++) {
+          for (let x = 0; x < SCENE_W; x++) expect(ownerOnly[y][x] && guestMask[y][x]).toBe(false)
+        }
+        const full = drawScene(owner, { stage: os, petX: 16, guest: { genome: visitor, stage: gs } })
+        expect(full[SCENE_H - 1].every(c => c !== null)).toBe(true)
+      }
+    }
+  })
+
+  it('is skipped while away', () => {
+    const base = drawScene(owner, { away: true })
+    expect(drawScene(owner, { away: true, guest: { genome: visitor, stage: 'adult' } })).toEqual(base)
+  })
+
+  it('appears left of the owner', () => {
+    const without = drawScene(owner, { petX: 16 })
+    const withGuest = drawScene(owner, { petX: 16, guest: { genome: visitor, stage: 'adult' } })
+    expect(withGuest).not.toEqual(without)
+  })
+})
+
+describe('inheritsMark', () => {
+  const a = genome(123, 'common', false)
+  it('is true for the same motif and spot, false otherwise', () => {
+    expect(inheritsMark(a, a)).toBe(true)
+    expect(inheritsMark({ ...a, mark: { ...a.mark } }, a)).toBe(true)
+    const other = MARK_MOTIFS.find(m => m !== a.mark.motif)!
+    expect(inheritsMark({ ...a, mark: { ...a.mark, motif: other } }, a)).toBe(false)
+    const spot = MARK_SPOTS.find(s => s !== a.mark.spot)!
+    expect(inheritsMark({ ...a, mark: { ...a.mark, spot } }, a)).toBe(false)
+  })
+  it('matches about 1 in 24 random genomes', () => {
+    let hits = 0
+    for (let seed = 1; seed <= 2400; seed++) if (inheritsMark(genome(seed, 'common', false), a)) hits++
+    expect(hits / 2400).toBeGreaterThan(1 / 40)
+    expect(hits / 2400).toBeLessThan(1 / 15)
+  })
+})
+
+function blankMask(scene: Grid): boolean[][] {
+  return scene.map(r => r.map(c => c !== null))
+}
+function scene32(sprite: Grid, x: number): Grid {
+  const s = Array.from({ length: SCENE_H }, () => Array<number | null>(SCENE_W).fill(null)) as Grid
+  stampPet(s, sprite, x)
+  return s
+}
+// Mirrors the default placement: owner's left column minus guest's right column minus 2, clamped.
+function guestX(o: ReturnType<typeof genome>, os: Stage, g: ReturnType<typeof genome>, gs: Stage): number {
+  const span = (p: Grid) => {
+    let l = 99, r = -1
+    for (const row of p) row.forEach((c, i) => { if (c !== null) { l = Math.min(l, i); r = Math.max(r, i) } })
+    return { l, r }
+  }
+  return Math.max(0, 16 + span(drawPet(o, os, 'idle')).l - span(drawPet(g, gs, 'happy')).r - 2)
+}
