@@ -61,7 +61,18 @@ export type HarnessOptions = {
 
 export const harness = (on: On, opts: HarnessOptions = {}) => {
   const clock = mock.clock(on, { now: opts.now ?? START })
-  mock.store(on, opts.store ?? {})
+  // The store lives here (not in mock.store) so a test can read what the mod kept.
+  const data: Record<string, unknown> = { ...(opts.store ?? {}) }
+  on('store.get', ($, e) => ({ value: data[e.key] }))
+  on('store.set', ($, e) => {
+    data[e.key] = e.value
+    return { value: undefined }
+  })
+  on('store.delete', ($, e) => {
+    delete data[e.key]
+    return { value: undefined }
+  })
+  on('store.keys', () => ({ value: Object.keys(data) }))
   mock.env(on, opts.env ?? {})
   const sessionId = opts.sessionId ?? 'sess-a'
   // host.machine may change mid-test: ioreg can fail later on a machine where it worked before.
@@ -81,6 +92,8 @@ export const harness = (on: On, opts: HarnessOptions = {}) => {
     // Nibbls that exist to be waved at: serial -> name.
     targets: new Map<number, string | null>([[16, 'Ziutek'], [19, null]]),
     waved: new Set<number>(),
+    // POST /api/gift answer: the two eggs (null = 404, the pet is hidden).
+    gift: null as { eggs: unknown[] } | null,
   }
   // hang: the fetch never answers (a stuck connection), so only the mod's own timeout ends it.
   const net = { offline: false, hang: false }
@@ -124,6 +137,10 @@ export const harness = (on: On, opts: HarnessOptions = {}) => {
       if (server.waved.size >= 10) return { status: 429, body: { error: 'wave_limit', retryAt: START + 86_400_000 } }
       server.waved.add(to)
       return { status: 200, body: { ok: true, to: { serial: to, name: server.targets.get(to) ?? null } } }
+    }
+    if (call.path === '/api/gift') {
+      if (!isAuthed) return { status: 401, body: { error: 'unauthorized' } }
+      return server.gift ? { status: 200, body: server.gift } : { status: 404, body: { error: 'not_found' } }
     }
     if (call.path === `/api/pet/${server.pet.serial}` && call.method === 'GET') {
       return server.publicPet ? { status: 200, body: server.publicPet } : { status: 404, body: { error: 'not_found' } }
@@ -194,6 +211,7 @@ export const harness = (on: On, opts: HarnessOptions = {}) => {
 
   return {
     clock,
+    data,
     toasts,
     calls,
     blits,

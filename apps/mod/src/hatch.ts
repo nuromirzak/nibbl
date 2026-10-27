@@ -3,6 +3,7 @@ import type { EngineInterface } from 'claude-code'
 
 import { apiBase, backoff, holdUntil, postWithin } from './api'
 import { K } from './config'
+import { giftCodeOf } from './social'
 import { rarestLine, tierText } from './hud'
 import { machineIdentity } from './identity'
 import { refreshView } from './model'
@@ -48,7 +49,9 @@ export const hatchNow = async ($: EngineInterface, why: HatchWhy, opts: { isLeas
     // The inviter's serial (typed with /nibbl invite while still an egg) rides along on the egg's hatch only.
     const code = why === 'egg' ? await $.store.get(K.inviteCode) : null
     const invite = typeof code === 'number' && Number.isInteger(code) && code >= 1 ? code : null
-    const out = await postWithin($, await apiBase($), '/api/hatch', { machineHash: id.hash, ...(invite === null ? {} : { invite }) })
+    // A friend's gift egg code (typed with /nibbl egg <code>) likewise rides on the egg's hatch only.
+    const gift = why === 'egg' ? giftCodeOf(await $.store.get(K.giftCode)) : null
+    const out = await postWithin($, await apiBase($), '/api/hatch', { machineHash: id.hash, ...(invite === null ? {} : { invite }), ...(gift === null ? {} : { gift }) })
     if (out.kind !== 'ok') {
       // hatch_rate_limited and rehatch_rate_limited say when; everything else backs off.
       const next = out.kind === 'error' && out.status === 429 && out.retryAt !== null ? holdUntil(wait, out.retryAt) : backoff(wait, now)
@@ -85,6 +88,7 @@ export const hatchNow = async ($: EngineInterface, why: HatchWhy, opts: { isLeas
     await savePet($, isSamePet && old ? { ...fresh, heartsHour: old.heartsHour, heartsUsed: old.heartsUsed, lastSyncAt: old.lastSyncAt } : fresh)
     await $.store.delete(K.egg)
     await $.store.delete(K.inviteCode)
+    await $.store.delete(K.giftCode)
     // The hatch day is greeted by the hatch toast itself.
     if (why !== 'reauth') await $.store.set(K.greetDay, localDay(now, await read($, tzAtom)))
     if (id.source === 'install') await $.store.set(K.installSerial, fresh.serial)

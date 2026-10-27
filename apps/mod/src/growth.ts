@@ -7,7 +7,8 @@ import { K } from './config'
 import { cardUrl } from './hud'
 import { padSerial } from './pet'
 import { refreshView } from './model'
-import { parseWaveTarget } from './social'
+import { parseWaveTarget, giftCodeOf } from './social'
+import { eggCommand } from './gift'
 import { loadPet, loadSpike } from './store'
 
 const ACHIEVEMENTS_TIMEOUT_MS = 5_000
@@ -28,7 +29,16 @@ export const shareCommand = async ($: EngineInterface): Promise<string> => {
   const view = await refreshView($)
   const url = cardUrl(await apiBase($), pet.serial)
   const line = shareLine({ name: pet.name, serial: pet.serial, tier: pet.tier, xp: view?.xp ?? pet.xp }, url)
-  return [`card: ${url}`, line, `Post it: https://x.com/intent/post?text=${encodeURIComponent(line)}`].join('\n')
+  return [`card: ${url}`, line, `Post it: https://x.com/intent/post?text=${encodeURIComponent(line)}`, 'Profile badge: /nibbl badge'].join('\n')
+}
+
+// No network: the markdown for a GitHub profile README, built from the card URL and the badge the server draws.
+export const badgeMarkdown = (base: string, serial: number): string => `[![nibbl](${base}/p/${padSerial(serial)}/badge.svg)](${base}/p/${padSerial(serial)})`
+
+export const badgeCommand = async ($: EngineInterface): Promise<string> => {
+  const pet = await loadPet($)
+  if (!pet) return (await loadSpike($)) ? LINKING : 'Hatch the egg first.'
+  return [badgeMarkdown(await apiBase($), pet.serial), 'Paste it into your GitHub profile README (the repo named after your username).'].join('\n')
 }
 
 const count = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : 0)
@@ -88,19 +98,16 @@ export const achievementsCommand = async ($: EngineInterface): Promise<string> =
   return achievementsText(out.body)
 }
 
-const INSTALL = ['/plugin marketplace add https://getnibbl.pages.dev/marketplace.json', '/plugin install nibbl@nibbl']
+export const INSTALL = ['/plugin marketplace add https://getnibbl.pages.dev/marketplace.json', '/plugin install nibbl@nibbl']
 
-export const INVITE_USAGE = 'Usage: /nibbl invite <serial>, for example /nibbl invite 19. Run it before your egg hatches.'
+export const INVITE_USAGE = 'Usage: /nibbl invite <serial>, for example /nibbl invite 19. Run it before your egg hatches. Or use /nibbl egg <code>.'
 
+// /nibbl invite is an alias of /nibbl egg (0.4.0): no argument and code-shaped arguments go there,
+// a plain serial keeps the 0.3.0 behaviour.
 export const inviteCommand = async ($: EngineInterface, rest: string): Promise<string> => {
+  if (rest === '' || (parseWaveTarget(rest) === null && giftCodeOf(rest) !== null)) return eggCommand($, rest)
   const pet = await loadPet($)
   const hasPet = pet !== null || (await loadSpike($)) !== null
-  if (rest === '') {
-    if (pet) {
-      return [`Ask a friend to install nibbl and run /nibbl invite ${pet.serial} before their egg hatches.`, ...INSTALL.map(l => `  ${l}`)].join('\n')
-    }
-    return hasPet ? LINKING : INVITE_USAGE
-  }
   if (hasPet) return 'Invites work only before your egg hatches.'
   const code = parseWaveTarget(rest)
   if (code === null) return INVITE_USAGE

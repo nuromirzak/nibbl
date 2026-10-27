@@ -10,10 +10,10 @@ import { onAnsweredTurn, start } from './lifecycle'
 import { ensureLoaded } from './model'
 import { onActive, onTurnEnd, onTurnStart } from './reactions'
 import { rt, withTimeout } from './runtime'
-import { maybeGreet, maybeNote } from './engage'
+import { maybeGreet, maybeNote, maybeVisit } from './engage'
 import { exportCode } from './pet'
 import { frameOf } from './scene'
-import { eggAtom, hiddenAtom, petAtom, reactAtom, tzAtom } from './state'
+import { activeAtom, eggAtom, hiddenAtom, petAtom, reactAtom, tzAtom } from './state'
 import { loadPet } from './store'
 import { syncNow } from './sync'
 import { flushOne } from './toasts'
@@ -52,6 +52,7 @@ export const register: Register = (on, options) => {
       // News is a bonus: a throw here must never skip next(e).
       await guarded($, 'note', () => maybeNote($))
       await guarded($, 'greeting', () => maybeGreet($))
+      await guarded($, 'visit', () => maybeVisit($))
       await guarded($, 'toast', () => flushOne($))
     }
     return next(e)
@@ -97,8 +98,9 @@ export const register: Register = (on, options) => {
     const turns = await read($, eggAtom)
     const r = await read($, reactAtom)
     const tz = await read($, tzAtom)
-    const frame = frameOf(view, turns, r, rt.anim, now, tz)
-    const lines = hudLines(view, turns, r, now, tz)
+    const active = await read($, activeAtom)
+    const frame = frameOf(view, turns, r, rt.anim, now, tz, active)
+    const lines = hudLines(view, turns, r, now, tz, active)
     const isFull = e.surface === 'terminal' && e.props.maxRows >= MIN_FULL_ROWS && e.props.bodyColumns >= MIN_FULL_COLUMNS
     rt.band = { requestId: e.requestId, sceneId: isFull ? frame.id : null, hud: hudKey(lines) }
     const { Box, Text, Button } = $.ui.resolve(e)
