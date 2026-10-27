@@ -370,6 +370,8 @@ describe('GET /api/pet/:serial', () => {
       totals: { turns: 0, checks: 2, commits: 0, errors: 0, pets: 0, wavesSent: 0, activeDays: 1 },
       achievements: [{ id: 'friends', at: T0 }, { id: 'first-bite', at: T0 + 2 * MIN }],
       invitedBy: a.serial,
+      parent: { serial: a.serial, name: null },
+      eggsHatched: 0,
       friends: 0,
       weekWins: 0,
     })

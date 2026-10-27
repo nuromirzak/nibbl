@@ -2,6 +2,7 @@ import { runCron } from './cron'
 import type { Deps, Env } from './env'
 import { HttpError, json } from './lib/http'
 import { card } from './routes/card'
+import { gift } from './routes/gift'
 import { hatch } from './routes/hatch'
 import { importPet } from './routes/import'
 import { leaderboard } from './routes/leaderboard'
@@ -17,6 +18,7 @@ export type Route = { method: 'GET' | 'POST'; handler: (request: Request, env: E
 
 // Every /api route. Later tasks add one line each.
 const API: Record<string, Route> = {
+  '/api/gift': { method: 'POST', handler: gift },
   '/api/hatch': { method: 'POST', handler: hatch },
   '/api/leaderboard': { method: 'GET', handler: leaderboard },
   '/api/import': { method: 'POST', handler: importPet },

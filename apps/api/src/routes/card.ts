@@ -49,10 +49,13 @@ export type CardView = {
   achievements: string[]
   invitedBy: number | null
   invited: number
+  // Hatched from a gift egg (shown as a child), and how many of its own eggs were hatched.
+  giftChild: boolean
+  eggsHatched: number
 }
 
-export type CardExtras = Pick<CardView, 'achievements' | 'invitedBy' | 'invited'>
-const NO_EXTRAS: CardExtras = { achievements: [], invitedBy: null, invited: 0 }
+export type CardExtras = Pick<CardView, 'achievements' | 'invitedBy' | 'invited' | 'giftChild' | 'eggsHatched'>
+const NO_EXTRAS: CardExtras = { achievements: [], invitedBy: null, invited: 0, giftChild: false, eggsHatched: 0 }
 
 // Hidden pets keep their card (it is the owner's proof) but lose name and label.
 export const cardView = (pet: PetRow, extras: CardExtras = NO_EXTRAS): CardView => {
@@ -89,7 +92,8 @@ export const cardHtml = (v: CardView, origin: string): string => {
   const earned = v.achievements.flatMap(id => achievementById(id)?.name ?? [])
   const achievements = earned.length ? `<div class="tags">${earned.map(n => `<span class="tag ach">${e(n)}</span>`).join('')}</div>` : ''
   const bonds = [
-    v.invitedBy ? `<p class="bond">invited by <a href="/p/${padSerial(v.invitedBy)}">#${padSerial(v.invitedBy)}</a></p>` : '',
+    v.invitedBy ? `<p class="bond">${v.giftChild ? 'child of' : 'invited by'} <a href="/p/${padSerial(v.invitedBy)}">#${padSerial(v.invitedBy)}</a></p>` : '',
+    v.eggsHatched > 0 ? `<p class="bond">eggs hatched: ${v.eggsHatched}</p>` : '',
     v.invited > 0 ? `<p class="bond">friends invited: ${v.invited}</p>` : '',
   ].join('')
   const who = v.displayName === 'nibbl' ? `#${v.padded}` : v.displayName
@@ -166,10 +170,25 @@ const cardExtras = async (db: D1Database, serial: number): Promise<CardExtras> =
       db.prepare('SELECT p.invited_by AS n FROM pets p JOIN pets q ON q.serial = p.invited_by WHERE p.serial = ? AND q.is_hidden = 0').bind(serial),
       db.prepare('SELECT COUNT(*) AS n FROM pets WHERE invited_by = ? AND last_sync_at IS NOT NULL').bind(serial),
     ])
+    const invitedBy = (by!.results[0] as { n: number | null } | undefined)?.n ?? null
+    let giftChild = false
+    let eggsHatched = 0
+    try {
+      const [mine, eggs] = await db.batch([
+        db.prepare('SELECT 1 AS n FROM gift_codes WHERE redeemed_by = ?').bind(serial),
+        db.prepare('SELECT COUNT(*) AS n FROM gift_codes WHERE from_serial = ? AND redeemed_by IS NOT NULL').bind(serial),
+      ])
+      giftChild = invitedBy !== null && mine!.results.length > 0
+      eggsHatched = (eggs!.results[0] as { n: number }).n
+    } catch {
+      // Gift tables missing (migration 0006 not applied): the card just shows no gift lines.
+    }
     return {
       achievements: (ach!.results as { id: string }[]).map(r => r.id),
-      invitedBy: (by!.results[0] as { n: number | null } | undefined)?.n ?? null,
+      invitedBy,
       invited: (invited!.results[0] as { n: number }).n,
+      giftChild,
+      eggsHatched,
     }
   } catch {
     // The card must render even if the retention tables are missing.

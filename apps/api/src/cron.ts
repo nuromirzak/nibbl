@@ -98,6 +98,19 @@ export const growBots = async (db: D1Database, now: number): Promise<number> => 
   return hour - from + 1
 }
 
+export const ACTIVE_WINDOW_MS = DAY_MS
+
+// Real, visible pets that synced within the last 24 h. Bots keep a fresh last_sync_at, so they are excluded.
+export const countActive = async (db: D1Database, now: number): Promise<void> => {
+  await db
+    .prepare(
+      `INSERT INTO counters (name, value) SELECT 'active_24h', COUNT(*) FROM pets WHERE is_bot = 0 AND is_hidden = 0 AND last_sync_at > ?
+       ON CONFLICT (name) DO UPDATE SET value = excluded.value`,
+    )
+    .bind(now - ACTIVE_WINDOW_MS)
+    .run()
+}
+
 // Nibbl of the week. counters.week holds the ISO week (year * 100 + week) the snapshot belongs to, 0 = none yet.
 // First run only snapshots. When the week changes, the real, visible pet with the biggest xp gain since the
 // snapshot wins the finished week (ties: lower serial; a pet without a snapshot row counts from 0), then the
@@ -141,6 +154,7 @@ export const runCron = async (env: Env, now: number): Promise<void> => {
     ['weekRollover', () => weekRollover(env.DB, now)],
     ['pruneHatchIp', () => pruneHatchIp(env.DB, now)],
     ['pruneWaves', () => pruneWaves(env.DB, now)],
+    ['countActive', () => countActive(env.DB, now)],
   ]
   const failed: string[] = []
   for (const [name, run] of steps) {

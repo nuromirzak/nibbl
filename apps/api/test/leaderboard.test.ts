@@ -69,6 +69,6 @@ describe('stats', () => {
     await hatchPet(2)
     const res = await call('/api/stats')
     expect(res.headers.get('cache-control')).toBe('public, max-age=30')
-    expect(await res.json()).toEqual({ hatched: 2 })
+    expect(await res.json()).toEqual({ hatched: 2, active: 0 })
   })
 })
