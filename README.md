@@ -62,7 +62,7 @@ Every nibbl gets its own card page and a rank on the [leaderboard](https://getni
 <details>
 <summary>Put yours on your GitHub profile</summary>
 
-Run `/nibbl` to see your serial, then paste this into your profile README with your serial instead of `000013`:
+Run `/nibbl badge`. It prints the markdown below with your own serial, ready to paste into your profile README (`github.com/<you>/<you>`):
 
 ```markdown
 [![nibbl](https://getnibbl.pages.dev/p/000013/badge.svg)](https://getnibbl.pages.dev/p/000013)
@@ -70,12 +70,19 @@ Run `/nibbl` to see your serial, then paste this into your profile README with y
 
 </details>
 
+## What's new in 0.4
+
+- **Visits.** When a friend waves at you, their nibbl walks into your scene for about 90 seconds. No toast, no text.
+- **Coding today.** `/nibbl`, the band and the site show how many nibbls synced in the last 24 hours. Only the count, never who.
+- **`/nibbl badge`.** Prints the markdown for your live badge, for your GitHub profile.
+- **Gift eggs.** At level 10 and level 25 your nibbl lays an egg for a friend. `/nibbl egg` shows the code; the friend runs `/nibbl egg <code>` before hatching and their nibbl is your child and inherits your mark when possible. No XP, no better odds.
+
 ## What's new in 0.3
 
 - **A daily greeting.** Your nibbl says hello on the first turn of each day, and its mood follows the time of day.
 - **Evolution and `/nibbl share`.** When it grows into a new stage you get a ready post text and the link to its card.
 - **Achievements.** 15 of them, awarded by the server from real work and shown on the card. `/nibbl achievements` lists yours.
-- **`/nibbl invite`.** Bring a friend: they enter your serial before their egg hatches and you become Friends. No XP, no better odds.
+- **`/nibbl invite`.** Bring a friend by serial (now an alias of `/nibbl egg`). No XP, no better odds.
 - **Nibbl of the week.** The pet that gained the most XP Monday to Sunday (UTC) gets the crown: [getnibbl.pages.dev/week](https://getnibbl.pages.dev/week/).
 
 ## FAQ

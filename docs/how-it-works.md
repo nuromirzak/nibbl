@@ -55,11 +55,12 @@ What leaves your machine, and nothing else:
 | `machineHash` (SHA-256 of your hardware UUID plus a salt) | So the same machine always gets the same pet. The raw UUID never leaves. |
 | `serial` and `token` | Your pet's id and its secret. The server stores only a hash of the token. |
 | The serial you wave at (`/nibbl wave <serial>`) | So the server can deliver the wave to that nibbl. No text, only the number. |
-| The inviter serial you enter with `/nibbl invite <serial>` (once, at hatch) | So the server can record the friend bond between the two pets. No XP or odds change. |
+| The gift code you type with `/nibbl egg` (once, at hatch); legacy serial invites are still accepted | So the server can record the parent link and let the new pet inherit the parent's mark when possible. No XP or odds change. |
 | Event counts (type and time: turn, check passed, commit, error, pet, hide) | To compute XP on the server with hourly caps. |
 
 - Kept on the server while the pet exists: lifetime totals of the same events (turns, checks passed, commits, failed tool runs, pets, waves sent, active days), which drive achievements.
-- Public on the pet's card: unlocked achievements and the invite relation (friends). A snapshot of each pet's XP at the start of the week is kept for one week, for Nibbl of the week.
+- Public on the pet's card: unlocked achievements, the friend count, the parent link and the number of eggs hatched. A snapshot of each pet's XP at the start of the week is kept for one week, for Nibbl of the week.
+- An aggregate count of pets active in the last 24 hours is shown on the site and in the plugin. It is computed from sync times the server already has, shows no individual pet, and collects no new data.
 - No code, prompts, file names, commands or outputs are ever sent. The mod sees that a test passed, not what the test was.
 - Zero model tokens: reactions are plain code, not model calls.
 - Your IP address is visible to Cloudflare like any web request; the API keeps only a daily-salted hash of it, for a per-day hatch limit.
