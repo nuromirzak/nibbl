@@ -1,4 +1,4 @@
-import { drawEggScene, drawScene, genome, levelFromXp, stageForLevel, toCellPairs, type Genome, type Tier } from '@nibbl/core'
+import { drawEggScene, drawScene, genome, levelFromXp, stageForLevel, toCellPairs, type Genome, type SceneOpts, type Tier } from '@nibbl/core'
 
 import type { NibblPetView, NibblReaction } from '../types'
 import { encodeRaster, type RasterCells } from './cells'
@@ -35,7 +35,9 @@ export type Drawn = { id: string; cells: RasterCells }
 
 export const petCells = (g: Genome, key: SceneKey): Drawn => {
   const id = `${g.seed}.${g.tier}.${g.shiny ? 1 : 0}|${JSON.stringify(key)}`
-  return { id, cells: remember(id, () => encodeRaster(toCellPairs(drawScene(g, key)))) }
+  const { guest, ...opts } = key
+  const sceneOpts: SceneOpts = guest ? { ...opts, guest: { genome: genomeOf(guest.seed, guest.tier, guest.shiny), stage: guest.stage } } : opts
+  return { id, cells: remember(id, () => encodeRaster(toCellPairs(drawScene(g, sceneOpts)))) }
 }
 
 export const eggCracks = (turns: number): 0 | 1 | 2 | 3 =>
@@ -50,8 +52,8 @@ export const eggCells = (turns: number, frame: number): Drawn => {
 // What one moment looks like: the scene (id + cells, for blit) and the HUD fingerprint (for redraws).
 export type Frame = Drawn & { hud: string }
 
-export const frameOf = (view: NibblPetView | null, turns: number, r: NibblReaction, anim: Anim, now: number, tz: number): Frame => {
-  const lines = hudLines(view, turns, r, now, tz)
+export const frameOf = (view: NibblPetView | null, turns: number, r: NibblReaction, anim: Anim, now: number, tz: number, active: number | null = null): Frame => {
+  const lines = hudLines(view, turns, r, now, tz, active)
   const hud = `${lines.status}|${lines.hearts}`
   if (!view) return { ...eggCells(turns, anim.frame), hud }
   const g = genomeOf(view.seed, view.tier, view.shiny)

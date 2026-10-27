@@ -7,7 +7,7 @@ import { hudKey, hudLines } from './hud'
 import { stepAnim } from './reactions'
 import { rt } from './runtime'
 import { frameOf } from './scene'
-import { eggAtom, petAtom, reactAtom, tzAtom } from './state'
+import { activeAtom, eggAtom, petAtom, reactAtom, tzAtom } from './state'
 import { editQueue, queueKey } from './store'
 
 // Started from session.start and again from turn.start, since a hot reload drops timers.
@@ -44,18 +44,19 @@ export const tick = async ($: EngineInterface): Promise<void> => {
   const now = await $.clock.now()
   await beat($, now)
   const r = await read($, reactAtom)
-  rt.anim = stepAnim(rt.anim, r, Math.random())
+  rt.anim = stepAnim(rt.anim, r, Math.random(), now)
   const band = rt.band
   if (!band) return
   const view = await read($, petAtom)
   const turns = await read($, eggAtom)
   const tz = await read($, tzAtom)
-  if (hudKey(hudLines(view, turns, r, now, tz)) !== band.hud) {
+  const active = await read($, activeAtom)
+  if (hudKey(hudLines(view, turns, r, now, tz, active)) !== band.hud) {
     $.ui.invalidate('ui.render')
     return
   }
   if (band.sceneId === null) return
-  const frame = frameOf(view, turns, r, rt.anim, now, tz)
+  const frame = frameOf(view, turns, r, rt.anim, now, tz, active)
   if (frame.id === band.sceneId) return
   const painted = await $.ui.blit({ requestId: band.requestId, key: 'scene', cells: frame.cells.cells })
   if (painted.deny !== undefined) {

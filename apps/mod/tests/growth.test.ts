@@ -67,7 +67,7 @@ test('reaching level 10 toasts the evolution instead of the level', async ($, on
   const h = harness(on, { store: named({ xp: 922 }), pet: { name: 'Pixel', xp: 922 } })
   await start($)
   await answer($)
-  expect(h.toasts).toContain('Pixel evolved into a teen! Show it off: /nibbl share')
+  expect(h.toasts).toContain('Pixel evolved into a teen! Show it off: /nibbl share · It laid an egg for a friend: /nibbl egg')
   expect(h.toasts.filter(t => /reached level/.test(t))).toEqual([])
   expect(await nibbl($)).toContain('stage: teen (since level 10)')
 })
@@ -137,13 +137,13 @@ test('/nibbl achievements on an egg', async ($, on) => {
   expect(await nibbl($, 'achievements')).toBe('Hatch the egg first.')
 })
 
-test('/nibbl invite on a hatched pet says how a friend joins, and refuses a serial', async ($, on) => {
-  harness(on, { store: hatchedStore() })
+test('/nibbl invite on a hatched pet is the egg list, and a plain serial is refused', async ($, on) => {
+  const h = harness(on, { store: hatchedStore() })
+  h.server.gift = { eggs: [{ milestone: 10, status: 'ready', code: 'ABCDEFGHJK' }, { milestone: 25, status: 'locked' }] }
   await start($)
   const text = await nibbl($, 'invite')
-  expect(text).toContain('Ask a friend to install nibbl and run /nibbl invite 42 before their egg hatches.')
+  expect(text).toContain('Egg 1 (level 10): ABCDE-FGHJK ready, give it to a friend')
   expect(text).toContain('/plugin marketplace add https://getnibbl.pages.dev/marketplace.json')
-  expect(text).toContain('/plugin install nibbl@nibbl')
   expect(await nibbl($, 'invite 19')).toBe('Invites work only before your egg hatches.')
 })
 

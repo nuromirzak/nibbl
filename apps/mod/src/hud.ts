@@ -44,14 +44,14 @@ export const heartsLeftOf = (p: NibblPetView, now: number): number =>
 
 export type HudLines = { title: string; xp: string; hearts: string; status: string; compact: string }
 
-export const hudLines = (view: NibblPetView | null, turns: number, r: NibblReaction, now: number, tz: number): HudLines => {
+export const hudLines = (view: NibblPetView | null, turns: number, r: NibblReaction, now: number, tz: number, active: number | null = null): HudLines => {
   if (!view) {
     const shown = Math.min(turns, HATCH_AFTER_TURNS)
     const status = turns >= HATCH_AFTER_TURNS ? 'hatching...' : 'keep working to hatch it'
     return { title: 'Egg', xp: `turns ${shown}/${HATCH_AFTER_TURNS}`, hearts: '', status, compact: `Egg · turns ${shown}/${HATCH_AFTER_TURNS} · ${status}` }
   }
   const hearts = heartsBar(heartsLeftOf(view, now))
-  const status = statusText(lookOf(r, now, tz), now, r.awaySince, tz)
+  const status = statusText(lookOf(r, now, tz), now, r.awaySince, tz, r.guest, active)
   const serial = serialOf(view)
   const short = serial === null ? view.name : `${view.name} #${padSerial(serial)}`
   return { title: titleOf(view), xp: xpLineOf(view.xp), hearts, status, compact: `${short} · lvl ${levelFromXp(view.xp).level} ${hearts} · ${status}` }

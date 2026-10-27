@@ -40,6 +40,18 @@ describe('scene cells', () => {
     expect(gone.hud).toBe('⛏ on expedition 0:05|♥♥♥♡♡')
   })
 
+  it('keys the frame cache by the visiting guest and draws it', () => {
+    const guest = { seed: 9, tier: 'rare' as const, shiny: false, stage: 'teen' as const, name: 'Ziutek', from: 16 }
+    const visiting = { ...CALM, guest, guestUntil: NOW + 90_000 }
+    const alone = frameOf(VIEW, 0, CALM, { ...ANIM, petX: 16 }, NOW, 300)
+    const hosted = frameOf(VIEW, 0, visiting, { ...ANIM, petX: 16 }, NOW, 300)
+    expect(hosted.id).not.toBe(alone.id)
+    expect(hosted.id).toContain('"guest":{"seed":9')
+    expect(hosted.cells.cells).not.toBe(alone.cells.cells)
+    expect(hosted.hud.startsWith('Ziutek came to say hi ♥')).toBe(true)
+    expect(frameOf(VIEW, 0, visiting, { ...ANIM, petX: 16 }, NOW + 90_000, 300).id).toBe(frameOf(VIEW, 0, { ...CALM, guest }, { ...ANIM, petX: 16 }, NOW + 90_000, 300).id)
+  })
+
   it('draws the egg when there is no pet yet', () => {
     expect(frameOf(null, 3, CALM, ANIM, NOW, 300).id).toBe('egg|0|0')
   })

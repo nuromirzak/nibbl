@@ -247,8 +247,8 @@ test('importing a different pet clears the social state but keeps the update not
       'v1.waves': [{ from: 5, name: null, at: START }],
       'v1.noteIdx': 4,
       'v1.noteAt': START,
-      'v1.latest': '0.4.0',
-      'v1.updateSeen': '0.4.0',
+      'v1.latest': '0.5.0',
+      'v1.updateSeen': '0.5.0',
     },
   })
   await start($)
@@ -296,12 +296,12 @@ test('an update toast shows once per version, and /nibbl keeps the hint', async 
   await start($)
   await sync()
   expect(await nibbl($)).not.toMatch(/update:/)
-  h.server.syncExtra = { latest: '0.4.0' }
+  h.server.syncExtra = { latest: '0.5.0' }
   await sync()
   await sync()
   await sync()
   const updates = h.toasts.filter(t => /is out/.test(t))
-  expect(updates).toEqual(['nibbl 0.4.0 is out: /plugin marketplace update nibbl, then /plugin update nibbl@nibbl'])
+  expect(updates).toEqual(['nibbl 0.5.0 is out: /plugin marketplace update nibbl, then /plugin update nibbl@nibbl'])
   expect(await nibbl($)).toContain('update: /plugin marketplace update nibbl, then /plugin update nibbl@nibbl (or turn on auto-update: /plugin > Marketplaces > nibbl)')
   h.server.syncExtra = { latest: '0.10.0' }
   await sync()

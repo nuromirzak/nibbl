@@ -21,6 +21,11 @@ export const POST_TIMEOUT_MS = 20_000
 export const TICK_MS = 500
 export const MOOD_MS = 6_000
 export const HEART_MS = 2_000
+// A guest stays 90 s; at most 5 wait their turn (the oldest is dropped).
+export const GUEST_MS = 90_000
+export const GUESTS_MAX = 5
+// The band alternates the time-of-day text and "N nibbls coding today" every 15 s.
+export const ACTIVE_FLIP_MS = 15_000
 export const LOOT_MS = 4_000
 export const BOX_MS = 6_000
 export const SLEEP_AFTER_MS = 3 * 60_000
@@ -72,6 +77,9 @@ export const K = {
   toastQueue: 'v1.toastQueue',
   greetDay: 'v1.greetDay',
   inviteCode: 'v1.inviteCode',
+  giftCode: 'v1.giftCode',
+  guests: 'v1.guests',
+  active: 'v1.active',
   spikePet: 'pet',
   spikeEggTurns: 'eggTurns',
 } as const
