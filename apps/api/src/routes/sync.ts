@@ -3,19 +3,22 @@ import {
   unlockedIds,
   ZERO_TOTALS,
   type AchievementFacts,
+  genome,
   HOUR_MS,
+  inheritsMark,
   levelFromXp,
   pruneWindows,
   scoreEvents,
   SYNC_GRACE_MS,
   type HourWindow,
+  type Tier,
   type NibblEvent,
   type Windows,
 } from '@nibbl/core'
 import type { Deps, Env } from '../env'
 import { authPet } from '../lib/auth'
 import { HttpError, json, MAX_SYNC_BYTES, readJson } from '../lib/http'
-import { eventDelta, isMissingSchema, readsRetention } from '../lib/retention'
+import { atLeast, eventDelta, isMissingSchema, readsRetention } from '../lib/retention'
 
 export const MAX_EVENTS = 1000
 export const MIN_SYNC_INTERVAL_MS = 30_000
@@ -41,10 +44,25 @@ export const clampEvents = (events: unknown[], hatchedAt: number, now: number): 
 
 const sameWindow = (a: HourWindow | undefined, b: HourWindow): boolean => KINDS.every(k => (a?.[k] ?? 0) === (b[k] ?? 0))
 
-type InviteRow = { id: number; serial: number; name: string | null }
+type InviteRow = { id: number; serial: number; name: string | null; via_gift?: number; seed?: number; tier?: string; shiny?: number }
 type WeekWinRow = { week: string; gain: number }
 
-const readInvites = async (db: D1Database, serial: number): Promise<InviteRow[]> => {
+const readInvites = async (db: D1Database, serial: number, withGift: boolean): Promise<InviteRow[]> => {
+  if (withGift) {
+    try {
+      const { results } = await db
+        .prepare(
+          `SELECT n.id, n.from_serial AS serial, p.name, n.via_gift, p.seed, p.tier, p.shiny FROM invite_notices n JOIN pets p ON p.serial = n.from_serial
+           WHERE n.to_serial = ? AND n.delivered = 0 AND p.is_hidden = 0 ORDER BY n.id LIMIT 5`,
+        )
+        .bind(serial)
+        .all<InviteRow>()
+      return results
+    } catch (err) {
+      // Worker deployed before migration 0006: fall through to the plain read.
+      if (!isMissingSchema(err)) throw err
+    }
+  }
   try {
     const { results } = await db
       .prepare(
@@ -58,6 +76,16 @@ const readInvites = async (db: D1Database, serial: number): Promise<InviteRow[]>
     if (isMissingSchema(err)) return []
     throw err
   }
+}
+
+const inviteItem = (i: InviteRow, parent: { seed: number; tier: string; shiny: number }, reads04: boolean) => {
+  if (!reads04) return { serial: i.serial, name: i.name }
+  const gift = i.via_gift === 1
+  const base = { serial: i.serial, name: i.name, gift }
+  if (!gift || i.seed === undefined) return base
+  const child = genome(i.seed, i.tier as Tier, i.shiny === 1)
+  const mine = genome(parent.seed, parent.tier as Tier, parent.shiny === 1)
+  return inheritsMark(child, mine) ? { ...base, mark: { motif: child.mark.motif, spot: child.mark.spot } } : base
 }
 
 const readWeekWin = async (db: D1Database, serial: number): Promise<WeekWinRow | null> => {
@@ -143,22 +171,25 @@ export const sync = async (request: Request, env: Env, deps: Deps): Promise<Resp
   const inbox = isSocial
     ? (
         await env.DB.prepare(
-          `SELECT w.id, w.from_serial AS "from", p.name FROM waves w JOIN pets p ON p.serial = w.from_serial
+          `SELECT w.id, w.from_serial AS "from", p.name, p.seed, p.tier, p.shiny, p.level FROM waves w JOIN pets p ON p.serial = w.from_serial
            WHERE w.to_serial = ? AND w.delivered = 0 AND p.is_hidden = 0 ORDER BY w.id LIMIT 5`,
         )
           .bind(pet.serial)
-          .all<{ id: number; from: number; name: string | null }>()
+          .all<{ id: number; from: number; name: string | null; seed: number; tier: string; shiny: number; level: number }>()
       ).results
     : []
   // Only a 0.3.0+ client reads the retention fields, so only it consumes invites and the week win.
   const reads03 = isSocial && readsRetention(body.v)
   // Retention reads (invites, week win) must never break a sync, e.g. before migration 0004 is applied.
-  const invites = reads03 ? await readInvites(env.DB, pet.serial) : []
+  // Only a 0.4.0+ client reads waves with a look, the coding-today count and gift invites.
+  const reads04 = isSocial && atLeast(body.v, '0.4.0')
+  const invites = reads03 ? await readInvites(env.DB, pet.serial, reads04) : []
   const weekWin = reads03 ? await readWeekWin(env.DB, pet.serial) : null
   // Marked delivered in the same batch, behind the same last_sync_at guard, so a lost race delivers nothing twice.
   const markDelivered = inbox.map(w =>
     env.DB.prepare(`UPDATE waves SET delivered = 1 WHERE id = ? AND delivered = 0 AND ${guard}`).bind(w.id, pet.serial, now),
   )
+  const activeRead = reads04 ? [env.DB.prepare("SELECT value AS n FROM counters WHERE name = 'active_24h'")] : []
   // Rank reads ride in the same batch as the write, so a committed sync cannot fail afterwards. The
   // position cost is O(rows above this pet) per request: see docs/decisions/0016-social-v0-2.md.
   // Same ordering as routes/rank.ts: xp DESC, serial ASC, hidden pets excluded.
@@ -185,6 +216,7 @@ export const sync = async (request: Request, env: Env, deps: Deps): Promise<Resp
     env.DB.prepare(`DELETE FROM xp_windows WHERE serial = ? AND hour < ? AND ${guard}`).bind(pet.serial, oldestHour, pet.serial, now),
     ...windowWrites,
     ...markDelivered,
+    ...activeRead,
     ...rankReads,
   ]
 
@@ -223,6 +255,7 @@ export const sync = async (request: Request, env: Env, deps: Deps): Promise<Resp
     done = await env.DB.batch(core)
   }
   const [update] = done
+  const activeIdx = reads04 ? 1 + 1 + windowWrites.length + markDelivered.length : -1
   const rest = done.slice(1, core.length)
   if (update!.meta.changes === 0) throw new HttpError(409, 'sync_conflict')
 
@@ -240,11 +273,12 @@ export const sync = async (request: Request, env: Env, deps: Deps): Promise<Resp
   const base = { xp, level, heartsLeft: heartsLeft(windows, now) }
   if (!isSocial) return json({ ...base, latest: env.LATEST_VERSION })
   const social: Record<string, unknown> = {
-    waves: inbox.map(w => ({ from: w.from, name: w.name })),
+    waves: inbox.map(w => (reads04 ? { from: w.from, name: w.name, seed: w.seed, tier: w.tier, shiny: w.shiny === 1, level: w.level } : { from: w.from, name: w.name })),
+    ...(reads04 ? { active: (done[activeIdx]!.results[0] as { n: number } | undefined)?.n ?? 0 } : {}),
     ...(reads03
       ? {
           unlocked,
-          invites: retained ? invites.map(i => ({ serial: i.serial, name: i.name })) : [],
+          invites: retained ? invites.map(i => inviteItem(i, pet, reads04)) : [],
           weekWin: retained && weekWin ? { week: weekWin.week, gain: weekWin.gain } : null,
         }
       : {}),

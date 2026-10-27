@@ -47,6 +47,7 @@ export const resetDb = async (): Promise<void> => {
       'DELETE FROM pet_totals',
       'DELETE FROM pet_achievements',
       'DELETE FROM invite_notices',
+      'DELETE FROM gift_codes',
       'DELETE FROM week_snap',
       'DELETE FROM week_winners',
       'DELETE FROM hatch_ip',

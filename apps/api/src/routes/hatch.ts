@@ -1,10 +1,11 @@
-import { genomeKey, pickUnique, visualKey, type Genome } from '@nibbl/core'
+import { genome, genomeKey, inheritsMark, pickUnique, visualKey, type Genome, type Tier } from '@nibbl/core'
 import type { Deps, Env } from '../env'
 import { isUniqueViolation, ownerView, petByMachine, takenKeys, type OwnerView, type PetRow } from '../lib/db'
 import { randomToken, sha256Hex } from '../lib/hmac'
 import { HttpError, json, machineHashOf, MAX_SERIAL, MAX_SMALL_BYTES, readJson } from '../lib/http'
 import { ipBucket } from '../lib/ip'
 import { isMissingSchema } from '../lib/retention'
+import { giftHash, normalizeGift } from './gift'
 import { BATCH, candidates } from '../lib/roll'
 
 export const DAY_MS = 86_400_000
@@ -55,6 +56,42 @@ const pickGenome = async (env: Env, machineHash: string): Promise<Genome> => {
   throw new HttpError(503, 'no_unique_genome')
 }
 
+export const GIFT_CANDIDATES = 96
+const KEY_CHUNK = 40
+
+type GiftParent = { hash: string; genome: Genome }
+
+// A gift counts only while unredeemed, from a real, visible pet on another machine. Anything else is ignored silently.
+const validGift = async (db: D1Database, code: string | null, machineHash: string): Promise<GiftParent | null> => {
+  if (code === null) return null
+  const hash = await giftHash(code)
+  try {
+    const row = await db
+      .prepare(
+        `SELECT p.seed, p.tier, p.shiny FROM gift_codes g JOIN pets p ON p.serial = g.from_serial
+         WHERE g.code_hash = ? AND g.redeemed_by IS NULL AND p.is_hidden = 0 AND p.is_bot = 0 AND p.machine_hash != ?`,
+      )
+      .bind(hash, machineHash)
+      .first<{ seed: number; tier: string; shiny: number }>()
+    return row ? { hash, genome: genome(row.seed, row.tier as Tier, row.shiny === 1) } : null
+  } catch (err) {
+    if (isMissingSchema(err)) return null
+    throw err
+  }
+}
+
+// Best effort: the first unique candidate (of up to 96) that carries the parent's mark; null when none does.
+const pickInherited = async (env: Env, machineHash: string, parent: Genome): Promise<Genome | null> => {
+  const list = (await candidates(env.ROLL_SECRET, machineHash, 0, GIFT_CANDIDATES)).filter(c => inheritsMark(c, parent))
+  for (let i = 0; i < list.length; i += KEY_CHUNK) {
+    const chunk = list.slice(i, i + KEY_CHUNK)
+    const taken = await takenKeys(env.DB, chunk.map(genomeKey), chunk.map(visualKey))
+    const picked = pickUnique(chunk, key => taken.genome.has(key), key => taken.visual.has(key))
+    if (picked) return picked
+  }
+  return null
+}
+
 // Re-hatching a known machine rotates the token, so it is capped at once a minute per pet.
 export const REHATCH_EVERY_MS = 60_000
 
@@ -97,6 +134,7 @@ export const hatch = async (request: Request, env: Env, deps: Deps): Promise<Res
   const launchAt = launchAtOf(env)
   const now = deps.now()
   const invite = inviteOf(body.invite)
+  const giftCode = normalizeGift(body.gift)
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     const existing = await petByMachine(env.DB, machineHash)
     if (existing) return json(await reissue(env.DB, existing, now))
@@ -109,23 +147,50 @@ export const hatch = async (request: Request, env: Env, deps: Deps): Promise<Res
       if (raced) return json(await reissue(env.DB, raced, now))
       throw err
     }
-    const g = await pickGenome(env, machineHash)
+    const giftParent = await validGift(env.DB, giftCode, machineHash)
+    const g = (giftParent && (await pickInherited(env, machineHash, giftParent.genome))) || (await pickGenome(env, machineHash))
     const token = randomToken()
     const genesis = now < launchAt + GENESIS_MS
     try {
       // One batch is one transaction: the counter bump rolls back if the insert fails.
       const tokenHash = await sha256Hex(token)
-      const insertBatch = (inviter: number | null) => [
-        env.DB.prepare("UPDATE counters SET value = value + 1 WHERE name IN ('serial', 'hatched')"),
+      const newSerial = "(SELECT value FROM counters WHERE name = 'serial')"
+      // A gift hatch: the redemption claims the row first, so every later statement is tied to it landing
+      // (redeemed_by = this serial). A lost race leaves the pet unlinked, no friends bond, no notice.
+      const giftBatch = (hash: string) => [
+        env.DB.prepare(`UPDATE gift_codes SET redeemed_by = ${newSerial}, redeemed_at = ? WHERE code_hash = ? AND redeemed_by IS NULL`).bind(now, hash),
         env.DB.prepare(
-          `INSERT INTO pets (serial, machine_hash, token_hash, seed, genome_key, visual_key, tier, shiny, genesis, hatched_at${inviter === null ? '' : ', invited_by'})
+          `INSERT INTO pets (serial, machine_hash, token_hash, seed, genome_key, visual_key, tier, shiny, genesis, hatched_at, invited_by)
+           VALUES (${newSerial}, ?, ?, ?, ?, ?, ?, ?, ?, ?, (SELECT from_serial FROM gift_codes WHERE code_hash = ? AND redeemed_by = ${newSerial})) RETURNING *`,
+        ).bind(machineHash, tokenHash, g.seed, genomeKey(g), visualKey(g), g.tier, g.shiny ? 1 : 0, genesis ? 1 : 0, now, hash),
+      ]
+      const giftBonds = (hash: string) => [
+        env.DB.prepare(
+          `INSERT OR IGNORE INTO pet_achievements (serial, id, at) SELECT redeemed_by, 'friends', ? FROM gift_codes WHERE code_hash = ? AND redeemed_by = ${newSerial}`,
+        ).bind(now, hash),
+        env.DB.prepare(
+          `INSERT OR IGNORE INTO pet_achievements (serial, id, at) SELECT from_serial, 'friends', ? FROM gift_codes WHERE code_hash = ? AND redeemed_by = ${newSerial}`,
+        ).bind(now, hash),
+        env.DB.prepare(
+          `INSERT INTO invite_notices (to_serial, from_serial, created_at, via_gift) SELECT from_serial, redeemed_by, ?, 1 FROM gift_codes WHERE code_hash = ? AND redeemed_by = ${newSerial}`,
+        ).bind(now, hash),
+      ]
+      const insertBatch = (inviter: number | null, gift: string | null = null) => [
+        env.DB.prepare("UPDATE counters SET value = value + 1 WHERE name IN ('serial', 'hatched')"),
+        ...(gift !== null
+          ? giftBatch(gift)
+          : [
+              env.DB.prepare(
+                `INSERT INTO pets (serial, machine_hash, token_hash, seed, genome_key, visual_key, tier, shiny, genesis, hatched_at${inviter === null ? '' : ', invited_by'})
            VALUES ((SELECT value FROM counters WHERE name = 'serial'), ?, ?, ?, ?, ?, ?, ?, ?, ?${inviter === null ? '' : ', ?'}) RETURNING *`,
-        ).bind(machineHash, tokenHash, g.seed, genomeKey(g), visualKey(g), g.tier, g.shiny ? 1 : 0, genesis ? 1 : 0, now, ...(inviter === null ? [] : [inviter])),
+              ).bind(machineHash, tokenHash, g.seed, genomeKey(g), visualKey(g), g.tier, g.shiny ? 1 : 0, genesis ? 1 : 0, now, ...(inviter === null ? [] : [inviter])),
+            ]),
         env.DB.prepare(
           'INSERT INTO hatch_ip (ip_hash, count, last_at) VALUES (?, 1, ?) ON CONFLICT (ip_hash) DO UPDATE SET count = count + 1, last_at = excluded.last_at',
         ).bind(ipHash, now),
+        ...(gift !== null ? giftBonds(gift) : []),
         // Friends bond for both pets, plus a notice the inviter's next sync delivers. No XP, no odds.
-        ...(inviter === null
+        ...(gift !== null || inviter === null
           ? []
           : [
               env.DB.prepare("INSERT OR IGNORE INTO pet_achievements (serial, id, at) VALUES ((SELECT value FROM counters WHERE name = 'serial'), 'friends', ?)").bind(now),
@@ -133,16 +198,16 @@ export const hatch = async (request: Request, env: Env, deps: Deps): Promise<Res
               env.DB.prepare("INSERT INTO invite_notices (to_serial, from_serial, created_at) VALUES (?, (SELECT value FROM counters WHERE name = 'serial'), ?)").bind(inviter, now),
             ]),
       ]
-      const inviter = await validInviter(env.DB, invite, machineHash)
+      const inviter = giftParent ? null : await validInviter(env.DB, invite, machineHash)
       let results: D1Result[]
       try {
-        results = await env.DB.batch(insertBatch(inviter))
+        results = await env.DB.batch(insertBatch(inviter, giftParent?.hash ?? null))
       } catch (err) {
-        // Worker deployed before migration 0004: hatch without the invite rather than fail.
-        if (inviter === null || !isMissingSchema(err)) throw err
+        // Worker deployed before migration 0004 / 0006: hatch without the invite or gift rather than fail.
+        if ((inviter === null && giftParent === null) || !isMissingSchema(err)) throw err
         results = await env.DB.batch(insertBatch(null))
       }
-      const inserted = results[1]!
+      const inserted = results.find(r => r.results.length > 0 && 'serial' in (r.results[0] as object))!
       return json(hatchResult(inserted.results[0] as PetRow, token))
     } catch (err) {
       // A concurrent hatch took this machine or this genome; re-read and try again.

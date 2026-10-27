@@ -79,14 +79,14 @@ describe('seeded bots', () => {
   })
 
   it('counts the bots as hatched and moves the serial counter past them', async () => {
-    expect(await (await call('/api/stats')).json()).toEqual({ hatched: 12 })
+    expect(await (await call('/api/stats')).json()).toEqual({ hatched: 12, active: 0 })
     expect((await hatchPet(1)).serial).toBe(13)
-    expect(await (await call('/api/stats')).json()).toEqual({ hatched: 13 })
+    expect(await (await call('/api/stats')).json()).toEqual({ hatched: 13, active: 0 })
   })
 
   it('keeps the hatched counter when a bot is retired', async () => {
     await testEnv.DB.prepare('UPDATE pets SET is_hidden = 1 WHERE serial = 3').run()
-    expect(await (await call('/api/stats')).json()).toEqual({ hatched: 12 })
+    expect(await (await call('/api/stats')).json()).toEqual({ hatched: 12, active: 0 })
   })
 
   it('cannot be driven with any token', async () => {
