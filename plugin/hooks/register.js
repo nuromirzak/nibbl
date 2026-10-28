@@ -24,6 +24,9 @@ const POST_TIMEOUT_MS = 2e4;
 const TICK_MS = 500;
 const MOOD_MS = 6e3;
 const HEART_MS = 2e3;
+const GUEST_MS = 9e4;
+const GUESTS_MAX = 5;
+const ACTIVE_FLIP_MS = 15e3;
 const LOOT_MS = 4e3;
 const BOX_MS = 6e3;
 const SLEEP_AFTER_MS = 3 * 6e4;
@@ -65,6 +68,9 @@ const K = {
   toastQueue: "v1.toastQueue",
   greetDay: "v1.greetDay",
   inviteCode: "v1.inviteCode",
+  giftCode: "v1.giftCode",
+  guests: "v1.guests",
+  active: "v1.active",
   spikePet: "pet",
   spikeEggTurns: "eggTurns"
 };
@@ -575,6 +581,29 @@ const HEART = [
   [3, 2],
   [2, 3]
 ];
+const stampPet = (scene, sprite, x, lift = 0) => {
+  for (let y = 0; y < sprite.length; y++) {
+    const sy = y - lift;
+    if (sy < 0 || sy >= GROUND) continue;
+    for (let sx = 0; sx < sprite[y].length; sx++) {
+      const cell = sprite[y][sx];
+      const tx = x + sx;
+      if (cell !== null && tx >= 0 && tx < SCENE_W) scene[sy][tx] = cell;
+    }
+  }
+};
+const columnSpan = (sprite) => {
+  let left = Infinity;
+  let right = -1;
+  for (const row of sprite) {
+    for (let x = 0; x < row.length; x++) {
+      if (row[x] === null) continue;
+      left = Math.min(left, x);
+      right = Math.max(right, x);
+    }
+  }
+  return right < 0 ? null : { left, right };
+};
 const drawGround = (scene) => {
   for (let x = 0; x < SCENE_W; x++) scene[GROUND][x] = x % 2 === 0 ? C.slate : C.dusk;
 };
@@ -635,16 +664,19 @@ const drawScene = (g, opts = {}) => {
   if (isHome) {
     for (let x = petX + 4; x <= petX + 11; x++) setCell(scene, x, GROUND - 1, C.dusk);
     const pet = drawPet(g, opts.stage ?? "adult", opts.expression ?? "idle");
-    for (let y = 0; y < PET_SIZE; y++) {
-      const sy = y - lift;
-      if (sy < 0 || sy >= GROUND) continue;
-      for (let x = 0; x < PET_SIZE; x++) {
-        const cell = pet[y][x];
-        if (cell !== null) scene[sy][petX + x] = cell;
-      }
-    }
+    stampPet(scene, pet, petX, lift);
     if (opts.nightcap) drawNightcap(scene, pet, petX, lift);
     if (opts.box) drawBox(scene, pet, petX, lift);
+    const guest = opts.guest;
+    if (guest) {
+      const sprite = drawPet(guest.genome, guest.stage, guest.expression ?? "happy");
+      const ownerSpan = columnSpan(pet);
+      const guestSpan = columnSpan(sprite);
+      const auto = ownerSpan && guestSpan ? petX + ownerSpan.left - guestSpan.right - 2 : 0;
+      const gx = clamp(guest.x ?? auto, 0, SCENE_W - PET_SIZE);
+      for (let x = gx + 4; x <= gx + 11; x++) if (scene[GROUND - 1][x] === null) setCell(scene, x, GROUND - 1, C.dusk);
+      stampPet(scene, sprite, gx);
+    }
   }
   const bugs = clamp(opts.bugs ?? 0, 0, 3);
   for (let i = 0; i < bugs; i++) {
@@ -711,12 +743,7 @@ const drawEggScene = (cracks, frame = 0) => {
   drawGround(scene);
   const wobble = cracks > 0 && frame % 2 === 1 ? 1 : 0;
   const egg = drawEgg(cracks);
-  for (let y = 0; y < PET_SIZE - 1; y++) {
-    for (let x = 0; x < PET_SIZE; x++) {
-      const cell = egg[y][x];
-      if (cell !== null) setCell(scene, 8 + x + wobble, y, cell);
-    }
-  }
+  stampPet(scene, egg, 8 + wobble);
   return scene;
 };
 
@@ -969,8 +996,147 @@ const viewOf = (pet, xp, heartsHour, heartsUsed) => "serial" in pet ? {
   heartsUsed
 } : { serial: null, seed: pet.seed, tier: pet.tier, shiny: pet.shiny, genesis: false, name: pet.name, label: null, xp, heartsHour, heartsUsed };
 
+// src/social.ts
+const isPosInt = (v) => typeof v === "number" && Number.isInteger(v) && v >= 1;
+const isNameOrNull = (v) => v === null || typeof v === "string";
+const isObj = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
+const parseLook = (w) => {
+  const { seed, tier, shiny, level } = w;
+  if (typeof seed !== "number" || !Number.isInteger(seed) || seed < 0 || seed > 4294967295) return null;
+  if (typeof tier !== "string" || !TIERS.includes(tier)) return null;
+  if (typeof shiny !== "boolean") return null;
+  if (typeof level !== "number" || !Number.isInteger(level) || level < 1 || level > 1e3) return null;
+  return { seed, tier, shiny, level };
+};
+const parseWaves = (v) => {
+  if (!Array.isArray(v)) return [];
+  const out = [];
+  for (const w of v.slice(0, 5)) {
+    if (isObj(w) && isPosInt(w.from) && isNameOrNull(w.name ?? null)) {
+      const look = parseLook(w);
+      out.push({ from: w.from, name: typeof w.name === "string" && w.name.length > 0 ? w.name : null, ...look ? { look } : {} });
+    }
+  }
+  return out;
+};
+const parseActive = (v) => typeof v === "number" && Number.isInteger(v) && v >= 0 ? v : null;
+const parseRank = (v) => {
+  if (!isObj(v) || !isPosInt(v.pos) || !isPosInt(v.total)) return null;
+  let above = null;
+  if (v.above !== null && v.above !== void 0) {
+    const a = v.above;
+    if (!isObj(a) || !isPosInt(a.serial) || !isNameOrNull(a.name ?? null) || typeof a.tier !== "string" || typeof a.xp !== "number" || !Number.isFinite(a.xp)) return null;
+    above = { serial: a.serial, name: typeof a.name === "string" && a.name.length > 0 ? a.name : null, tier: a.tier, xp: a.xp };
+  }
+  return { pos: v.pos, total: v.total, above };
+};
+const parseLatest = (v) => typeof v === "string" && /^\d{1,4}\.\d{1,4}\.\d{1,4}$/.test(v) ? v : null;
+const parseUnlocked = (v) => {
+  if (!Array.isArray(v)) return [];
+  const out = [];
+  for (const id of v) if (typeof id === "string" && achievementById(id) !== void 0 && !out.includes(id)) out.push(id);
+  return out;
+};
+const parseInvites = (v) => {
+  if (!Array.isArray(v)) return [];
+  const out = [];
+  for (const i of v.slice(0, 5)) {
+    if (isObj(i) && isPosInt(i.serial) && isNameOrNull(i.name ?? null)) {
+      const gift = i.gift === true;
+      out.push({ serial: i.serial, name: typeof i.name === "string" && i.name.length > 0 ? i.name : null, ...gift ? { gift: true } : {}, ...gift && isObj(i.mark) ? { marked: true } : {} });
+    }
+  }
+  return out;
+};
+const parseWeekWin = (v) => isObj(v) && typeof v.week === "string" && /^\d{4}-W\d{2}$/.test(v.week) && typeof v.gain === "number" && Number.isFinite(v.gain) ? { week: v.week, gain: v.gain } : null;
+const parseSocial = (body) => ({
+  waves: parseWaves(body.waves),
+  rank: parseRank(body.rank),
+  latest: parseLatest(body.latest),
+  unlocked: parseUnlocked(body.unlocked),
+  invites: parseInvites(body.invites),
+  weekWin: parseWeekWin(body.weekWin),
+  active: parseActive(body.active)
+});
+const parseWavesSeen = (v) => {
+  if (!Array.isArray(v)) return [];
+  const out = [];
+  for (const w of v) {
+    if (isObj(w) && isPosInt(w.from) && isNameOrNull(w.name ?? null) && typeof w.at === "number" && Number.isFinite(w.at)) {
+      out.push({ from: w.from, name: typeof w.name === "string" ? w.name : null, at: w.at });
+    }
+  }
+  return out;
+};
+const parseGuests = (v) => {
+  if (!Array.isArray(v)) return [];
+  const out = [];
+  for (const g of v) {
+    if (!isObj(g) || !isPosInt(g.from)) continue;
+    const look = parseLook(isObj(g.look) ? g.look : {});
+    if (look) out.push({ from: g.from, name: typeof g.name === "string" && g.name.length > 0 ? g.name : null, look });
+  }
+  return out;
+};
+const giftCodeOf = (raw) => {
+  if (typeof raw !== "string") return null;
+  const code = raw.replace(/[-\s]/g, "").toUpperCase().replace(/O/g, "0").replace(/[IL]/g, "1").replace(/U/g, "V");
+  return /^[0-9A-Z]{10}$/.test(code) ? code : null;
+};
+const giftCodeText = (code) => `${code.slice(0, 5)}-${code.slice(5)}`;
+const labelOf = (name, serial) => name ? `${name} #${padSerial(serial)}` : `#${padSerial(serial)}`;
+const waveToastText = (waves, me) => {
+  if (waves.length === 0) return null;
+  if (waves.length === 1) return `${labelOf(waves[0].name, waves[0].from)} waved at ${me} \u2665`;
+  return `${waves.length} nibbls waved at ${me} \u2665`;
+};
+const achievementToastText = (ids, me) => {
+  if (ids.length === 0) return null;
+  if (ids.length === 1) return `\u{1F3C6} ${me} unlocked ${achievementById(ids[0])?.name ?? ids[0]}`;
+  return `${me} unlocked ${ids.length} achievements`;
+};
+const inviteToastText = (invites) => {
+  if (invites.length === 0) return null;
+  if (invites.length === 1 && invites[0].gift) {
+    const who = labelOf(invites[0].name, invites[0].serial);
+    return invites[0].marked ? `Your egg hatched at a friend's: ${who} has your mark \u2665` : `Your egg hatched at a friend's: ${who} is your nibbl's child \u2665`;
+  }
+  if (invites.every((i) => i.gift)) return `${invites.length} of your eggs hatched at friends'. They are your nibbl's children \u2665`;
+  if (invites.length === 1) return `Your friend's nibbl #${padSerial(invites[0].serial)} hatched. You are Friends now \u2665`;
+  return `${invites.length} friends hatched their nibbls. You are Friends now \u2665`;
+};
+const weekToastText = (me, base) => `${me} is the Nibbl of the Week! ${base}/week`;
+const rankLine = (r, serverXp) => {
+  const head = `rank ${r.pos} of ${r.total}`;
+  if (!r.above) return `${head} \xB7 top of the board`;
+  const a = r.above;
+  return `${head} \xB7 next: #${padSerial(a.serial)} (${a.xp} xp, ${Math.max(0, a.xp - serverXp)} ahead) \xB7 /nibbl wave ${a.serial}`;
+};
+const rankMilestone = (best, pos) => {
+  if (pos === 1 && (best === null || best > 1)) return "first";
+  if (pos <= 10 && (best === null || best > 10)) return "top10";
+  return null;
+};
+const UPDATE_HOW = "/plugin marketplace update nibbl, then /plugin update nibbl@nibbl";
+const updateLine = () => `update: ${UPDATE_HOW} (or turn on auto-update: /plugin > Marketplaces > nibbl)`;
+const updateToast = (latest) => `nibbl ${latest} is out: ${UPDATE_HOW}`;
+const WAVE_USAGE = "Usage: /nibbl wave <serial>, for example /nibbl wave 16.";
+const parseWaveTarget = (raw) => {
+  const m = /^#?(\d{1,6})$/.exec(raw.trim());
+  const n = m ? Number(m[1]) : 0;
+  return n >= 1 ? n : null;
+};
+const waveErrorText = (status, code, to) => {
+  const who = `#${padSerial(to)}`;
+  if (status === 400 && code === "self_wave") return "You can't wave at yourself.";
+  if (status === 404) return `No nibbl ${who} to wave at.`;
+  if (code === "already_waved") return `You already waved at ${who} today.`;
+  if (code === "wave_limit") return "That's 10 waves today. More tomorrow.";
+  return `The server answered ${code}. Try again later.`;
+};
+
 // src/reactions.ts
-const CALM = { bugs: 0, mood: "idle", moodUntil: 0, heartUntil: 0, lootUntil: 0, boxUntil: 0, awaySince: 0, lastActiveAt: 0 };
+const CALM = { bugs: 0, mood: "idle", moodUntil: 0, heartUntil: 0, lootUntil: 0, boxUntil: 0, awaySince: 0, lastActiveAt: 0, guest: null, guestUntil: 0 };
 const onTurnStart = (r, now) => ({ ...r, awaySince: r.awaySince || now, lastActiveAt: now });
 const onTurnEnd = (r, now, isAnswer) => ({
   ...r,
@@ -988,6 +1154,8 @@ const onError = (r, now) => ({
 const onCheckPass = (r, now) => ({ ...r, bugs: 0, mood: "happy", moodUntil: now + MOOD_MS, lastActiveAt: now });
 const onCommit = (r, now) => ({ ...r, boxUntil: now + BOX_MS, lastActiveAt: now });
 const onPet = (r, now) => ({ ...r, heartUntil: now + HEART_MS, lastActiveAt: now });
+const onGuest = (r, now, guest, until) => ({ ...r, guest, guestUntil: until, heartUntil: now + HEART_MS });
+const isVisiting = (r, now) => r.guest !== null && now < r.guestUntil;
 const onActive = (r, now) => ({ ...r, lastActiveAt: now });
 const parseUtcOffset = (stdout) => {
   const m = /^([+-])(\d{2})(\d{2})$/.exec(stdout.trim());
@@ -1008,6 +1176,7 @@ const lookOf = (r, now, offsetMin) => {
   if (r.awaySince > 0) return "away";
   if (r.mood === "sad" && now < r.moodUntil) return "oops";
   if (now < r.heartUntil) return "loved";
+  if (isVisiting(r, now)) return "visiting";
   if (r.mood === "happy" && now < r.moodUntil) return "yum";
   if (now < r.boxUntil) return "shipped";
   if (now < r.lootUntil) return "loot";
@@ -1023,7 +1192,8 @@ const STATUS = {
   loot: "back with loot",
   zzz: "zzz",
   night: "nightcap on",
-  chilling: "chilling"
+  chilling: "chilling",
+  visiting: "a friend came to say hi \u2665"
 };
 const clockText = (ms) => {
   const total = Math.max(0, Math.floor(ms / 1e3));
@@ -1032,20 +1202,23 @@ const clockText = (ms) => {
   return minutes >= 60 ? `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, "0")}:${seconds}` : `${minutes}:${seconds}`;
 };
 const idleTextAt = (hour) => hour >= 5 && hour <= 11 ? "sipping coffee" : hour >= 12 && hour <= 17 ? "sunbathing" : hour >= 18 && hour <= 22 ? "reading the logs" : STATUS.chilling;
-const statusText = (look, now, awaySince, offsetMin) => {
+const codingText = (n) => `${n} nibbl${n === 1 ? "" : "s"} coding today`;
+const statusText = (look, now, awaySince, offsetMin, guest, active) => {
   if (look === "away") return `\u26CF on expedition ${clockText(now - awaySince)}`;
+  if (look === "visiting" && guest) return `${guest.name ?? `#${padSerial(guest.from)}`} came to say hi \u2665`;
+  if (look === "chilling" && offsetMin !== void 0 && typeof active === "number" && active >= 2 && Math.floor(now / ACTIVE_FLIP_MS) % 2 === 1) return codingText(active);
   if (look === "chilling" && offsetMin !== void 0) return idleTextAt(localHour(now, offsetMin));
   return STATUS[look];
 };
 const sceneKeyOf = (r, stage, anim, now, offsetMin) => {
   const look = lookOf(r, now, offsetMin);
-  const isWalking = anim.petX !== (r.awaySince > 0 ? AWAY_X : HOME_X);
+  const isWalking = anim.petX !== (r.awaySince > 0 || isVisiting(r, now) ? AWAY_X : HOME_X);
   const isSleeping = look === "zzz";
   const night = isNight(now, offsetMin);
   const hasLoot = now < r.lootUntil;
   let expression = anim.blink ? "blink" : "idle";
   if (look === "oops") expression = "sad";
-  else if (look === "loved" || look === "yum") expression = "happy";
+  else if (look === "loved" || look === "yum" || look === "visiting") expression = "happy";
   else if (isSleeping) expression = "sleep";
   else if (night && anim.frame % 16 < 2) expression = "surprised";
   return {
@@ -1061,11 +1234,13 @@ const sceneKeyOf = (r, stage, anim, now, offsetMin) => {
     loot: hasLoot,
     box: now < r.boxUntil,
     nightcap: night,
-    zzz: isSleeping
+    zzz: isSleeping,
+    // the friend appears only once the owner stepped aside, or it would stand on the walking owner
+    guest: r.guest !== null && isVisiting(r, now) && anim.petX === AWAY_X ? { seed: r.guest.seed, tier: r.guest.tier, shiny: r.guest.shiny, stage: r.guest.stage } : null
   };
 };
-const stepAnim = (anim, r, roll) => {
-  const target = r.awaySince > 0 ? AWAY_X : HOME_X;
+const stepAnim = (anim, r, roll, now = Number.MAX_SAFE_INTEGER) => {
+  const target = r.awaySince > 0 || isVisiting(r, now) ? AWAY_X : HOME_X;
   const petX = anim.petX < target ? anim.petX + 1 : anim.petX > target ? anim.petX - 1 : anim.petX;
   return { frame: (anim.frame + 1) % 1e5, petX, blink: !anim.blink && roll < 0.08 };
 };
@@ -1096,14 +1271,14 @@ const xpLineOf = (xp) => {
   return `lvl ${lv.level}  ${xpBar(lv.intoLevel, lv.toNext)} ${lv.intoLevel}/${lv.toNext}`;
 };
 const heartsLeftOf = (p, now) => Math.floor(now / HOUR_MS) === p.heartsHour ? Math.max(0, CAPS_PER_HOUR.pet - p.heartsUsed) : CAPS_PER_HOUR.pet;
-const hudLines = (view, turns, r, now, tz) => {
+const hudLines = (view, turns, r, now, tz, active = null) => {
   if (!view) {
     const shown = Math.min(turns, HATCH_AFTER_TURNS);
     const status2 = turns >= HATCH_AFTER_TURNS ? "hatching..." : "keep working to hatch it";
     return { title: "Egg", xp: `turns ${shown}/${HATCH_AFTER_TURNS}`, hearts: "", status: status2, compact: `Egg \xB7 turns ${shown}/${HATCH_AFTER_TURNS} \xB7 ${status2}` };
   }
   const hearts = heartsBar(heartsLeftOf(view, now));
-  const status = statusText(lookOf(r, now, tz), now, r.awaySince, tz);
+  const status = statusText(lookOf(r, now, tz), now, r.awaySince, tz, r.guest, active);
   const serial = serialOf(view);
   const short = serial === null ? view.name : `${view.name} #${padSerial(serial)}`;
   return { title: titleOf(view), xp: xpLineOf(view.xp), hearts, status, compact: `${short} \xB7 lvl ${levelFromXp(view.xp).level} ${hearts} \xB7 ${status}` };
@@ -1283,6 +1458,7 @@ const petAtom = atom({ plugin: "nibbl", key: "v1.pet" }, null);
 const eggAtom = atom({ plugin: "nibbl", key: "v1.eggTurns" }, 0);
 const hiddenAtom = atom({ plugin: "nibbl", key: "v1.hidden" }, false);
 const reactAtom = atom({ plugin: "nibbl", key: "v1.react" }, CALM);
+const activeAtom = atom({ plugin: "nibbl", key: "v1.active" }, null);
 const tzAtom = atom({ plugin: "nibbl", key: "v1.tzOffsetMin" }, 0);
 
 // src/store.ts
@@ -1319,7 +1495,7 @@ const loadQueues = async ($) => {
   return out;
 };
 const clearSocial = async ($) => {
-  for (const key of [K.rank, K.rankAt, K.bestRank, K.waves, K.noteIdx, K.noteAt, K.toastQueue, K.greetDay]) await $.store.delete(key);
+  for (const key of [K.rank, K.rankAt, K.bestRank, K.waves, K.noteIdx, K.noteAt, K.toastQueue, K.greetDay, K.guests, K.giftCode]) await $.store.delete(key);
 };
 const dropQueues = async ($) => {
   for (const key of await $.store.keys()) if (key.startsWith(QUEUE_PREFIX)) await $.store.delete(key);
@@ -1348,6 +1524,7 @@ const releaseLease = async ($, owner) => {
 };
 
 // src/model.ts
+const EGG_LAID = " \xB7 It laid an egg for a friend: /nibbl egg";
 const refreshView = async ($, announce = false) => {
   const now = await $.clock.now();
   const pet = await loadPet($);
@@ -1363,7 +1540,7 @@ const refreshView = async ($, announce = false) => {
     const was = levelFromXp(prev.xp).level;
     const is = levelFromXp(view.xp).level;
     if (is > was) {
-      if (stageForLevel(was) !== stageForLevel(is)) $.ui.toast(`${view.name} evolved into a${stageForLevel(is) === "adult" ? "n adult" : " teen"}! Show it off: /nibbl share`);
+      if (stageForLevel(was) !== stageForLevel(is)) $.ui.toast(`${view.name} evolved into a${stageForLevel(is) === "adult" ? "n adult" : " teen"}! Show it off: /nibbl share${EGG_LAID}`);
       else $.ui.toast(`${view.name} reached level ${is}!`);
     }
   }
@@ -1373,6 +1550,8 @@ const ensureLoaded = async ($) => {
   if (await read($, loadedAtom)) return;
   const isHidden = await $.store.get(K.hidden) === true;
   const turns = await loadEggTurns($);
+  const active = await $.store.get(K.active);
+  await update($, activeAtom, () => typeof active === "number" && Number.isInteger(active) && active >= 0 ? active : null);
   await update($, hiddenAtom, () => isHidden);
   await update($, eggAtom, () => turns);
   await refreshView($);
@@ -1449,7 +1628,9 @@ const remember = (id, make) => {
 };
 const petCells = (g, key) => {
   const id = `${g.seed}.${g.tier}.${g.shiny ? 1 : 0}|${JSON.stringify(key)}`;
-  return { id, cells: remember(id, () => encodeRaster(toCellPairs(drawScene(g, key)))) };
+  const { guest, ...opts } = key;
+  const sceneOpts = guest ? { ...opts, guest: { genome: genomeOf(guest.seed, guest.tier, guest.shiny), stage: guest.stage } } : opts;
+  return { id, cells: remember(id, () => encodeRaster(toCellPairs(drawScene(g, sceneOpts)))) };
 };
 const eggCracks = (turns) => Math.max(0, Math.min(3, Math.floor(turns * 3 / HATCH_AFTER_TURNS)));
 const eggCells = (turns, frame) => {
@@ -1457,8 +1638,8 @@ const eggCells = (turns, frame) => {
   const id = `egg|${cracks}|${frame % 2}`;
   return { id, cells: remember(id, () => encodeRaster(toCellPairs(drawEggScene(cracks, frame % 2)))) };
 };
-const frameOf = (view, turns, r, anim, now, tz) => {
-  const lines = hudLines(view, turns, r, now, tz);
+const frameOf = (view, turns, r, anim, now, tz, active = null) => {
+  const lines = hudLines(view, turns, r, now, tz, active);
   const hud = `${lines.status}|${lines.hearts}`;
   if (!view) return { ...eggCells(turns, anim.frame), hud };
   const g = genomeOf(view.seed, view.tier, view.shiny);
@@ -1549,7 +1730,8 @@ const hatchNow = async ($, why, opts = {}) => {
     }
     const code = why === "egg" ? await $.store.get(K.inviteCode) : null;
     const invite = typeof code === "number" && Number.isInteger(code) && code >= 1 ? code : null;
-    const out = await postWithin($, await apiBase($), "/api/hatch", { machineHash: id.hash, ...invite === null ? {} : { invite } });
+    const gift = why === "egg" ? giftCodeOf(await $.store.get(K.giftCode)) : null;
+    const out = await postWithin($, await apiBase($), "/api/hatch", { machineHash: id.hash, ...invite === null ? {} : { invite }, ...gift === null ? {} : { gift } });
     if (out.kind !== "ok") {
       const next = out.kind === "error" && out.status === 429 && out.retryAt !== null ? holdUntil(wait, out.retryAt) : backoff(wait, now);
       await $.store.set(K.hatchWait, next);
@@ -1583,6 +1765,7 @@ const hatchNow = async ($, why, opts = {}) => {
     await savePet($, isSamePet && old ? { ...fresh, heartsHour: old.heartsHour, heartsUsed: old.heartsUsed, lastSyncAt: old.lastSyncAt } : fresh);
     await $.store.delete(K.egg);
     await $.store.delete(K.inviteCode);
+    await $.store.delete(K.giftCode);
     if (why !== "reauth") await $.store.set(K.greetDay, localDay(now, await read2($, tzAtom)));
     if (id.source === "install") await $.store.set(K.installSerial, fresh.serial);
     else await $.store.delete(K.installSerial);
@@ -1702,7 +1885,7 @@ const importCommand = async ($, rest) => {
     await clearSocial($);
   }
   await savePet($, isSame && old ? { ...pet, heartsHour: old.heartsHour, heartsUsed: old.heartsUsed, lastSyncAt: old.lastSyncAt } : pet);
-  for (const key of [K.egg, K.hatchWait, K.syncWait, K.inviteCode]) await $.store.delete(key);
+  for (const key of [K.egg, K.hatchWait, K.syncWait, K.inviteCode, K.giftCode]) await $.store.delete(key);
   if (id.source === "install") await $.store.set(K.installSerial, pet.serial);
   else await $.store.delete(K.installSerial);
   await forgetSpike($);
@@ -1712,10 +1895,10 @@ const importCommand = async ($, rest) => {
 };
 
 // src/commands.ts
-import { read as read4, update as update5 } from "claude-code";
+import { read as read4, update as update6 } from "claude-code";
 
 // src/engage.ts
-import { read as read3 } from "claude-code";
+import { read as read3, update as update4 } from "claude-code";
 
 // src/notes.ts
 const NOTES = [
@@ -1823,110 +2006,8 @@ const flushOne = async ($) => {
   $.ui.toast(shown.text);
 };
 
-// src/social.ts
-const isPosInt = (v) => typeof v === "number" && Number.isInteger(v) && v >= 1;
-const isNameOrNull = (v) => v === null || typeof v === "string";
-const isObj = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
-const parseWaves = (v) => {
-  if (!Array.isArray(v)) return [];
-  const out = [];
-  for (const w of v.slice(0, 5)) {
-    if (isObj(w) && isPosInt(w.from) && isNameOrNull(w.name ?? null)) out.push({ from: w.from, name: typeof w.name === "string" && w.name.length > 0 ? w.name : null });
-  }
-  return out;
-};
-const parseRank = (v) => {
-  if (!isObj(v) || !isPosInt(v.pos) || !isPosInt(v.total)) return null;
-  let above = null;
-  if (v.above !== null && v.above !== void 0) {
-    const a = v.above;
-    if (!isObj(a) || !isPosInt(a.serial) || !isNameOrNull(a.name ?? null) || typeof a.tier !== "string" || typeof a.xp !== "number" || !Number.isFinite(a.xp)) return null;
-    above = { serial: a.serial, name: typeof a.name === "string" && a.name.length > 0 ? a.name : null, tier: a.tier, xp: a.xp };
-  }
-  return { pos: v.pos, total: v.total, above };
-};
-const parseLatest = (v) => typeof v === "string" && /^\d{1,4}\.\d{1,4}\.\d{1,4}$/.test(v) ? v : null;
-const parseUnlocked = (v) => {
-  if (!Array.isArray(v)) return [];
-  const out = [];
-  for (const id of v) if (typeof id === "string" && achievementById(id) !== void 0 && !out.includes(id)) out.push(id);
-  return out;
-};
-const parseInvites = (v) => {
-  if (!Array.isArray(v)) return [];
-  const out = [];
-  for (const i of v.slice(0, 5)) {
-    if (isObj(i) && isPosInt(i.serial) && isNameOrNull(i.name ?? null)) out.push({ serial: i.serial, name: typeof i.name === "string" && i.name.length > 0 ? i.name : null });
-  }
-  return out;
-};
-const parseWeekWin = (v) => isObj(v) && typeof v.week === "string" && /^\d{4}-W\d{2}$/.test(v.week) && typeof v.gain === "number" && Number.isFinite(v.gain) ? { week: v.week, gain: v.gain } : null;
-const parseSocial = (body) => ({
-  waves: parseWaves(body.waves),
-  rank: parseRank(body.rank),
-  latest: parseLatest(body.latest),
-  unlocked: parseUnlocked(body.unlocked),
-  invites: parseInvites(body.invites),
-  weekWin: parseWeekWin(body.weekWin)
-});
-const parseWavesSeen = (v) => {
-  if (!Array.isArray(v)) return [];
-  const out = [];
-  for (const w of v) {
-    if (isObj(w) && isPosInt(w.from) && isNameOrNull(w.name ?? null) && typeof w.at === "number" && Number.isFinite(w.at)) {
-      out.push({ from: w.from, name: typeof w.name === "string" ? w.name : null, at: w.at });
-    }
-  }
-  return out;
-};
-const labelOf = (name, serial) => name ? `${name} #${padSerial(serial)}` : `#${padSerial(serial)}`;
-const waveToastText = (waves, me) => {
-  if (waves.length === 0) return null;
-  if (waves.length === 1) return `${labelOf(waves[0].name, waves[0].from)} waved at ${me} \u2665`;
-  return `${waves.length} nibbls waved at ${me} \u2665`;
-};
-const achievementToastText = (ids, me) => {
-  if (ids.length === 0) return null;
-  if (ids.length === 1) return `\u{1F3C6} ${me} unlocked ${achievementById(ids[0])?.name ?? ids[0]}`;
-  return `${me} unlocked ${ids.length} achievements`;
-};
-const inviteToastText = (invites) => {
-  if (invites.length === 0) return null;
-  if (invites.length === 1) return `Your friend's nibbl #${padSerial(invites[0].serial)} hatched. You are Friends now \u2665`;
-  return `${invites.length} friends hatched their nibbls. You are Friends now \u2665`;
-};
-const weekToastText = (me, base) => `${me} is the Nibbl of the Week! ${base}/week`;
-const rankLine = (r, serverXp) => {
-  const head = `rank ${r.pos} of ${r.total}`;
-  if (!r.above) return `${head} \xB7 top of the board`;
-  const a = r.above;
-  return `${head} \xB7 next: #${padSerial(a.serial)} (${a.xp} xp, ${Math.max(0, a.xp - serverXp)} ahead) \xB7 /nibbl wave ${a.serial}`;
-};
-const rankMilestone = (best, pos) => {
-  if (pos === 1 && (best === null || best > 1)) return "first";
-  if (pos <= 10 && (best === null || best > 10)) return "top10";
-  return null;
-};
-const UPDATE_HOW = "/plugin marketplace update nibbl, then /plugin update nibbl@nibbl";
-const updateLine = () => `update: ${UPDATE_HOW} (or turn on auto-update: /plugin > Marketplaces > nibbl)`;
-const updateToast = (latest) => `nibbl ${latest} is out: ${UPDATE_HOW}`;
-const WAVE_USAGE = "Usage: /nibbl wave <serial>, for example /nibbl wave 16.";
-const parseWaveTarget = (raw) => {
-  const m = /^#?(\d{1,6})$/.exec(raw.trim());
-  const n = m ? Number(m[1]) : 0;
-  return n >= 1 ? n : null;
-};
-const waveErrorText = (status, code, to) => {
-  const who = `#${padSerial(to)}`;
-  if (status === 400 && code === "self_wave") return "You can't wave at yourself.";
-  if (status === 404) return `No nibbl ${who} to wave at.`;
-  if (code === "already_waved") return `You already waved at ${who} today.`;
-  if (code === "wave_limit") return "That's 10 waves today. More tomorrow.";
-  return `The server answered ${code}. Try again later.`;
-};
-
 // src/version.ts
-const VERSION = true ? "0.3.0" : "0.0.0-dev";
+const VERSION = true ? "0.4.0" : "0.0.0-dev";
 const SEMVER = /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/;
 const parseSemver = (v) => {
   const m = typeof v === "string" ? SEMVER.exec(v) : null;
@@ -1987,11 +2068,18 @@ const applySocial = async ($, pet, body, now) => {
   if (earned.length > 0) await enqueueAchievements($, earned, me, achievementToastText);
   const invited = inviteToastText(social.invites);
   if (invited !== null) await enqueue($, "invite", invited);
-  const text = waveToastText(social.waves, me);
-  if (text !== null) {
-    const kept = [...social.waves.map((w) => ({ ...w, at: now })), ...parseWavesSeen(await $.store.get(K.waves))].slice(0, WAVES_KEPT);
+  if (social.waves.length > 0) {
+    const kept = [...social.waves.map((w) => ({ from: w.from, name: w.name, at: now })), ...parseWavesSeen(await $.store.get(K.waves))].slice(0, WAVES_KEPT);
     await $.store.set(K.waves, kept);
-    await enqueue($, "wave", text);
+    const isHidden = await $.store.get(K.hidden) === true;
+    const guests = (isHidden ? [] : social.waves.filter((w) => w.look !== void 0)).map((w) => ({ from: w.from, name: w.name, look: w.look }));
+    if (guests.length > 0) await $.store.set(K.guests, [...parseGuests(await $.store.get(K.guests)), ...guests].slice(-GUESTS_MAX));
+    const text = waveToastText(isHidden ? social.waves : social.waves.filter((w) => w.look === void 0), me);
+    if (text !== null) await enqueue($, "wave", text);
+  }
+  if (social.active !== null) {
+    await $.store.set(K.active, social.active);
+    await update4($, activeAtom, () => social.active);
   }
   if (social.rank) {
     await $.store.set(K.rank, social.rank);
@@ -2013,6 +2101,18 @@ const applySocial = async ($, pet, body, now) => {
     }
   }
 };
+const maybeVisit = async ($) => {
+  if (await $.store.get(K.hidden) === true) return;
+  const now = await $.clock.now();
+  if (isVisiting(await read3($, reactAtom), now)) return;
+  const guests = parseGuests(await $.store.get(K.guests));
+  const next = guests.shift();
+  if (!next) return;
+  if (guests.length === 0) await $.store.delete(K.guests);
+  else await $.store.set(K.guests, guests);
+  const guest = { seed: next.look.seed, tier: next.look.tier, shiny: next.look.shiny, stage: stageForLevel(next.look.level), name: next.name, from: next.from };
+  await update4($, reactAtom, (r) => onGuest(r, now, guest, now + GUEST_MS));
+};
 const socialStatsLines = async ($, pet) => {
   const lines = [];
   if (!pet) return lines;
@@ -2021,6 +2121,8 @@ const socialStatsLines = async ($, pet) => {
   if (last !== void 0) lines.push(`last note: ${noteAt(pet.seed, last, displayName(pet.name), pet.serial)}`);
   const wave = parseWavesSeen(await $.store.get(K.waves))[0];
   if (wave) lines.push(`last wave: ${labelOf(wave.name, wave.from)} waved at you`);
+  const active = num(await $.store.get(K.active));
+  if (active !== null && Number.isInteger(active) && active >= 1) lines.push(codingText(active));
   const rank = parseRank(await $.store.get(K.rank));
   if (rank) lines.push(rankLine(rank, pet.xp));
   if (isNewer(await $.store.get(K.latest))) lines.push(updateLine());
@@ -2030,7 +2132,7 @@ const socialStatsLines = async ($, pet) => {
 };
 
 // src/events.ts
-import { update as update4 } from "claude-code";
+import { update as update5 } from "claude-code";
 
 // src/sync.ts
 const isCount = (v) => typeof v === "number" && Number.isInteger(v) && v >= 0;
@@ -2136,7 +2238,7 @@ const syncIfDue = async ($) => {
 // src/events.ts
 const react = async ($, change) => {
   const now = await $.clock.now();
-  await update4($, reactAtom, (r) => change(r, now));
+  await update5($, reactAtom, (r) => change(r, now));
 };
 const recordEvent = async ($, type) => {
   const pet = await loadPet($);
@@ -2193,7 +2295,13 @@ const shareCommand = async ($) => {
   const view = await refreshView($);
   const url = cardUrl(await apiBase($), pet.serial);
   const line = shareLine({ name: pet.name, serial: pet.serial, tier: pet.tier, xp: view?.xp ?? pet.xp }, url);
-  return [`card: ${url}`, line, `Post it: https://x.com/intent/post?text=${encodeURIComponent(line)}`].join("\n");
+  return [`card: ${url}`, line, `Post it: https://x.com/intent/post?text=${encodeURIComponent(line)}`, "Profile badge: /nibbl badge"].join("\n");
+};
+const badgeMarkdown = (base, serial) => `[![nibbl](${base}/p/${padSerial(serial)}/badge.svg)](${base}/p/${padSerial(serial)})`;
+const badgeCommand = async ($) => {
+  const pet = await loadPet($);
+  if (!pet) return await loadSpike($) ? LINKING : "Hatch the egg first.";
+  return [badgeMarkdown(await apiBase($), pet.serial), "Paste it into your GitHub profile README (the repo named after your username)."].join("\n");
 };
 const count = (v) => typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : 0;
 const isObj2 = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -2247,16 +2355,11 @@ const achievementsCommand = async ($) => {
   return achievementsText(out.body);
 };
 const INSTALL = ["/plugin marketplace add https://getnibbl.pages.dev/marketplace.json", "/plugin install nibbl@nibbl"];
-const INVITE_USAGE = "Usage: /nibbl invite <serial>, for example /nibbl invite 19. Run it before your egg hatches.";
+const INVITE_USAGE = "Usage: /nibbl invite <serial>, for example /nibbl invite 19. Run it before your egg hatches. Or use /nibbl egg <code>.";
 const inviteCommand = async ($, rest) => {
+  if (rest === "" || parseWaveTarget(rest) === null && giftCodeOf(rest) !== null) return eggCommand($, rest);
   const pet = await loadPet($);
   const hasPet = pet !== null || await loadSpike($) !== null;
-  if (rest === "") {
-    if (pet) {
-      return [`Ask a friend to install nibbl and run /nibbl invite ${pet.serial} before their egg hatches.`, ...INSTALL.map((l) => `  ${l}`)].join("\n");
-    }
-    return hasPet ? LINKING : INVITE_USAGE;
-  }
   if (hasPet) return "Invites work only before your egg hatches.";
   const code = parseWaveTarget(rest);
   if (code === null) return INVITE_USAGE;
@@ -2264,9 +2367,72 @@ const inviteCommand = async ($, rest) => {
   return `Saved. If #${padSerial(code)} exists, your nibbls become Friends when your egg hatches.`;
 };
 
+// src/gift.ts
+const LINKING2 = "Your nibbl is still linking to the server. Try again in a minute.";
+const EGG_USAGE = "Usage: /nibbl egg <code>, for example /nibbl egg ABCDE-FGHJK. Run it before your egg hatches.";
+const EGG_HELP = [
+  "Gift eggs: a nibbl lays an egg for a friend at level 10 and another at level 25.",
+  "Got a code from a friend? Run /nibbl egg <code> before your egg hatches.",
+  "Your own eggs show here once your egg has hatched."
+].join("\n");
+const isObj3 = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
+const parseGiftEggs = (body) => {
+  const out = [];
+  if (!Array.isArray(body.eggs)) return out;
+  for (const e of body.eggs) {
+    if (!isObj3(e) || e.milestone !== 10 && e.milestone !== 25 || out.some((o) => o.milestone === e.milestone)) continue;
+    const code = giftCodeOf(e.code);
+    const by = isObj3(e.by) && typeof e.by.serial === "number" && Number.isInteger(e.by.serial) && e.by.serial >= 1 ? { serial: e.by.serial, name: typeof e.by.name === "string" && e.by.name.length > 0 ? e.by.name : null } : null;
+    const status = e.status === "ready" && code !== null ? "ready" : e.status === "hatched" ? "hatched" : "locked";
+    out.push({ milestone: e.milestone, status, code: status === "ready" ? code : null, by });
+  }
+  return out.sort((a, b) => a.milestone - b.milestone);
+};
+const giftEggsText = (eggs) => {
+  const lines = [];
+  for (const e of eggs) {
+    const head = `Egg ${e.milestone === 10 ? 1 : 2} (level ${e.milestone}):`;
+    if (e.status === "ready") lines.push(`${head} ${giftCodeText(e.code)} ready, give it to a friend`);
+    else if (e.status === "hatched") lines.push(`${head} hatched as ${e.by ? labelOf(e.by.name, e.by.serial) : "a friend's nibbl"}`);
+    else lines.push(`${head} locked until level ${e.milestone}`);
+  }
+  const ready = eggs.find((e) => e.status === "ready");
+  if (ready) lines.push(`Your friend installs nibbl, then runs /nibbl egg ${giftCodeText(ready.code)} before their egg hatches.`, ...INSTALL.map((l) => `  ${l}`));
+  return lines.join("\n");
+};
+const listEggs = async ($, pet) => {
+  const base = await apiBase($);
+  const call = (p) => postWithin($, base, "/api/gift", { serial: p.serial, token: p.token });
+  let out = await call(pet);
+  if (out.kind === "error" && out.status === 401) {
+    const result = await hatchNow($, "reauth");
+    const fresh = result === "hatched" ? await loadPet($) : null;
+    if (fresh) out = await call(fresh);
+  }
+  if (out.kind === "offline") return "Could not reach the nibbl server. Try again later.";
+  if (out.kind === "error" && out.status === 401) return "Could not reach your pet's account. Try /nibbl egg again later.";
+  if (out.kind === "error" && out.status === 404) return "Your nibbl is hidden from the board, so it cannot lay gift eggs.";
+  if (out.kind === "error") return `The server answered ${out.code}. Try again later.`;
+  const eggs = parseGiftEggs(out.body);
+  return eggs.length === 0 ? "The server answered something unexpected. Try again later." : giftEggsText(eggs);
+};
+const eggCommand = async ($, rest) => {
+  const pet = await loadPet($);
+  const hasPet = pet !== null || await loadSpike($) !== null;
+  if (rest === "") {
+    if (pet) return listEggs($, pet);
+    return hasPet ? LINKING2 : EGG_HELP;
+  }
+  const code = giftCodeOf(rest);
+  if (code === null) return EGG_USAGE;
+  if (hasPet) return "Gift eggs work only before your egg hatches.";
+  await $.store.set(K.giftCode, code);
+  return "Saved. When your egg hatches it becomes the child of that nibbl and inherits its mark when it can.";
+};
+
 // src/help.ts
-const COMMAND_DESCRIPTION = "Your nibbl: stats, pet, name, label, wave, share, achievements, invite, notes, odds, export, import, hide";
-const COMMAND_HINT = "[pet | name <text> | label <text> | wave <serial> | share | achievements | invite [serial] | notes | odds | export | import <code> | hide]";
+const COMMAND_DESCRIPTION = "Your nibbl: stats, pet, name, label, wave, share, badge, egg, invite, achievements, notes, odds, export, import, hide";
+const COMMAND_HINT = "[pet | name <text> | label <text> | wave <serial> | share | badge | egg [code] | invite [code | serial] | achievements | notes | odds | export | import <code> | hide]";
 const HELP = [
   "/nibbl                 stats, card and leaderboard links",
   "/nibbl pet             pet it (or ctrl+x tab, then p, on the band)",
@@ -2274,8 +2440,10 @@ const HELP = [
   "/nibbl label <text>    set a label (up to 24 characters); /nibbl label alone clears it",
   "/nibbl wave <serial>   wave at another nibbl (10 a day, one per nibbl)",
   "/nibbl share           a ready post and card link to show your nibbl off",
+  "/nibbl badge           a README badge for your GitHub profile",
+  "/nibbl egg [code]      your gift eggs for friends (or enter a friend's code, before your egg hatches)",
   "/nibbl achievements    your achievements and the next ones",
-  "/nibbl invite [serial] invite a friend (or enter who invited you, before your egg hatches)",
+  "/nibbl invite          same as /nibbl egg (/nibbl invite <serial> still works)",
   "/nibbl notes           notes from the maker you have received",
   "/nibbl odds            hatch odds and your pet's traits",
   "/nibbl export          show the secret code that moves your pet",
@@ -2334,7 +2502,7 @@ const oddsCommand = async ($) => {
 };
 const hideCommand = async ($) => {
   const isHidden = !await read4($, hiddenAtom);
-  await update5($, hiddenAtom, () => isHidden);
+  await update6($, hiddenAtom, () => isHidden);
   await $.store.set(K.hidden, isHidden);
   if (isHidden) await recordEvent($, "hide");
   return isHidden ? "Nibbl is hidden. It keeps living and syncing; /nibbl hide brings it back." : "Nibbl is back.";
@@ -2360,6 +2528,8 @@ const runCommand = async ($, args) => {
   if (verb === "wave") return waveCommand($, rest);
   if (verb === "share") return shareCommand($);
   if (verb === "achievements") return achievementsCommand($);
+  if (verb === "badge") return badgeCommand($);
+  if (verb === "egg") return eggCommand($, rest);
   if (verb === "invite") return inviteCommand($, rest);
   if (verb === "notes") return notesCommand($);
   if (verb === "export") return exportCommand($);
@@ -2368,7 +2538,7 @@ const runCommand = async ($, args) => {
 };
 
 // src/lifecycle.ts
-import { update as update6 } from "claude-code";
+import { update as update7 } from "claude-code";
 
 // src/ticker.ts
 import { read as read5 } from "claude-code";
@@ -2396,18 +2566,19 @@ const tick = async ($) => {
   const now = await $.clock.now();
   await beat($, now);
   const r = await read5($, reactAtom);
-  rt.anim = stepAnim(rt.anim, r, Math.random());
+  rt.anim = stepAnim(rt.anim, r, Math.random(), now);
   const band = rt.band;
   if (!band) return;
   const view = await read5($, petAtom);
   const turns = await read5($, eggAtom);
   const tz = await read5($, tzAtom);
-  if (hudKey(hudLines(view, turns, r, now, tz)) !== band.hud) {
+  const active = await read5($, activeAtom);
+  if (hudKey(hudLines(view, turns, r, now, tz, active)) !== band.hud) {
     $.ui.invalidate("ui.render");
     return;
   }
   if (band.sceneId === null) return;
-  const frame = frameOf(view, turns, r, rt.anim, now, tz);
+  const frame = frameOf(view, turns, r, rt.anim, now, tz, active);
   if (frame.id === band.sceneId) return;
   const painted = await $.ui.blit({ requestId: band.requestId, key: "scene", cells: frame.cells.cells });
   if (painted.deny !== void 0) {
@@ -2429,7 +2600,7 @@ const readTimezone = async ($) => {
     if (parsed !== null) offset = parsed;
   } catch {
   }
-  await update6($, tzAtom, () => offset);
+  await update7($, tzAtom, () => offset);
 };
 const hatchAndSync = async ($, why) => {
   if (await loadPet($)) return "busy";
@@ -2456,7 +2627,7 @@ const onAnsweredTurn = async ($) => {
   }
   const turns = await loadEggTurns($) + 1;
   await $.store.set(K.egg, turns);
-  await update6($, eggAtom, () => turns);
+  await update7($, eggAtom, () => turns);
   if (turns >= HATCH_AFTER_TURNS) {
     $.clock.after(HATCH_DELAY_MS, () => {
       void hatchAndSync($, "egg").catch((err) => $.ui.log(`nibbl: hatch: ${err instanceof Error ? err.message : String(err)}`, { to: "debug" }));
@@ -2494,6 +2665,7 @@ export const register = (on, options) => {
       rt.answered++;
       await guarded($, "note", () => maybeNote($));
       await guarded($, "greeting", () => maybeGreet($));
+      await guarded($, "visit", () => maybeVisit($));
       await guarded($, "toast", () => flushOne($));
     }
     return next(e);
@@ -2530,8 +2702,9 @@ export const register = (on, options) => {
     const turns = await read6($, eggAtom);
     const r = await read6($, reactAtom);
     const tz = await read6($, tzAtom);
-    const frame = frameOf(view, turns, r, rt.anim, now, tz);
-    const lines = hudLines(view, turns, r, now, tz);
+    const active = await read6($, activeAtom);
+    const frame = frameOf(view, turns, r, rt.anim, now, tz, active);
+    const lines = hudLines(view, turns, r, now, tz, active);
     const isFull = e.surface === "terminal" && e.props.maxRows >= MIN_FULL_ROWS && e.props.bodyColumns >= MIN_FULL_COLUMNS;
     rt.band = { requestId: e.requestId, sceneId: isFull ? frame.id : null, hud: hudKey(lines) };
     const { Box, Text, Button } = $.ui.resolve(e);
