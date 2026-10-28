@@ -3,7 +3,8 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { countActive } from '../src/cron'
 import { atLeast } from '../src/lib/retention'
 import { candidates } from '../src/lib/roll'
-import type { HatchResult } from '../src/routes/hatch'
+import { normalizeGift } from '../src/routes/gift'
+import { GIFT_CHUNK, pickInherited, type HatchResult } from '../src/routes/hatch'
 import { call, hatchPet, insertPet, machine, petRow, resetDb, T0, testEnv } from './helpers'
 
 beforeEach(resetDb)
@@ -250,5 +251,64 @@ describe('missing migration 0006', () => {
         testEnv.DB.prepare('ALTER TABLE invite_notices ADD COLUMN via_gift INTEGER NOT NULL DEFAULT 0'),
       ])
     }
+  })
+})
+
+describe('gift code normalization', () => {
+  it('maps look-alike letters to the alphabet and strips dashes and spaces', () => {
+    expect(normalizeGift('abcde-fghjk')).toBe('ABCDEFGHJK')
+    expect(normalizeGift('OIL0U-1lo0u')).toBe('0110V1100V')
+    expect(normalizeGift(' ab cde-fghjk ')).toBe('ABCDEFGHJK')
+    expect(normalizeGift('ABCDE-FGHJ')).toBeNull()
+  })
+
+  it('redeems a code typed with look-alike letters', async () => {
+    const a = await readyParent()
+    const code = (await eggs(a))[0]!.code!
+    const typed = code.replace(/0/g, 'o').replace(/1/g, 'l').replace(/V/g, 'u')
+    const b = (await (await giftHatch(2, typed)).json()) as HatchResult
+    expect(await testEnv.DB.prepare('SELECT invited_by FROM pets WHERE serial = ?').bind(b.serial).first<number>('invited_by')).toBe(a.serial)
+  })
+})
+
+describe('gift egg listing', () => {
+  it('does not reveal the name of a hidden child', async () => {
+    const a = await readyParent()
+    const code = (await eggs(a))[0]!.code!
+    const b = (await (await giftHatch(2, code)).json()) as HatchResult
+    await testEnv.DB.prepare('UPDATE pets SET name = ?, is_hidden = 1 WHERE serial = ?').bind('Secret', b.serial).run()
+    expect((await eggs(a))[0]).toEqual({ milestone: 10, status: 'hatched', by: { serial: b.serial, name: null } })
+    await testEnv.DB.prepare('UPDATE pets SET is_hidden = 0 WHERE serial = ?').bind(b.serial).run()
+    expect((await eggs(a))[0]!.by!.name).toBe('Secret')
+  })
+})
+
+describe('lazy gift roll', () => {
+  it('stops at the first chunk with a unique match and does not compute later ones', async () => {
+    const parent = genome(5, 'common', false)
+    for (let n = 2; n < 300; n++) {
+      const list = await candidates(testEnv.ROLL_SECRET, machine(n), 0, GIFT_CHUNK)
+      if (!list.some(c => inheritsMark(c, parent))) continue
+      const froms: number[] = []
+      const picked = await pickInherited(testEnv, machine(n), parent, (s, m, from, count) => {
+        froms.push(from)
+        return candidates(s, m, from, count)
+      })
+      expect(picked && inheritsMark(picked, parent)).toBe(true)
+      expect(froms).toEqual([0])
+      return
+    }
+    throw new Error('no machine with an early match')
+  })
+
+  it('returns null after four chunks when nothing inherits', async () => {
+    const froms: number[] = []
+    const never = genome(1, 'common', false)
+    const picked = await pickInherited(testEnv, machine(2), never, async (s, m, from, count) => {
+      froms.push(from)
+      return (await candidates(s, m, from, count)).filter(() => false)
+    })
+    expect(picked).toBeNull()
+    expect(froms).toEqual([0, 24, 48, 72])
   })
 })

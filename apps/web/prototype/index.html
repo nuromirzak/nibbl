@@ -790,7 +790,7 @@ Promise.all([
   apiGet('/api/stats').then(j=>{if(!Number.isFinite(j.hatched)) throw 0;return j;}).catch(()=>null),
   apiGet('/api/leaderboard').then(j=>{if(!Array.isArray(j.entries)||!j.entries.length) throw 0;return liveRows(j.entries);}).catch(()=>null)
 ]).then(([hatched,rows])=>{
-  if(hatched!==null){hatchedNow=hatched.hatched;if(Number.isFinite(hatched.active)){$('counterlbl').innerHTML='<b id="active">'+fmtN(hatched.active)+'</b> nibbls coding today · <b id="hatched">'+fmtN(hatched.hatched)+'</b> hatched';}else{$('hatched').textContent=fmtN(hatched.hatched);}}
+  if(hatched!==null){hatchedNow=hatched.hatched;if(Number.isFinite(hatched.active)&&hatched.active>=2){$('counterlbl').innerHTML='<b id="active">'+fmtN(hatched.active)+'</b> nibbls coding today · <b id="hatched">'+fmtN(hatched.hatched)+'</b> hatched';}else{$('hatched').textContent=fmtN(hatched.hatched);}}
   renderLb(rows||fakeRows());
   renderRecent(Math.max(1,hatchedNow));
 });

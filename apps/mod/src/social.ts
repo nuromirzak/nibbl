@@ -129,7 +129,8 @@ export const parseGuests = (v: unknown): GuestIn[] => {
 // or spaces. Returns the normalized 10 characters (uppercase), or null.
 export const giftCodeOf = (raw: unknown): string | null => {
   if (typeof raw !== 'string') return null
-  const code = raw.replace(/[-\s]/g, '').toUpperCase()
+  // The alphabet has no I, L, O or U: read them as 1, 1, 0 and V.
+  const code = raw.replace(/[-\s]/g, '').toUpperCase().replace(/O/g, '0').replace(/[IL]/g, '1').replace(/U/g, 'V')
   return /^[0-9A-Z]{10}$/.test(code) ? code : null
 }
 

@@ -178,6 +178,11 @@ describe('guest visits', () => {
     expect(sceneKeyOf(visit, 'baby', ANIM, NOW + 90_000, 300).guest).toBeNull()
   })
 
+  it('draws no guest while the owner is still walking to the edge', () => {
+    for (const petX of [8, 12, 15]) expect(sceneKeyOf(visit, 'baby', { ...ANIM, petX }, NOW + 5_000, 300).guest).toBeNull()
+    expect(sceneKeyOf(visit, 'baby', { ...ANIM, petX: 16 }, NOW + 5_000, 300).guest).not.toBeNull()
+  })
+
   it('walks the owner to x=16 and back, and puts the guest in the scene key', () => {
     let anim = ANIM
     for (let i = 0; i < 12; i++) anim = stepAnim(anim, visit, 0.5, NOW + 5_000)

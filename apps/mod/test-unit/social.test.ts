@@ -149,6 +149,7 @@ describe('0.4.0 sync fields', () => {
   it('normalizes gift codes', () => {
     expect(giftCodeOf('abcde-fghjk')).toBe('ABCDEFGHJK')
     expect(giftCodeOf(' ABCDE FGHJK ')).toBe('ABCDEFGHJK')
+    expect(giftCodeOf('OIL0U-1lo0u')).toBe('0110V1100V')
     for (const bad of ['', 'ABCDE-FGHJ', 'ABCDE-FGHJKL', 'ABCDE-FGH!K', 5, null]) expect(giftCodeOf(bad)).toBeNull()
     expect(giftCodeText('ABCDEFGHJK')).toBe('ABCDE-FGHJK')
   })

@@ -57,7 +57,6 @@ const pickGenome = async (env: Env, machineHash: string): Promise<Genome> => {
 }
 
 export const GIFT_CANDIDATES = 96
-const KEY_CHUNK = 40
 
 type GiftParent = { hash: string; genome: Genome }
 
@@ -81,10 +80,18 @@ const validGift = async (db: D1Database, code: string | null, machineHash: strin
 }
 
 // Best effort: the first unique candidate (of up to 96) that carries the parent's mark; null when none does.
-const pickInherited = async (env: Env, machineHash: string, parent: Genome): Promise<Genome | null> => {
-  const list = (await candidates(env.ROLL_SECRET, machineHash, 0, GIFT_CANDIDATES)).filter(c => inheritsMark(c, parent))
-  for (let i = 0; i < list.length; i += KEY_CHUNK) {
-    const chunk = list.slice(i, i + KEY_CHUNK)
+// Candidates are made lazily in chunks, so an early match never pays for the later ones.
+export const GIFT_CHUNK = 24
+
+export const pickInherited = async (
+  env: Env,
+  machineHash: string,
+  parent: Genome,
+  make: typeof candidates = candidates,
+): Promise<Genome | null> => {
+  for (let from = 0; from < GIFT_CANDIDATES; from += GIFT_CHUNK) {
+    const chunk = (await make(env.ROLL_SECRET, machineHash, from, GIFT_CHUNK)).filter(c => inheritsMark(c, parent))
+    if (chunk.length === 0) continue
     const taken = await takenKeys(env.DB, chunk.map(genomeKey), chunk.map(visualKey))
     const picked = pickUnique(chunk, key => taken.genome.has(key), key => taken.visual.has(key))
     if (picked) return picked

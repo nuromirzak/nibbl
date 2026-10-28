@@ -42,6 +42,20 @@ test('a wave with a look makes no toast; the visit starts on the next answered t
   await ui.unmount()
 })
 
+test('a hidden band toasts a wave with a look and queues no guest', async ($, on) => {
+  const h = harness(on, { store: { ...named(), 'v1.hidden': true }, pet: { name: 'Pixel' } })
+  h.server.syncExtra = { waves: [{ from: 14, name: 'Ziutek', ...LOOK }] }
+  await start($)
+  await answer($)
+  await end($)
+  await answer($)
+  expect(h.toasts.filter(t => /waved at/.test(t))).toEqual(['Ziutek #000014 waved at Pixel ♥'])
+  const ui = await $.ui.mount({ plugin: 'nibbl', surface: 'terminal', ...BAND() })
+  await h.clock.advance(3_000)
+  expect(await ui.find({ type: 'Text', text: /came to say hi/ })).toBeUndefined()
+  await ui.unmount()
+})
+
 test('the guest queue keeps 5, drops the oldest, and starts one visit at a time', async ($, on) => {
   const h = harness(on, { store: named(), pet: { name: 'Pixel' } })
   const wave = (n: number) => ({ from: 100 + n, name: `G${n}`, ...LOOK, seed: LOOK.seed + n })

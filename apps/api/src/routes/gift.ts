@@ -15,10 +15,11 @@ export const giftCode = async (secret: string, serial: number, milestone: number
 
 export const formatGift = (code: string): string => `${code.slice(0, 5)}-${code.slice(5)}`
 
-// Uppercase, `-` and whitespace stripped; null unless 10 base32 chars remain.
+// Uppercase, `-` and whitespace stripped, look-alikes mapped; null unless 10 base32 chars remain.
 export const normalizeGift = (v: unknown): string | null => {
   if (typeof v !== 'string' || v.length > 64) return null
-  const code = v.replace(/[-\s]/g, '').toUpperCase()
+  // Crockford base32 has no I, L, O or U: read them as 1, 1, 0 and V.
+  const code = v.replace(/[-\s]/g, '').toUpperCase().replace(/O/g, '0').replace(/[IL]/g, '1').replace(/U/g, 'V')
   return /^[0-9A-Z]{10}$/.test(code) ? code : null
 }
 
@@ -49,7 +50,7 @@ export const gift = async (request: Request, env: Env, deps: Deps): Promise<Resp
     }
     rows = (
       await env.DB.prepare(
-        `SELECT g.milestone, g.redeemed_by, p.name FROM gift_codes g LEFT JOIN pets p ON p.serial = g.redeemed_by WHERE g.from_serial = ?`,
+        `SELECT g.milestone, g.redeemed_by, CASE WHEN p.is_hidden = 0 THEN p.name END AS name FROM gift_codes g LEFT JOIN pets p ON p.serial = g.redeemed_by WHERE g.from_serial = ?`,
       )
         .bind(pet.serial)
         .all<{ milestone: number; redeemed_by: number | null; name: string | null }>()

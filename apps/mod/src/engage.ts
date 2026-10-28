@@ -94,9 +94,11 @@ export const applySocial = async ($: EngineInterface, pet: ServerPet, body: Reco
     const kept = [...social.waves.map(w => ({ from: w.from, name: w.name, at: now })), ...parseWavesSeen(await $.store.get(K.waves))].slice(0, WAVES_KEPT)
     await $.store.set(K.waves, kept)
     // A wave with a look becomes a visit on the next answered turn; the others keep the toast.
-    const guests = social.waves.filter(w => w.look !== undefined).map(w => ({ from: w.from, name: w.name, look: w.look! }))
+    // A hidden band draws no visit, so those waves keep the toast too.
+    const isHidden = (await $.store.get(K.hidden)) === true
+    const guests = (isHidden ? [] : social.waves.filter(w => w.look !== undefined)).map(w => ({ from: w.from, name: w.name, look: w.look! }))
     if (guests.length > 0) await $.store.set(K.guests, [...parseGuests(await $.store.get(K.guests)), ...guests].slice(-GUESTS_MAX))
-    const text = waveToastText(social.waves.filter(w => w.look === undefined), me)
+    const text = waveToastText(isHidden ? social.waves : social.waves.filter(w => w.look === undefined), me)
     if (text !== null) await enqueue($, 'wave', text)
   }
 
@@ -131,6 +133,7 @@ export const applySocial = async ($: EngineInterface, pet: ServerPet, body: Reco
 
 // On an answered turn with no visit running, the next waiting guest walks in for 90 s.
 export const maybeVisit = async ($: EngineInterface): Promise<void> => {
+  if ((await $.store.get(K.hidden)) === true) return
   const now = await $.clock.now()
   if (isVisiting(await read($, reactAtom), now)) return
   const guests = parseGuests(await $.store.get(K.guests))

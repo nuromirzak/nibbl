@@ -141,7 +141,8 @@ export const sceneKeyOf = (r: NibblReaction, stage: Stage, anim: Anim, now: numb
     box: now < r.boxUntil,
     nightcap: night,
     zzz: isSleeping,
-    guest: r.guest !== null && isVisiting(r, now) ? { seed: r.guest.seed, tier: r.guest.tier, shiny: r.guest.shiny, stage: r.guest.stage } : null,
+    // the friend appears only once the owner stepped aside, or it would stand on the walking owner
+    guest: r.guest !== null && isVisiting(r, now) && anim.petX === AWAY_X ? { seed: r.guest.seed, tier: r.guest.tier, shiny: r.guest.shiny, stage: r.guest.stage } : null,
   }
 }
 
