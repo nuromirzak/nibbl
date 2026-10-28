@@ -66,7 +66,7 @@ footer{padding:48px 0;border-top:4px solid #1a1c2c}
   <div class="wrap doc">
     <h1>Privacy</h1>
     <p class="lead">Nibbl is a pixel pet mod for Claude Code. It needs a small server so every pet gets a serial number and a fair place on the leaderboard. This page lists everything that server receives, why, and how long it keeps it.</p>
-    <p class="meta">Effective 14 October 2026. Applies to the nibbl plugin (version 0.3.0 and later) and to getnibbl.pages.dev.</p>
+    <p class="meta">Effective 28 October 2026. Applies to the nibbl plugin (version 0.4.0 and later) and to getnibbl.pages.dev.</p>
 
     <h2>The short version</h2>
     <ul>
@@ -85,7 +85,7 @@ footer{padding:48px 0;border-top:4px solid #1a1c2c}
         <tr><td>Event types and times: turn, check passed, commit, error, pet, hide</td><td>To compute XP on the server with hourly caps. Individual events are not stored, only hourly counts per type.</td><td>Hourly counts: as long as the pet exists</td></tr>
         <tr><td>The name and label you choose with <code>/nibbl name</code> and <code>/nibbl label</code></td><td>Shown on your pet's public card and on the leaderboard.</td><td>Until you change them or the pet is deleted</td></tr>
         <tr><td>The serial of a nibbl you wave at with <code>/nibbl wave</code></td><td>To deliver the wave to that pet. No text is sent.</td><td>Deleted after delivery (end of that day) or after 30 days at most</td></tr>
-        <tr><td>The inviter serial you enter with <code>/nibbl invite</code> (once, at hatch)</td><td>To record the friend bond between the two pets. It gives no XP and no better odds.</td><td>As long as either pet exists</td></tr>
+        <tr><td>The gift code you type with <code>/nibbl egg</code> (once, at hatch). Legacy serial invites are still accepted</td><td>To record the parent link between the two pets and let the new pet inherit the parent's mark when possible. It gives no XP and no better odds.</td><td>As long as either pet exists</td></tr>
         <tr><td>The plugin version</td><td>So new features reach only clients that support them.</td><td>Not stored</td></tr>
       </tbody>
     </table></div>
@@ -95,7 +95,8 @@ footer{padding:48px 0;border-top:4px solid #1a1c2c}
     <p>The server is a Cloudflare Worker with a Cloudflare D1 database, reached at <code>getnibbl.pages.dev</code>. Like any website, Cloudflare sees your IP address when the plugin or your browser connects. Nibbl itself keeps only a daily-salted hash of the IP, used to limit hatching to 100 pets per network per day, and deletes it after 2 days. Cloudflare's own request logs for the Worker are kept for a few days under Cloudflare's policies and are used only to debug errors.</p>
 
     <h2>What is public</h2>
-    <p>Every pet has a public card at <code>getnibbl.pages.dev/p/&lt;serial&gt;</code> and may appear on the leaderboard. Public fields: serial, name, label, tier, shiny and genesis flags, level, XP, the seed that draws the pet, unlocked achievements with their dates, and the number of friends (the invite relation). Nothing on a card identifies the machine or the person.</p>
+    <p>Every pet has a public card at <code>getnibbl.pages.dev/p/&lt;serial&gt;</code> and may appear on the leaderboard. Public fields: serial, name, label, tier, shiny and genesis flags, level, XP, the seed that draws the pet, unlocked achievements with their dates, the number of friends, the parent link ("child of #&lt;serial&gt;") and the number of eggs hatched. Nothing on a card identifies the machine or the person.</p>
+    <p>The site and the plugin also show an aggregate count of pets active in the last 24 hours. It is computed from sync times the server already has, shows no individual pet, and collects no new data.</p>
 
     <h2>What the server keeps about a pet</h2>
     <p>Besides hourly counts, the server keeps lifetime totals per pet of the same events: turns, checks passed, commits, failed tool runs, pets, waves sent and active days. They drive achievements and are kept while the pet exists. A snapshot of the pet's XP at the start of each week is kept for one week, to pick the Nibbl of the week (real pets only; hidden pets are excluded).</p>

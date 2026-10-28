@@ -11,4 +11,5 @@ export const petAtom = atom({ plugin: 'nibbl', key: 'v1.pet' } as const, null as
 export const eggAtom = atom({ plugin: 'nibbl', key: 'v1.eggTurns' } as const, 0)
 export const hiddenAtom = atom({ plugin: 'nibbl', key: 'v1.hidden' } as const, false)
 export const reactAtom = atom({ plugin: 'nibbl', key: 'v1.react' } as const, CALM)
+export const activeAtom = atom({ plugin: 'nibbl', key: 'v1.active' } as const, null as number | null)
 export const tzAtom = atom({ plugin: 'nibbl', key: 'v1.tzOffsetMin' } as const, 0)

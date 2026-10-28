@@ -62,13 +62,17 @@ export const weekLabel = (key: number): string => `${Math.floor(key / 100)}-W${S
 // An unparseable version is treated as new; an absent one is old.
 export const MIN_RETENTION_VERSION: readonly [number, number, number] = [0, 3, 0]
 
-export const readsRetention = (v: unknown): boolean => {
+// `min` is "x.y.z". An unparseable `v` is treated as new; an absent (non-string) one is old.
+export const atLeast = (v: unknown, min: string): boolean => {
   if (typeof v !== 'string') return false
   const m = /^v?(\d+)\.(\d+)\.(\d+)/.exec(v.trim())
   if (!m) return true
+  const want = min.split('.').map(Number)
   const parts = [Number(m[1]), Number(m[2]), Number(m[3])]
   for (let i = 0; i < 3; i++) {
-    if (parts[i]! !== MIN_RETENTION_VERSION[i]!) return parts[i]! > MIN_RETENTION_VERSION[i]!
+    if (parts[i]! !== want[i]!) return parts[i]! > want[i]!
   }
   return true
 }
+
+export const readsRetention = (v: unknown): boolean => atLeast(v, MIN_RETENTION_VERSION.join('.'))

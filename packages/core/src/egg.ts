@@ -1,7 +1,7 @@
 import { PET_SIZE } from './draw'
 import { blankGrid, inBounds, setCell, type Grid } from './grid'
 import { C } from './palette'
-import { drawGround, SCENE_H, SCENE_W } from './scene'
+import { drawGround, SCENE_H, SCENE_W, stampPet } from './scene'
 
 const CRACKS: [number, number][][] = [
   [],
@@ -47,11 +47,6 @@ export const drawEggScene = (cracks: 0 | 1 | 2 | 3, frame = 0): Grid => {
   drawGround(scene)
   const wobble = cracks > 0 && frame % 2 === 1 ? 1 : 0
   const egg = drawEgg(cracks)
-  for (let y = 0; y < PET_SIZE - 1; y++) {
-    for (let x = 0; x < PET_SIZE; x++) {
-      const cell = egg[y][x]
-      if (cell !== null) setCell(scene, 8 + x + wobble, y, cell)
-    }
-  }
+  stampPet(scene, egg, 8 + wobble)
   return scene
 }

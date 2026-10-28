@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { NOTES, fillNote, isSkipped, nextNote, noteAt, noteOrder, shownNotes, totalNotes } from '../src/notes'
-import { achievementToastText, inviteToastText, parseInvites, parseUnlocked, parseWeekWin, weekToastText, parseSocial, parseWaveTarget, rankLine, rankMilestone, waveToastText } from '../src/social'
+import { achievementToastText, giftCodeOf, giftCodeText, inviteToastText, parseActive, parseGuests, parseInvites, parseWaves, parseUnlocked, parseWeekWin, weekToastText, parseSocial, parseWaveTarget, rankLine, rankMilestone, waveToastText } from '../src/social'
 import { isNewer } from '../src/version'
 
 describe('notes', () => {
@@ -57,11 +57,11 @@ describe('isNewer', () => {
 describe('parseSocial', () => {
   it('reads a good answer', () => {
     const s = parseSocial({ waves: [{ from: 3, name: null }], rank: { pos: 2, total: 5, above: null }, latest: '0.2.0' })
-    expect(s).toEqual({ waves: [{ from: 3, name: null }], rank: { pos: 2, total: 5, above: null }, latest: '0.2.0', unlocked: [], invites: [], weekWin: null })
+    expect(s).toEqual({ waves: [{ from: 3, name: null }], rank: { pos: 2, total: 5, above: null }, latest: '0.2.0', unlocked: [], invites: [], weekWin: null, active: null })
   })
   it('ignores junk', () => {
-    expect(parseSocial({ waves: 1, rank: [], latest: 2 })).toEqual({ waves: [], rank: null, latest: null, unlocked: [], invites: [], weekWin: null })
-    expect(parseSocial({})).toEqual({ waves: [], rank: null, latest: null, unlocked: [], invites: [], weekWin: null })
+    expect(parseSocial({ waves: 1, rank: [], latest: 2 })).toEqual({ waves: [], rank: null, latest: null, unlocked: [], invites: [], weekWin: null, active: null })
+    expect(parseSocial({})).toEqual({ waves: [], rank: null, latest: null, unlocked: [], invites: [], weekWin: null, active: null })
   })
 })
 
@@ -111,5 +111,46 @@ describe('0.3.0 sync fields', () => {
     expect(inviteToastText([{ serial: 27, name: null }])).toBe("Your friend's nibbl #000027 hatched. You are Friends now ♥")
     expect(inviteToastText([{ serial: 27, name: null }, { serial: 28, name: null }])).toBe('2 friends hatched their nibbls. You are Friends now ♥')
     expect(weekToastText('Pixel', 'https://getnibbl.pages.dev')).toBe('Pixel is the Nibbl of the Week! https://getnibbl.pages.dev/week')
+  })
+})
+
+describe('0.4.0 sync fields', () => {
+  const LOOK = { seed: 77, tier: 'epic', shiny: true, level: 12 }
+  it('reads the look of a wave and keeps old-shape waves as they are', () => {
+    expect(parseWaves([{ from: 3, name: 'Zed', ...LOOK }, { from: 4, name: null }])).toEqual([
+      { from: 3, name: 'Zed', look: LOOK },
+      { from: 4, name: null },
+    ])
+  })
+  it('ignores a malformed look but keeps the wave', () => {
+    for (const bad of [{ seed: 'x' }, { tier: 'mythic' }, { shiny: 1 }, { level: 0 }, { level: 2.5 }, { seed: -1 }, { seed: 2 ** 32 }]) {
+      expect(parseWaves([{ from: 3, name: null, ...LOOK, ...bad }])).toEqual([{ from: 3, name: null }])
+    }
+    expect(parseWaves([{ from: 3, name: null, seed: 1 }])).toEqual([{ from: 3, name: null }])
+  })
+  it('reads active only as a non-negative integer', () => {
+    expect(parseActive(12)).toBe(12)
+    expect(parseActive(0)).toBe(0)
+    for (const bad of [-1, 1.5, '12', null, undefined, NaN, {}]) expect(parseActive(bad)).toBeNull()
+    expect(parseSocial({ active: 4 }).active).toBe(4)
+  })
+  it('keeps gift and mark on invites, and words the gift toast', () => {
+    const [a, b] = parseInvites([{ serial: 31, name: 'Ziutek', gift: true, mark: { motif: 'star', spot: 'cheek' } }, { serial: 32, name: null, gift: true }])
+    expect(a).toEqual({ serial: 31, name: 'Ziutek', gift: true, marked: true })
+    expect(b).toEqual({ serial: 32, name: null, gift: true })
+    expect(inviteToastText([a!])).toBe("Your egg hatched at a friend's: Ziutek #000031 has your mark ♥")
+    expect(inviteToastText([b!])).toBe("Your egg hatched at a friend's: #000032 is your nibbl's child ♥")
+    expect(parseInvites([{ serial: 5, name: null, gift: 'yes', mark: {} }])).toEqual([{ serial: 5, name: null }])
+  })
+  it('reads waiting guests back leniently', () => {
+    expect(parseGuests([{ from: 3, name: 'Zed', look: LOOK }, { from: 4, look: { seed: 1 } }, 'x', { from: 0, look: LOOK }])).toEqual([{ from: 3, name: 'Zed', look: LOOK }])
+    expect(parseGuests('x')).toEqual([])
+  })
+  it('normalizes gift codes', () => {
+    expect(giftCodeOf('abcde-fghjk')).toBe('ABCDEFGHJK')
+    expect(giftCodeOf(' ABCDE FGHJK ')).toBe('ABCDEFGHJK')
+    expect(giftCodeOf('OIL0U-1lo0u')).toBe('0110V1100V')
+    for (const bad of ['', 'ABCDE-FGHJ', 'ABCDE-FGHJKL', 'ABCDE-FGH!K', 5, null]) expect(giftCodeOf(bad)).toBeNull()
+    expect(giftCodeText('ABCDEFGHJK')).toBe('ABCDE-FGHJK')
   })
 })

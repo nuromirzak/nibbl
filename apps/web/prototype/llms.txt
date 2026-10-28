@@ -33,7 +33,10 @@ Auto-update is off by default for community marketplaces. To turn it on: `/plugi
 - `/nibbl notes`: list the notes from the maker you have received
 - `/nibbl share` (0.3.0): print your card URL and a ready post text, no network call
 - `/nibbl achievements` (0.3.0): unlocked achievements, and the next ones with progress
-- `/nibbl invite [serial]` (0.3.0): invite a friend; a friend still on an egg runs it with your serial before hatching
+- `/nibbl badge` (0.4.0): print the markdown for your live badge, for your GitHub profile README
+- `/nibbl egg [code]` (0.4.0): at level 10 and 25 your pet lays a gift egg; run it to see the codes, or with a friend's code while still on an egg to hatch as their child (inherits the mark when possible, no XP or odds change). `/nibbl invite` is an alias
+
+When a friend waves, their nibbl visits your scene for about 90 seconds (0.4.0). `/nibbl` and the band show how many nibbls are coding today (synced in the last 24 hours), an aggregate only.
 
 ## How XP works
 
@@ -43,9 +46,9 @@ The server computes XP, so a modified client cannot outgrow honest players. A pe
 
 What leaves your machine:
 
-- A SHA-256 hash of your machine id plus a salt, your pet's serial and secret token, and the name, label and wave target serials you set yourself.
+- A SHA-256 hash of your machine id plus a salt, your pet's serial and secret token, the name, label and wave target serials you set yourself, and the gift code you type once at hatch.
 - Event types and times only (turn, check_pass, commit, error, pet, hide). Never prompts, code, file names, commands or outputs.
-- Nothing else, and only to getnibbl.pages.dev. No accounts, no ads, no trackers.
+- Nothing else, and only to getnibbl.pages.dev. No accounts, no ads, no trackers. The coding-today count is an aggregate from existing sync times; no new data is collected.
 
 Full policy, retention and how to delete your pet: https://getnibbl.pages.dev/privacy/
 

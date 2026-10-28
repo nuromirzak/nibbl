@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest'
 import {
   CALM,
   clockText,
+  codingText,
+  isVisiting,
+  onGuest,
   isNight,
   localHour,
   lookOf,
@@ -153,5 +156,61 @@ describe('statusText by time of day', () => {
   })
   it('never overrides a reaction, zzz or night', () => {
     for (const look of ['oops', 'loved', 'yum', 'shipped', 'loot', 'zzz', 'night'] as const) expect(statusText(look, at(9), 0, 0)).not.toMatch(/coffee|sunbathing|logs/)
+  })
+})
+
+describe('guest visits', () => {
+  const GUEST = { seed: 9, tier: 'rare' as const, shiny: false, stage: 'teen' as const, name: 'Ziutek', from: 16 }
+  const visit = onGuest(CALM, NOW, GUEST, NOW + 90_000)
+
+  it('starts with a heart, ranks after loved, and says who came', () => {
+    expect(visit).toMatchObject({ guest: GUEST, guestUntil: NOW + 90_000, heartUntil: NOW + 2_000 })
+    expect(lookOf(visit, NOW, 300)).toBe('loved')
+    expect(lookOf(visit, NOW + 2_000, 300)).toBe('visiting')
+    expect(statusText('visiting', NOW, 0, 300, GUEST)).toBe('Ziutek came to say hi ♥')
+    expect(statusText('visiting', NOW, 0, 300, { ...GUEST, name: null })).toBe('#000016 came to say hi ♥')
+  })
+
+  it('ends by itself after 90 s', () => {
+    expect(isVisiting(visit, NOW + 89_999)).toBe(true)
+    expect(isVisiting(visit, NOW + 90_000)).toBe(false)
+    expect(lookOf(visit, NOW + 90_000, 300)).toBe('chilling')
+    expect(sceneKeyOf(visit, 'baby', ANIM, NOW + 90_000, 300).guest).toBeNull()
+  })
+
+  it('draws no guest while the owner is still walking to the edge', () => {
+    for (const petX of [8, 12, 15]) expect(sceneKeyOf(visit, 'baby', { ...ANIM, petX }, NOW + 5_000, 300).guest).toBeNull()
+    expect(sceneKeyOf(visit, 'baby', { ...ANIM, petX: 16 }, NOW + 5_000, 300).guest).not.toBeNull()
+  })
+
+  it('walks the owner to x=16 and back, and puts the guest in the scene key', () => {
+    let anim = ANIM
+    for (let i = 0; i < 12; i++) anim = stepAnim(anim, visit, 0.5, NOW + 5_000)
+    expect(anim.petX).toBe(16)
+    expect(stepAnim(ANIM, visit, 0.5).petX).toBe(8) // no clock given: no visit
+    expect(sceneKeyOf(visit, 'baby', anim, NOW + 5_000, 300).guest).toEqual({ seed: 9, tier: 'rare', shiny: false, stage: 'teen' })
+    for (let i = 0; i < 12; i++) anim = stepAnim(anim, visit, 0.5, NOW + 91_000)
+    expect(anim.petX).toBe(8)
+  })
+
+  it('a visiting owner looks happy, and away wins over a visit', () => {
+    expect(sceneKeyOf(visit, 'baby', ANIM, NOW + 5_000, 300).expression).toBe('happy')
+    expect(lookOf({ ...visit, awaySince: NOW }, NOW + 5_000, 300)).toBe('away')
+  })
+})
+
+describe('coding today in the status', () => {
+  const day = Date.UTC(2026, 9, 2, 9, 0) // 14:00 at +05:00
+  it('alternates every 15 s with the time-of-day text, only for 2 or more', () => {
+    expect(statusText('chilling', day, 0, 300, null, 12)).toBe('sunbathing')
+    expect(statusText('chilling', day + 15_000, 0, 300, null, 12)).toBe('12 nibbls coding today')
+    expect(statusText('chilling', day + 30_000, 0, 300, null, 12)).toBe('sunbathing')
+    expect(statusText('chilling', day + 15_000, 0, 300, null, 1)).toBe('sunbathing')
+    expect(statusText('chilling', day + 15_000, 0, 300, null, null)).toBe('sunbathing')
+    expect(statusText('loved', day + 15_000, 0, 300, null, 12)).toBe('loved that')
+  })
+  it('words the count', () => {
+    expect(codingText(1)).toBe('1 nibbl coding today')
+    expect(codingText(7)).toBe('7 nibbls coding today')
   })
 })

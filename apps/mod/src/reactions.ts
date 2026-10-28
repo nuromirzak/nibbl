@@ -1,10 +1,11 @@
 import type { Expression, Stage } from '@nibbl/core'
 
-import type { NibblReaction } from '../types'
-import { AWAY_X, BOX_MS, HEART_MS, HOME_X, LOOT_MS, MAX_BUGS, MOOD_MS, NIGHT_FROM_HOUR, NIGHT_TO_HOUR, SLEEP_AFTER_MS } from './config'
+import type { NibblGuest, NibblReaction } from '../types'
+import { ACTIVE_FLIP_MS, AWAY_X, BOX_MS, HEART_MS, HOME_X, LOOT_MS, MAX_BUGS, MOOD_MS, NIGHT_FROM_HOUR, NIGHT_TO_HOUR, SLEEP_AFTER_MS } from './config'
+import { padSerial } from './pet'
 import type { Anim } from './runtime'
 
-export const CALM: NibblReaction = { bugs: 0, mood: 'idle', moodUntil: 0, heartUntil: 0, lootUntil: 0, boxUntil: 0, awaySince: 0, lastActiveAt: 0 }
+export const CALM: NibblReaction = { bugs: 0, mood: 'idle', moodUntil: 0, heartUntil: 0, lootUntil: 0, boxUntil: 0, awaySince: 0, lastActiveAt: 0, guest: null, guestUntil: 0 }
 
 // Every reaction is tied to a real event (principle 1); nothing here runs on a timer.
 export const onTurnStart = (r: NibblReaction, now: number): NibblReaction => ({ ...r, awaySince: r.awaySince || now, lastActiveAt: now })
@@ -24,6 +25,9 @@ export const onError = (r: NibblReaction, now: number): NibblReaction => ({
 export const onCheckPass = (r: NibblReaction, now: number): NibblReaction => ({ ...r, bugs: 0, mood: 'happy', moodUntil: now + MOOD_MS, lastActiveAt: now })
 export const onCommit = (r: NibblReaction, now: number): NibblReaction => ({ ...r, boxUntil: now + BOX_MS, lastActiveAt: now })
 export const onPet = (r: NibblReaction, now: number): NibblReaction => ({ ...r, heartUntil: now + HEART_MS, lastActiveAt: now })
+// A visit starts: the guest stays until `until`, and the owner's heart shows at the start.
+export const onGuest = (r: NibblReaction, now: number, guest: NibblGuest, until: number): NibblReaction => ({ ...r, guest, guestUntil: until, heartUntil: now + HEART_MS })
+export const isVisiting = (r: NibblReaction, now: number): boolean => r.guest !== null && now < r.guestUntil
 export const onActive = (r: NibblReaction, now: number): NibblReaction => ({ ...r, lastActiveAt: now })
 
 export const parseUtcOffset = (stdout: string): number | null => {
@@ -44,12 +48,13 @@ export const isNight = (now: number, offsetMin: number): boolean => {
   return hour >= NIGHT_FROM_HOUR && hour < NIGHT_TO_HOUR
 }
 
-export type Look = 'away' | 'oops' | 'loved' | 'yum' | 'shipped' | 'loot' | 'zzz' | 'night' | 'chilling'
+export type Look = 'away' | 'oops' | 'loved' | 'yum' | 'shipped' | 'loot' | 'zzz' | 'night' | 'chilling' | 'visiting'
 
 export const lookOf = (r: NibblReaction, now: number, offsetMin: number): Look => {
   if (r.awaySince > 0) return 'away'
   if (r.mood === 'sad' && now < r.moodUntil) return 'oops'
   if (now < r.heartUntil) return 'loved'
+  if (isVisiting(r, now)) return 'visiting'
   if (r.mood === 'happy' && now < r.moodUntil) return 'yum'
   if (now < r.boxUntil) return 'shipped'
   if (now < r.lootUntil) return 'loot'
@@ -67,6 +72,7 @@ const STATUS: Record<Exclude<Look, 'away'>, string> = {
   zzz: 'zzz',
   night: 'nightcap on',
   chilling: 'chilling',
+  visiting: 'a friend came to say hi ♥',
 }
 
 export const clockText = (ms: number): string => {
@@ -82,8 +88,14 @@ export const clockText = (ms: number): string => {
 const idleTextAt = (hour: number): string =>
   hour >= 5 && hour <= 11 ? 'sipping coffee' : hour >= 12 && hour <= 17 ? 'sunbathing' : hour >= 18 && hour <= 22 ? 'reading the logs' : STATUS.chilling
 
-export const statusText = (look: Look, now: number, awaySince: number, offsetMin?: number): string => {
+// While calm and idle, the band alternates every 15 s between the time-of-day text and how many
+// nibbls are coding today (only when the server said so and at least 2 are: one is just you).
+export const codingText = (n: number): string => `${n} nibbl${n === 1 ? '' : 's'} coding today`
+
+export const statusText = (look: Look, now: number, awaySince: number, offsetMin?: number, guest?: NibblGuest | null, active?: number | null): string => {
   if (look === 'away') return `⛏ on expedition ${clockText(now - awaySince)}`
+  if (look === 'visiting' && guest) return `${guest.name ?? `#${padSerial(guest.from)}`} came to say hi ♥`
+  if (look === 'chilling' && offsetMin !== undefined && typeof active === 'number' && active >= 2 && Math.floor(now / ACTIVE_FLIP_MS) % 2 === 1) return codingText(active)
   if (look === 'chilling' && offsetMin !== undefined) return idleTextAt(localHour(now, offsetMin))
   return STATUS[look]
 }
@@ -101,17 +113,18 @@ export type SceneKey = {
   box: boolean
   nightcap: boolean
   zzz: boolean
+  guest: { seed: number; tier: NibblGuest['tier']; shiny: boolean; stage: NibblGuest['stage'] } | null
 }
 
 export const sceneKeyOf = (r: NibblReaction, stage: Stage, anim: Anim, now: number, offsetMin: number): SceneKey => {
   const look = lookOf(r, now, offsetMin)
-  const isWalking = anim.petX !== (r.awaySince > 0 ? AWAY_X : HOME_X)
+  const isWalking = anim.petX !== (r.awaySince > 0 || isVisiting(r, now) ? AWAY_X : HOME_X)
   const isSleeping = look === 'zzz'
   const night = isNight(now, offsetMin)
   const hasLoot = now < r.lootUntil
   let expression: Expression = anim.blink ? 'blink' : 'idle'
   if (look === 'oops') expression = 'sad'
-  else if (look === 'loved' || look === 'yum') expression = 'happy'
+  else if (look === 'loved' || look === 'yum' || look === 'visiting') expression = 'happy'
   else if (isSleeping) expression = 'sleep'
   else if (night && anim.frame % 16 < 2) expression = 'surprised' // a yawn
   return {
@@ -128,12 +141,14 @@ export const sceneKeyOf = (r: NibblReaction, stage: Stage, anim: Anim, now: numb
     box: now < r.boxUntil,
     nightcap: night,
     zzz: isSleeping,
+    // the friend appears only once the owner stepped aside, or it would stand on the walking owner
+    guest: r.guest !== null && isVisiting(r, now) && anim.petX === AWAY_X ? { seed: r.guest.seed, tier: r.guest.tier, shiny: r.guest.shiny, stage: r.guest.stage } : null,
   }
 }
 
 // One tick: a step toward the edge while away (or home after), and a random blink.
-export const stepAnim = (anim: Anim, r: NibblReaction, roll: number): Anim => {
-  const target = r.awaySince > 0 ? AWAY_X : HOME_X
+export const stepAnim = (anim: Anim, r: NibblReaction, roll: number, now = Number.MAX_SAFE_INTEGER): Anim => {
+  const target = r.awaySince > 0 || isVisiting(r, now) ? AWAY_X : HOME_X
   const petX = anim.petX < target ? anim.petX + 1 : anim.petX > target ? anim.petX - 1 : anim.petX
   return { frame: (anim.frame + 1) % 100_000, petX, blink: !anim.blink && roll < 0.08 }
 }

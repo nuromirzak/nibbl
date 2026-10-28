@@ -1,14 +1,17 @@
 // Pure helpers for the social layer (0.2.0): lenient parsing of the optional /api/sync fields and
 // every line of text they produce. Nothing here touches the engine, so vitest covers it directly.
-import { achievementById } from '@nibbl/core'
+import { achievementById, TIERS, type Tier } from '@nibbl/core'
 
 import { padSerial } from './pet'
 
-export type WaveIn = { from: number; name: string | null }
+// What a 0.4.0 server adds to a wave: the sender's look, so the pet can visit. Absent from older servers.
+export type GuestLook = { seed: number; tier: Tier; shiny: boolean; level: number }
+export type WaveIn = { from: number; name: string | null; look?: GuestLook }
 export type WaveSeen = WaveIn & { at: number }
 export type RankAbove = { serial: number; name: string | null; tier: string; xp: number }
 export type RankInfo = { pos: number; total: number; above: RankAbove | null }
-export type InviteIn = { serial: number; name: string | null }
+// gift: the friend hatched from one of this pet's gift eggs; marked: the child inherited its mark.
+export type InviteIn = { serial: number; name: string | null; gift?: true; marked?: true }
 export type WeekWin = { week: string; gain: number }
 export type Social = {
   waves: WaveIn[]
@@ -17,20 +20,37 @@ export type Social = {
   unlocked: string[]
   invites: InviteIn[]
   weekWin: WeekWin | null
+  active: number | null
 }
 
 const isPosInt = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v) && v >= 1
 const isNameOrNull = (v: unknown): v is string | null => v === null || typeof v === 'string'
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
 
+// All four fields must be valid, or there is no look and the wave stays a plain toast.
+export const parseLook = (w: Record<string, unknown>): GuestLook | null => {
+  const { seed, tier, shiny, level } = w
+  if (typeof seed !== 'number' || !Number.isInteger(seed) || seed < 0 || seed > 0xffff_ffff) return null
+  if (typeof tier !== 'string' || !(TIERS as readonly string[]).includes(tier)) return null
+  if (typeof shiny !== 'boolean') return null
+  if (typeof level !== 'number' || !Number.isInteger(level) || level < 1 || level > 1000) return null
+  return { seed, tier: tier as Tier, shiny, level }
+}
+
 export const parseWaves = (v: unknown): WaveIn[] => {
   if (!Array.isArray(v)) return []
   const out: WaveIn[] = []
   for (const w of v.slice(0, 5)) {
-    if (isObj(w) && isPosInt(w.from) && isNameOrNull(w.name ?? null)) out.push({ from: w.from, name: typeof w.name === 'string' && w.name.length > 0 ? w.name : null })
+    if (isObj(w) && isPosInt(w.from) && isNameOrNull(w.name ?? null)) {
+      const look = parseLook(w)
+      out.push({ from: w.from, name: typeof w.name === 'string' && w.name.length > 0 ? w.name : null, ...(look ? { look } : {}) })
+    }
   }
   return out
 }
+
+// A number of pets that synced today; anything else is unknown.
+export const parseActive = (v: unknown): number | null => (typeof v === 'number' && Number.isInteger(v) && v >= 0 ? v : null)
 
 export const parseRank = (v: unknown): RankInfo | null => {
   if (!isObj(v) || !isPosInt(v.pos) || !isPosInt(v.total)) return null
@@ -57,7 +77,10 @@ export const parseInvites = (v: unknown): InviteIn[] => {
   if (!Array.isArray(v)) return []
   const out: InviteIn[] = []
   for (const i of v.slice(0, 5)) {
-    if (isObj(i) && isPosInt(i.serial) && isNameOrNull(i.name ?? null)) out.push({ serial: i.serial, name: typeof i.name === 'string' && i.name.length > 0 ? i.name : null })
+    if (isObj(i) && isPosInt(i.serial) && isNameOrNull(i.name ?? null)) {
+      const gift = i.gift === true
+      out.push({ serial: i.serial, name: typeof i.name === 'string' && i.name.length > 0 ? i.name : null, ...(gift ? { gift: true as const } : {}), ...(gift && isObj(i.mark) ? { marked: true as const } : {}) })
+    }
   }
   return out
 }
@@ -74,6 +97,7 @@ export const parseSocial = (body: Record<string, unknown>): Social => ({
   unlocked: parseUnlocked(body.unlocked),
   invites: parseInvites(body.invites),
   weekWin: parseWeekWin(body.weekWin),
+  active: parseActive(body.active),
 })
 
 export const parseWavesSeen = (v: unknown): WaveSeen[] => {
@@ -86,6 +110,31 @@ export const parseWavesSeen = (v: unknown): WaveSeen[] => {
   }
   return out
 }
+
+// A waiting guest: a wave with a look, kept in the store until a visit starts.
+export type GuestIn = { from: number; name: string | null; look: GuestLook }
+
+export const parseGuests = (v: unknown): GuestIn[] => {
+  if (!Array.isArray(v)) return []
+  const out: GuestIn[] = []
+  for (const g of v) {
+    if (!isObj(g) || !isPosInt(g.from)) continue
+    const look = parseLook(isObj(g.look) ? g.look : {})
+    if (look) out.push({ from: g.from, name: typeof g.name === 'string' && g.name.length > 0 ? g.name : null, look })
+  }
+  return out
+}
+
+// A gift egg code: 10 base32 characters, typed as XXXXX-XXXXX in any case, with or without the dash
+// or spaces. Returns the normalized 10 characters (uppercase), or null.
+export const giftCodeOf = (raw: unknown): string | null => {
+  if (typeof raw !== 'string') return null
+  // The alphabet has no I, L, O or U: read them as 1, 1, 0 and V.
+  const code = raw.replace(/[-\s]/g, '').toUpperCase().replace(/O/g, '0').replace(/[IL]/g, '1').replace(/U/g, 'V')
+  return /^[0-9A-Z]{10}$/.test(code) ? code : null
+}
+
+export const giftCodeText = (code: string): string => `${code.slice(0, 5)}-${code.slice(5)}`
 
 export const labelOf = (name: string | null, serial: number): string => (name ? `${name} #${padSerial(serial)}` : `#${padSerial(serial)}`)
 
@@ -103,6 +152,11 @@ export const achievementToastText = (ids: readonly string[], me: string): string
 
 export const inviteToastText = (invites: readonly InviteIn[]): string | null => {
   if (invites.length === 0) return null
+  if (invites.length === 1 && invites[0]!.gift) {
+    const who = labelOf(invites[0]!.name, invites[0]!.serial)
+    return invites[0]!.marked ? `Your egg hatched at a friend's: ${who} has your mark ♥` : `Your egg hatched at a friend's: ${who} is your nibbl's child ♥`
+  }
+  if (invites.every(i => i.gift)) return `${invites.length} of your eggs hatched at friends'. They are your nibbl's children ♥`
   if (invites.length === 1) return `Your friend's nibbl #${padSerial(invites[0]!.serial)} hatched. You are Friends now ♥`
   return `${invites.length} friends hatched their nibbls. You are Friends now ♥`
 }

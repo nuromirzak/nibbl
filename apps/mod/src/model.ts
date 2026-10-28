@@ -6,8 +6,11 @@ import type { NibblPetView } from '../types'
 import { K } from './config'
 import { viewOf } from './pet'
 import { heartsUsedAt, localWindows, pendingGain } from './queue'
-import { eggAtom, hiddenAtom, loadedAtom, petAtom } from './state'
+import { activeAtom, eggAtom, hiddenAtom, loadedAtom, petAtom } from './state'
 import { loadEggTurns, loadPet, loadQueues, loadSpike } from './store'
+
+// A stage change is level 10 or 25, the two levels that lay a gift egg.
+export const EGG_LAID = ' · It laid an egg for a friend: /nibbl egg'
 
 // Rebuilds what the band draws from the store: server XP plus every queued event's local gain.
 export const refreshView = async ($: EngineInterface, announce = false): Promise<NibblPetView | null> => {
@@ -26,7 +29,7 @@ export const refreshView = async ($: EngineInterface, announce = false): Promise
     const is = levelFromXp(view.xp).level
     if (is > was) {
       // Growing into a new stage is the bigger news: it replaces the level toast.
-      if (stageForLevel(was) !== stageForLevel(is)) $.ui.toast(`${view.name} evolved into a${stageForLevel(is) === 'adult' ? 'n adult' : ' teen'}! Show it off: /nibbl share`)
+      if (stageForLevel(was) !== stageForLevel(is)) $.ui.toast(`${view.name} evolved into a${stageForLevel(is) === 'adult' ? 'n adult' : ' teen'}! Show it off: /nibbl share${EGG_LAID}`)
       else $.ui.toast(`${view.name} reached level ${is}!`)
     }
   }
@@ -37,6 +40,8 @@ export const ensureLoaded = async ($: EngineInterface): Promise<void> => {
   if (await read($, loadedAtom)) return
   const isHidden = (await $.store.get(K.hidden)) === true
   const turns = await loadEggTurns($)
+  const active = await $.store.get(K.active)
+  await update($, activeAtom, () => (typeof active === 'number' && Number.isInteger(active) && active >= 0 ? active : null))
   await update($, hiddenAtom, () => isHidden)
   await update($, eggAtom, () => turns)
   await refreshView($)

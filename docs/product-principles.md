@@ -62,7 +62,7 @@ Measurement needs: the sync payload carries a `hide` event (add in the mod plan)
 | Tamagotchi mistake | Our rule |
 |---|---|
 | Dies from neglect | Never dies. The worst state is "bored" or "asleep", and working fixes it |
-| Beeps in class, demands attention | Never interrupts. Toasts only on hatch, level-up, evolution, a week win, an achievement, an invite, a daily greeting (once a day), a maker note (at most 1 per 48 h), an aggregated wave (1 per sync), a rank milestone and an update notice (once per version), and never more than 1 social toast per answered turn; see [0016](decisions/0016-social-v0-2.md) and [0017](decisions/0017-retention-v0-3.md) |
+| Beeps in class, demands attention | Never interrupts. Toasts only on hatch, level-up, evolution, a week win, an achievement, an invite or a hatched gift egg, a daily greeting (once a day), a maker note (at most 1 per 48 h), an aggregated wave (only for older servers, a guest visit replaces it), a rank milestone and an update notice (once per version), and never more than 1 social toast per answered turn; see [0016](decisions/0016-social-v0-2.md) [0017](decisions/0017-retention-v0-3.md) and [0018](decisions/0018-guests-gifts-v0-4.md) |
 | Time runs without you, no pause | Time stops without you. Nothing decays |
 | Boring after two weeks, no long-term goal | Levels up to 50, branches, rare events, milestone eggs (v1.1) |
 | Nothing to share except showing the keychain | The `/p/:serial` card page |

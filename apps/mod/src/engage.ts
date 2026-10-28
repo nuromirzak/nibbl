@@ -1,15 +1,16 @@
 // The 0.2.0 social layer on top of the store: maker notes (offline), waves, rank and update notice
 // arriving with /api/sync. Pure text and parsing live in notes.ts and social.ts.
-import { read } from 'claude-code'
+import { read, update } from 'claude-code'
 import type { EngineInterface } from 'claude-code'
 
 import { apiBase } from './api'
-import { K, NOTE_GAP_MS, NOTE_MIN_TURNS, TOP_RANK, WAVES_KEPT } from './config'
+import { GUEST_MS, GUESTS_MAX, K, NOTE_GAP_MS, NOTE_MIN_TURNS, TOP_RANK, WAVES_KEPT } from './config'
 import { greetingFor, localDay } from './greetings'
 import { NOTES, noteAt, nextNote, shownNotes, totalNotes } from './notes'
 import { displayName, type ServerPet } from './pet'
+import { isVisiting, onGuest, codingText } from './reactions'
 import { rt } from './runtime'
-import { tzAtom } from './state'
+import { activeAtom, reactAtom, tzAtom } from './state'
 import { loadPet } from './store'
 import { enqueue, enqueueAchievements, loadToasts } from './toasts'
 import {
@@ -22,11 +23,13 @@ import {
   rankLine,
   rankMilestone,
   labelOf,
+  parseGuests,
   updateLine,
   updateToast,
   waveToastText,
 } from './social'
 import { isNewer } from './version'
+import { stageForLevel } from '@nibbl/core'
 
 const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null)
 const noteIndexOf = async ($: EngineInterface): Promise<number> => {
@@ -87,11 +90,21 @@ export const applySocial = async ($: EngineInterface, pet: ServerPet, body: Reco
   const invited = inviteToastText(social.invites)
   if (invited !== null) await enqueue($, 'invite', invited)
 
-  const text = waveToastText(social.waves, me)
-  if (text !== null) {
-    const kept = [...social.waves.map(w => ({ ...w, at: now })), ...parseWavesSeen(await $.store.get(K.waves))].slice(0, WAVES_KEPT)
+  if (social.waves.length > 0) {
+    const kept = [...social.waves.map(w => ({ from: w.from, name: w.name, at: now })), ...parseWavesSeen(await $.store.get(K.waves))].slice(0, WAVES_KEPT)
     await $.store.set(K.waves, kept)
-    await enqueue($, 'wave', text)
+    // A wave with a look becomes a visit on the next answered turn; the others keep the toast.
+    // A hidden band draws no visit, so those waves keep the toast too.
+    const isHidden = (await $.store.get(K.hidden)) === true
+    const guests = (isHidden ? [] : social.waves.filter(w => w.look !== undefined)).map(w => ({ from: w.from, name: w.name, look: w.look! }))
+    if (guests.length > 0) await $.store.set(K.guests, [...parseGuests(await $.store.get(K.guests)), ...guests].slice(-GUESTS_MAX))
+    const text = waveToastText(isHidden ? social.waves : social.waves.filter(w => w.look === undefined), me)
+    if (text !== null) await enqueue($, 'wave', text)
+  }
+
+  if (social.active !== null) {
+    await $.store.set(K.active, social.active)
+    await update($, activeAtom, () => social.active)
   }
 
   if (social.rank) {
@@ -118,6 +131,21 @@ export const applySocial = async ($: EngineInterface, pet: ServerPet, body: Reco
   }
 }
 
+// On an answered turn with no visit running, the next waiting guest walks in for 90 s.
+export const maybeVisit = async ($: EngineInterface): Promise<void> => {
+  if ((await $.store.get(K.hidden)) === true) return
+  const now = await $.clock.now()
+  if (isVisiting(await read($, reactAtom), now)) return
+  const guests = parseGuests(await $.store.get(K.guests))
+  const next = guests.shift()
+  if (!next) return
+  // Write first: a second session finishing a turn right now must not start the same visit.
+  if (guests.length === 0) await $.store.delete(K.guests)
+  else await $.store.set(K.guests, guests)
+  const guest = { seed: next.look.seed, tier: next.look.tier, shiny: next.look.shiny, stage: stageForLevel(next.look.level), name: next.name, from: next.from }
+  await update($, reactAtom, r => onGuest(r, now, guest, now + GUEST_MS))
+}
+
 // Extra lines of /nibbl: last maker note, last wave, rank neighbour and the update hint.
 export const socialStatsLines = async ($: EngineInterface, pet: ServerPet | null): Promise<string[]> => {
   const lines: string[] = []
@@ -127,6 +155,8 @@ export const socialStatsLines = async ($: EngineInterface, pet: ServerPet | null
   if (last !== undefined) lines.push(`last note: ${noteAt(pet.seed, last, displayName(pet.name), pet.serial)}`)
   const wave = parseWavesSeen(await $.store.get(K.waves))[0]
   if (wave) lines.push(`last wave: ${labelOf(wave.name, wave.from)} waved at you`)
+  const active = num(await $.store.get(K.active))
+  if (active !== null && Number.isInteger(active) && active >= 1) lines.push(codingText(active))
   const rank = parseRank(await $.store.get(K.rank))
   if (rank) lines.push(rankLine(rank, pet.xp))
   if (isNewer(await $.store.get(K.latest))) lines.push(updateLine())

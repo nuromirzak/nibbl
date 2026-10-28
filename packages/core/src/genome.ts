@@ -146,3 +146,7 @@ export const pickUnique = (
   }
   return null
 }
+
+// A child carries a parent's mark when motif and spot both match.
+export const inheritsMark = (child: Genome, parent: Genome): boolean =>
+  child.mark.motif === parent.mark.motif && child.mark.spot === parent.mark.spot

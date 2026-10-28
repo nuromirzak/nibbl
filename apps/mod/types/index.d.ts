@@ -18,6 +18,16 @@ export type NibblPetView = {
   heartsUsed: number
 }
 
+// A friend's pet visiting the scene (0.4.0): its look, and who it is for the status line.
+export type NibblGuest = {
+  seed: number
+  tier: NibblTier
+  shiny: boolean
+  stage: 'baby' | 'teen' | 'adult'
+  name: string | null
+  from: number
+}
+
 // Zero-token reactions to real events. Every *Until/*Since/*At field is ms since the epoch, 0 = off.
 export type NibblReaction = {
   bugs: number
@@ -28,6 +38,9 @@ export type NibblReaction = {
   boxUntil: number
   awaySince: number
   lastActiveAt: number
+  // The visiting pet and when the visit ends (0 = none).
+  guest: NibblGuest | null
+  guestUntil: number
 }
 
 declare module 'claude-code' {
@@ -39,6 +52,8 @@ declare module 'claude-code' {
       'v1.hidden': boolean
       'v1.react': NibblReaction
       'v1.tzOffsetMin': number
+      // Pets that synced in the last 24 h, from the server (null = not known yet).
+      'v1.active': number | null
     }
   }
 }

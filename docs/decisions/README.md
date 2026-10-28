@@ -20,3 +20,4 @@ Owner product decisions, ADR-lite. Each file records what was decided, why, reje
 | 0014 | [metrics](0014-metrics.md) | North star Weekly Active Nibbls and guardrails |
 | 0016 | [social-v0-2](0016-social-v0-2.md) | Maker notes, waves, rank neighbours, update notice; supersedes the 0002 social deferral |
 | 0017 | [retention-v0-3](0017-retention-v0-3.md) | Daily greeting, evolution share, achievements, invites, Nibbl of the week, toast queue; still no streaks or guilt |
+| 0018 | [guests-gifts-v0-4](0018-guests-gifts-v0-4.md) | Friends' pets visit your scene instead of a wave toast, "N nibbls coding today" aggregate, /nibbl badge, gift eggs with inherited mark; no XP or odds |
