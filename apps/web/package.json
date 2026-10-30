@@ -7,6 +7,6 @@
     "deploy": "CLOUDFLARE_ACCOUNT_ID=42544c84ffaa32a531766a26562c080d wrangler pages deploy --branch main --commit-dirty=true"
   },
   "devDependencies": {
-    "wrangler": "^4.151.2"
+    "wrangler": "^4.153.0"
   }
 }
